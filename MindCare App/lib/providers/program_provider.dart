@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../core/theme/app_colors.dart';
 import '../models/program_data.dart';
 
@@ -45,9 +46,26 @@ class ProgramProvider extends ChangeNotifier {
   // ----- Wellbeing -----
   final int stepsToday = 6612;
   final int stepsChangePercent = 12;
-  final List<double> movementByDay = const [0.40, 0.55, 0.85, 0.70, 0.60, 0.65, 0.95];
-  final List<String> movementDayLabels = const ['Th', 'Fr', 'Sa', 'Su', 'Mo', 'Tu', 'We'];
-  final String movementTip = 'a 10-minute walk after lunch tends to drop your resting heart rate by 6 bpm in the afternoon.';
+  final List<double> movementByDay = const [
+    0.40,
+    0.55,
+    0.85,
+    0.70,
+    0.60,
+    0.65,
+    0.95,
+  ];
+  final List<String> movementDayLabels = const [
+    'Th',
+    'Fr',
+    'Sa',
+    'Su',
+    'Mo',
+    'Tu',
+    'We',
+  ];
+  final String movementTip =
+      'a 10-minute walk after lunch tends to drop your resting heart rate by 6 bpm in the afternoon.';
 
   final List<bool> mealsDone = const [true, true, true, false];
   final String dinnerTime = 'Dinner — 8 PM';
@@ -88,10 +106,34 @@ class ProgramProvider extends ChangeNotifier {
   final String featuredPosition = '1:14';
 
   final List<AudioTrack> moreTracks = const [
-    AudioTrack(id: 'dua_ease', tag: 'For stress', title: 'Dua for ease', translation: '"My Lord, expand my chest..."', duration: '1:42'),
-    AudioTrack(id: 'ash_sharh', tag: 'For relief', title: 'Surah Ash-Sharh', translation: 'Indeed, with hardship comes ease.', duration: '0:58'),
-    AudioTrack(id: 'dua_sleep', tag: '', title: 'Dua for sleep', translation: 'In Your name I die and live.', duration: '0:46'),
-    AudioTrack(id: 'al_falaq', tag: '', title: 'Surah Al-Falaq', translation: '', duration: '0:34'),
+    AudioTrack(
+      id: 'dua_ease',
+      tag: 'For stress',
+      title: 'Dua for ease',
+      translation: '"My Lord, expand my chest..."',
+      duration: '1:42',
+    ),
+    AudioTrack(
+      id: 'ash_sharh',
+      tag: 'For relief',
+      title: 'Surah Ash-Sharh',
+      translation: 'Indeed, with hardship comes ease.',
+      duration: '0:58',
+    ),
+    AudioTrack(
+      id: 'dua_sleep',
+      tag: '',
+      title: 'Dua for sleep',
+      translation: 'In Your name I die and live.',
+      duration: '0:46',
+    ),
+    AudioTrack(
+      id: 'al_falaq',
+      tag: '',
+      title: 'Surah Al-Falaq',
+      translation: '',
+      duration: '0:34',
+    ),
   ];
 
   /// Unified playback: the id of whichever track is currently
@@ -109,7 +151,13 @@ class ProgramProvider extends ChangeNotifier {
   /// Bookmarked tracks — shown as filled once saved.
   Set<String> bookmarkedTrackIds = {};
 
-  bool isTrackBookmarked(String trackId) => bookmarkedTrackIds.contains(trackId);
+  bool isTrackBookmarked(String trackId) =>
+      bookmarkedTrackIds.contains(trackId);
+
+  List<AudioTrack> get bookmarkedTracks => [
+    featuredTrack,
+    ...moreTracks,
+  ].where((track) => bookmarkedTrackIds.contains(track.id)).toList();
 
   void toggleTrackBookmark(String trackId) {
     if (bookmarkedTrackIds.contains(trackId)) {

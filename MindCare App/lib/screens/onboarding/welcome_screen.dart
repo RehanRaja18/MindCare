@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../main.dart';
@@ -37,15 +38,7 @@ class WelcomeScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Icon(Icons.water_drop_outlined, color: AppColors.textDark, size: 20),
-                      const SizedBox(width: 8),
-                      Text('MindCare', style: AppTextStyles.heading(size: 22)),
-                    ],
-                  ),
-                  const Spacer(),
+                  const Spacer(flex: 2),
                   RichText(
                     text: TextSpan(
                       style: AppTextStyles.heading(size: 40),
@@ -53,8 +46,10 @@ class WelcomeScreen extends StatelessWidget {
                         const TextSpan(text: 'A quieter\n'),
                         TextSpan(
                           text: 'mind ',
-                          style: AppTextStyles.heading(size: 40, style: FontStyle.italic)
-                              .copyWith(color: AppColors.progressActive),
+                          style: AppTextStyles.heading(
+                            size: 40,
+                            style: FontStyle.italic,
+                          ).copyWith(color: AppColors.progressActive),
                         ),
                         const TextSpan(text: 'starts here.'),
                       ],
@@ -70,7 +65,10 @@ class WelcomeScreen extends StatelessWidget {
                     label: 'Create your account',
                     icon: null,
                     onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const MobileFrame(child: SignUpScreen())),
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const MobileFrame(child: SignUpScreen()),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -79,14 +77,22 @@ class WelcomeScreen extends StatelessWidget {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const MobileFrame(child: SignInScreen())),
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const MobileFrame(child: SignInScreen()),
+                            ),
                           ),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 18),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
                             side: const BorderSide(color: AppColors.border),
                           ),
-                          child: const Text('I already have one', style: TextStyle(color: AppColors.textDark)),
+                          child: const Text(
+                            'I already have one',
+                            style: TextStyle(color: AppColors.textDark),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
