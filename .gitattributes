@@ -1,0 +1,3 @@
+# Normalize line endings: store LF in the repo and check out LF on every OS.
+# (text=auto alone still warns on Windows with core.autocrlf=true; eol=lf is what silences it.)
+* text=auto eol=lf

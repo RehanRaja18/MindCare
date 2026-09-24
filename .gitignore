@@ -2,3 +2,9 @@ venv/
 .venv/
 __pycache__/
 *.pyc
+
+# Model artifacts - regenerate with the scripts listed in docs/setup.md
+data/processed/*.pkl
+data/processed/*.npz
+# ...except the base train/val/test split, which no script can recreate from scratch
+!data/processed/mindcare_processed_splits.npz
