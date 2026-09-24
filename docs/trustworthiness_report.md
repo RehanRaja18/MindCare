@@ -24,9 +24,23 @@ is").
 
 ### 3. What data was used?
 
-`data/raw/mindcare_dataset_final.csv` — ~11,000 rows, 23 columns. 17 of those columns are used as
-model features (11 numeric + 6 categorical); the rest are the target columns (Severity, Anxiety
-Level) or columns dropped for leakage reasons (`model_card.md`, "Training Data", "Features").
+`data/raw/mindcare_dataset_final.csv` — ~11,000 rows, 23 columns. **As of 2026-09-22, the two
+targets use different feature sets, and the 3-class target's own feature set changed twice the
+same day** (`model_card.md`, "Features"; `CLAUDE.md`, "Finalized feature decisions"):
+- The **primary, deployed 3-class Anxiety Level model uses 12 features** — 10 numeric (Stress
+  Level, Therapy Sessions, Sleep Hours, Caffeine Intake, Diet Quality, Physical Activity, Heart
+  Rate, Breathing Rate, Sweating Level, **Age**) + 2 categorical (Occupation, Family History of
+  Anxiety). Six columns that were previously features (Age, Alcohol Consumption, Dizziness,
+  Smoking, Recent Major Life Event, Medication) were removed on 2026-09-22; Age was then restored
+  the same day, leaving 5 removed (Alcohol Consumption, Dizziness, Smoking, Recent Major Life
+  Event, Medication) — see Q9/Q10 for why both changes happened and why they differ in kind.
+- The **secondary/reference 5-class Severity model still uses the original 17 columns** (11
+  numeric + 6 categorical) — unchanged.
+
+The rest of the 23 columns are the target columns (Severity, Anxiety Level) or columns dropped
+for leakage reasons (`model_card.md`, "Training Data", "Features"). Unless a question below is
+explicitly about the 5-class target, or explicitly about a superseded configuration, "the model"
+in this report refers to the deployed 12-feature 3-class model.
 
 ### 4. How was the data collected?
 
@@ -93,6 +107,12 @@ random_state=42` (`model_card.md`, "Performance", citing `reports/tuning_results
 This is the model used for every subsequent analysis in the model card: full evaluation,
 calibration, uncertainty flagging, SHAP, and fairness.
 
+**The algorithm and hyperparameters were never revisited across either of the two feature-set
+changes on 2026-09-22** (see below) — the same tuned Random Forest configuration was simply
+retrained from scratch first on the reduced 11-feature set, then again on the 12-feature set
+with Age restored. What changed, twice, is the *input feature set*, not the model family or its
+tuning.
+
 ### 10. Why was it selected?
 
 Documented in `model_card.md`'s **"Model Selection Rationale"** section (added after this
@@ -110,12 +130,53 @@ model selection, not before it — reasons (1)-(3) were written up retroactively
 driven the original choice — and the full analysis suite (SHAP, calibration, uncertainty,
 fairness) has **not** been re-run on tuned XGBoost. So while a rationale now exists, it has not
 been validated against an equivalent depth of analysis on the alternative; treat the selection as
-reasonable but not rigorously defended.
+reasonable but not rigorously defended. **This algorithm-selection question is distinct from, and
+predates, both feature-set changes below** — Random Forest vs. XGBoost was decided while the
+model still used all 17 features.
+
+**Why the feature set was reduced from 17 to 11 (2026-09-22), and why that was a separate
+decision from model selection:** after adoption, SHAP ranking (`reports/shap_full_ranking_3class.md`)
+identified 6 features (Age, Alcohol Consumption, Dizziness, Smoking, Recent Major Life Event,
+Medication) as the bottom of the importance ranking. Dropping them and retraining the same tuned
+Random Forest cost essentially nothing on validation (`reports/feature_reduction_3class.md`, all
+headline metrics within 0.36 points). **This was a product/UX decision, not a
+performance-driven one** — fewer required onboarding fields and less exposure to missing-data
+fragility (per the project's earlier Phase 19 robustness findings, Q16/Q18), justified because
+the performance case *against* dropping them was already weak to begin with. Caffeine Intake was
+separately evaluated for the same treatment and *rejected* — it ranks 4th by SHAP importance (a
+real signal) and dropping it cost a real 1.56-point hit to Medium-class recall
+(`reports/feature_reduction_caffeine_3class.md`) — so it was kept as a model input, with only its
+*collection method* simplified (four serving counts converted server-side, `model_card.md`,
+"Features"). See Q11/Q12 for how this reduction held up when checked on the held-out test set.
+
+**Why Age was then restored, the same day (11→12 features), and why this THIRD change differs in
+kind from the first two:** the first two feature-set decisions (17→11 features, and keeping vs.
+dropping Caffeine Intake within that) were each grounded in a **performance or product/UX
+tradeoff** — a SHAP ranking, a measured validation cost, an onboarding-friction argument. Age's
+restoration is different: it is a **clinical necessity, not a performance or UX tradeoff at
+all** — Age is a professional norm for a healthcare-adjacent intake form (age-appropriate
+reference ranges for physiological features like Heart Rate and Breathing Rate, and
+legal/consent handling that differs for minors vs. adults). The decision to restore it did not
+depend on, and was not contingent on, what a validation check would show.
+`reports/feature_addition_age_3class.md` was run anyway — accuracy 0.7739 vs. the 11-feature
+baseline's 0.7770 (a 0.31-point difference, largest movement 0.39 points on any metric) — but
+**that result is cited only as confirmation the restoration isn't harmful, explicitly not as the
+reason for making it.** This is the project's clearest example yet of a feature-set decision
+whose *justification* is entirely outside the performance metrics this report otherwise centers
+on. **Unlike the 17→11 change, this one was not checked against the test set** — see Q11/Q12 and
+Q22 for why, and for what evidentiary gap that leaves for the currently-deployed model.
 
 ### 11. What are its AUROC/AUPRC values?
 
-Per-class, one-vs-rest, validation set (`model_card.md`, "Performance", citing
-`reports/full_evaluation_3class.md`):
+**The model actually deployed via `src/api/main.py` today is the 12-feature model (Age
+restored) — but no AUROC/AUPRC figures exist for it, on either validation or test, by design
+(see Q9/Q10, Q22).** Figures for the 17-feature (original) and 11-feature (superseded 2026-09-22)
+models are given below, kept explicitly distinct, per `model_card.md`'s "Performance" sections.
+**Nothing below should be read as characterizing the currently-deployed 12-feature model's
+AUROC/AUPRC** — that evidence does not exist.
+
+17-feature model, per-class, one-vs-rest, validation set (`model_card.md`, "Performance —
+17-Feature Model", citing `reports/full_evaluation_3class.md`):
 
 | Class | AUROC | AUPRC |
 |---|---:|---:|
@@ -124,9 +185,8 @@ Per-class, one-vs-rest, validation set (`model_card.md`, "Performance", citing
 | High | 0.9850 | 0.9511 |
 | **Macro average** | **0.9037** | **0.8589** |
 
-The model card also reports the real, one-time **test-set** values (`model_card.md`, "Final
-Test-Set Evaluation", citing `reports/final_test_evaluation.md`) — kept explicitly distinct from
-the validation numbers above, not conflated with them:
+17-feature model, real, one-time **test-set** values, first disclosed test-set use, 2026-09-15
+(`model_card.md`, "Final Test-Set Evaluation", citing `reports/final_test_evaluation.md`):
 
 | Class | AUROC (test) | AUPRC (test) | Gap vs. validation |
 |---|---:|---:|---:|
@@ -139,11 +199,36 @@ Every gap is small (≤0.022) and mostly in the direction of test performing sli
 than validation — evidence against overfitting during the tuning/analysis process, not evidence
 of a problem.
 
+**11-feature model (superseded 2026-09-22, same day), test-set values**, second and final
+disclosed test-set use, 2026-09-22 (`model_card.md`, "Performance — 11-Feature Model", citing
+`reports/final_test_evaluation_11feature.md`; per-class AUROC/AUPRC was not separately computed
+for this model on validation):
+
+| Class | AUROC (test) | AUPRC (test) |
+|---|---:|---:|
+| Low | 0.8789 | 0.8558 |
+| Medium | 0.8587 | 0.7798 |
+| High | 0.9856 | 0.9544 |
+| **Macro average** | **0.9077** | **0.8633** |
+
+Head-to-head against the 17-feature model's test result: every macro figure moved very slightly
+negative (macro AUROC −0.0006, macro AUPRC −0.0058), and Medium-class AUPRC moved −0.0122 — the
+one gap that crosses the 0.01 threshold used elsewhere in this project. See Q10 and Q25 for the
+full honest verdict on this comparison.
+
+**12-feature model (current, deployed): no AUROC/AUPRC exists, on validation or test.** Only
+accuracy, balanced accuracy, macro-F1, and per-class recall were computed
+(`reports/feature_addition_age_3class.md`) — see Q12 below for the recall figures, and Q22 for
+why this evidentiary gap is a deliberate, disclosed scope decision rather than an oversight.
+
 ### 12. What are sensitivity and specificity?
 
-**Sensitivity (= recall) is documented for both validation and test; specificity is not
-documented at all.** Per-class recall (`model_card.md`, "Performance" and "Final Test-Set
-Evaluation" classification reports):
+**Sensitivity (= recall) is documented for all three model configurations on validation;
+test-set recall exists only for the 17-feature and 11-feature (superseded) models, by design.
+Specificity is not documented at all, for any configuration.**
+
+17-feature model, per-class recall (`model_card.md`, "Performance — 17-Feature Model" and "Final
+Test-Set Evaluation" classification reports):
 
 | Class | Recall (validation) | Recall (test) |
 |---|---:|---:|
@@ -152,11 +237,33 @@ Evaluation" classification reports):
 | High | 0.8970 | 0.8994 |
 | Macro average | 0.8056 | 0.8193 |
 
-Test-set recall is slightly higher than validation for every class — consistent with the
-no-overfitting finding elsewhere in this report. Neither `model_card.md` nor `CLAUDE.md` reports
-a specificity (true-negative rate) figure for any class, on either split — it is not computed or
-cited anywhere in either document. This is an explicit gap rather than an omission on my part: it
-has not been documented, so no number can honestly be given here.
+**11-feature model (superseded 2026-09-22, same day)**, per-class recall
+(`reports/feature_reduction_3class.md`, `reports/final_test_evaluation_11feature.md`):
+
+| Class | Recall (validation) | Recall (test) |
+|---|---:|---:|
+| Low | 0.7545 | 0.7695 |
+| Medium | 0.7737 | 0.7843 |
+| High | 0.8970 | 0.8994 |
+| Macro average | 0.8084 | 0.8177 |
+
+**12-feature model (current, deployed) — validation only, no test-set column** (deliberate, see
+Q9/Q10, Q22), per-class recall (`reports/feature_addition_age_3class.md`):
+
+| Class | Recall (validation) | Recall (test) |
+|---|---:|---:|
+| Low | 0.7506 | *(not evaluated — by design)* |
+| Medium | 0.7709 | *(not evaluated — by design)* |
+| High | 0.8970 | *(not evaluated — by design)* |
+| Macro average | 0.8062 | *(not evaluated — by design)* |
+
+For the 17-feature and 11-feature models, test-set recall is slightly higher than validation for
+every class — consistent with the no-overfitting finding elsewhere in this report. That
+comparison cannot be made for the 12-feature model because no test-set recall exists for it.
+Neither `model_card.md` nor `CLAUDE.md` reports a specificity (true-negative rate) figure for any
+class, on either split, for any configuration — it is not computed or cited anywhere in either
+document. This is an explicit gap rather than an omission on my part: it has not been documented,
+so no number can honestly be given here.
 
 ### 13. Is it calibrated?
 
@@ -337,56 +444,117 @@ represented otherwise.
 ### 22. What are the limitations?
 
 Directly from `model_card.md`'s "Known Limitations" section, plus the gaps surfaced by this
-report (Q16, Q17, Q19, Q20):
+report (Q16, Q17, Q19, Q20). **Scope note: unless stated otherwise, "the model" below is the
+current, deployed 12-feature 3-class model (Age restored, as of 2026-09-22) — see Q3, Q9/Q10.**
 1. Training data is very likely synthetic — no performance figure here is clinically validated.
 2. Even for the 3-class target, over half (17.6 of ~30.6 points) of the model's improvement over
-   the majority baseline comes from one feature, Stress Level.
+   the majority baseline comes from one feature, Stress Level. **This dependency figure was
+   computed against the original 17-feature model (Phase 11) and was not recomputed after either
+   2026-09-22 feature-set change (17→11, then 11→12 with Age restored); Stress Level was not
+   affected by either change, so the dependency is expected to persist but is unverified for the
+   current 12-feature model** (`model_card.md`, "Known Limitations" #2).
 3. Imbalanced target with small per-occupation High-class samples (9-18 rows) — subgroup metrics
    are inherently noisy at this scale.
-4. Predicted probabilities are not well-calibrated across the full range for any class.
+4. Predicted probabilities are not well-calibrated across the full range for any class. (This
+   analysis, like most Phase 15-19 analyses below, was run against the 17-feature model and has
+   not been separately re-run for the 11-feature or 12-feature models — see item 7.)
 5. The uncertainty flag has a 92.77% false-flag rate by design.
-6. The test set was evaluated exactly once (2026-09-15) — see Q11/Q12/Q25. Test figures are
-   reported and kept distinct from validation figures throughout; this was a single one-way-door
-   check, not repeated or cross-validated evaluation, and it must not be repeated.
-7. Phase 12 (advanced models) and Phase 19 (robustness testing) are now done for the 3-class
-   target — see Q16 and Q18 for the Phase 19 findings, several of which remain open (Stress
-   Level/Therapy Sessions single-feature fragility, noise sensitivity, an unexplained
-   distribution-shift asymmetry). Phase 15 (calibration) and Phase 16 (uncertainty) are still not
-   done for the 5-class reference target.
+6. **The 3-class test set has been evaluated twice, and is fully spent — for the 17-feature and
+   11-feature configurations only.** First (2026-09-15, 17-feature model) — see Q11/Q12/Q25.
+   Second (2026-09-22, 11-feature model, since superseded) — justified because it evaluated a
+   genuinely new feature-set configuration, not a re-check of the same model. Both uses are
+   disclosed and kept distinct from validation figures throughout. **No further test-set
+   evaluation is permitted for the 17-feature or 11-feature configurations** (Q10, Q25). **The
+   current, deployed 12-feature model (Age restored) deliberately has no test-set evaluation at
+   all** — restoring Age was a clinical/UX decision, not a performance claim, so it was not
+   treated as justifying a third one-way-door use. This is a genuine, disclosed evidentiary gap
+   for the currently-deployed model, not an oversight (Q9/Q10).
+7. Phase 12 (advanced models) and Phase 19 (robustness testing) are done for the 3-class target,
+   but **only against the original 17-feature model** — see Q16 and Q18 for the Phase 19
+   findings, several of which remain open (Stress Level/Therapy Sessions single-feature
+   fragility, noise sensitivity, an unexplained distribution-shift asymmetry). **None of Phases
+   15-19 (calibration, uncertainty flagging, SHAP, fairness, robustness) have been re-run
+   end-to-end against the 11-feature or 12-feature models** — for the 12-feature model
+   specifically, the currently-deployed one, only headline accuracy/balanced-accuracy/macro-F1/
+   recall metrics exist, on validation only (Q9/Q10, Q11/Q12). Phase 15 (calibration) and Phase
+   16 (uncertainty) are also still not done for the 5-class reference target, which remains on
+   the original 17 features throughout.
 8. This is a prototype/research model and must never be represented as having clinical
    diagnostic validity.
-9. Phase 19 robustness testing has been performed for the 3-class target and found real,
-   specific fragilities (Q16, Q18) — one of which (missing input validation) has since been
-   fixed (Q21). OOD handling, external validation, and clinical evaluation remain entirely
-   unperformed (Q17, Q19, Q20).
-10. *(Surfaced here.)* Subgroup fairness has only been checked along one dimension (Occupation);
-    no age, gender, or other demographic fairness evaluation of model outputs exists.
+9. Phase 19 robustness testing has been performed for the 17-feature configuration of the 3-class
+   target and found real, specific fragilities (Q16, Q18) — one of which (missing input
+   validation) has since been fixed (Q21) and re-verified for the current 12-feature input set,
+   including Age's restored bounds (`src/inference/input_validation.py`). The robustness findings
+   themselves have not been re-tested against the 11-feature or 12-feature models. OOD handling,
+   external validation, and clinical evaluation remain entirely unperformed (Q17, Q19, Q20).
+10. *(Surfaced here.)* Subgroup fairness has only been checked along one dimension (Occupation),
+    and only for the 17-feature model; no age, gender, or other demographic fairness evaluation
+    of model outputs exists, and the fairness check has not been re-run for the 11-feature or
+    12-feature models.
 11. The choice of Random Forest over XGBoost is now backed by a documented rationale
     (`model_card.md`, "Model Selection Rationale"), but that rationale was written up *after*
     the model was already selected, and the full SHAP/calibration/uncertainty/fairness analysis
     suite has not been re-run on XGBoost for comparison — the selection has not been validated
-    against an equivalent depth of analysis on the alternative (Q10).
+    against an equivalent depth of analysis on the alternative (Q10). This is a separate question
+    from the two later feature-set changes (17→11, then 11→12 with Age restored), which each
+    kept Random Forest and only changed the input columns (Q9/Q10).
+12. *(Surfaced here.)* **The current, deployed 12-feature model (Age restored) has strictly less
+    evidentiary depth than either the 17-feature or 11-feature configurations that preceded it**
+    — validation-only headline metrics exist and nothing else (items 4, 6, 7, 9, 10 above). This
+    is a deliberate, disclosed scope decision tied to the clinical/UX nature of the Age-restoration
+    decision (Q9/Q10), not an unnoticed gap — but it does mean the model actually running in
+    production today has been evaluated less thoroughly than its two immediate predecessors.
 
 ### 23. What claims can we legitimately make?
 
 - On an internal, held-out validation split of this specific (very likely synthetic) dataset, the
-  tuned Random Forest meaningfully outperforms a majority-class baseline (balanced accuracy 0.8056
-  vs. 0.3333; macro-F1 0.8177 vs. 0.2136). The one-time held-out **test** split confirms this
-  wasn't an artifact of validation-set overfitting — test balanced accuracy is 0.8193, macro-F1
-  0.8311, both slightly *higher* than validation (Q11, Q12).
-- When the model predicts High, it is very rarely wrong (0.9933 precision overall on validation,
-  0.9935 on test; 1.00 precision in 12 of 13 occupation subgroups).
-- Four post-selection improvement attempts (feature engineering, an RF+XGBoost ensemble,
-  probability calibration, and calibration combined with the uncertainty-flagging threshold) were
-  tested honestly on validation data and none were adopted where the evidence didn't support
-  adoption — including one case where combining two individually-reasonable changes was found to
-  interact badly and was explicitly rejected on that basis (`model_card.md`, "Attempted
-  Improvements (Not Adopted)"). The deployed model is unmodified by any of them.
+  tuned Random Forest — across its original 17-feature configuration, the superseded 11-feature
+  configuration, and the current 12-feature configuration (Age restored) — meaningfully
+  outperforms a majority-class baseline (17-feature: balanced accuracy 0.8056 vs. 0.3333,
+  macro-F1 0.8177 vs. 0.2136; 11-feature: balanced accuracy 0.8084, macro-F1 0.8204; 12-feature:
+  balanced accuracy 0.8062, macro-F1 0.8182). The disclosed held-out **test** evaluations confirm
+  this wasn't an artifact of validation-set overfitting for the 17-feature and 11-feature
+  configurations — 17-feature test balanced accuracy 0.8193 (+0.0137 vs. validation), 11-feature
+  test balanced accuracy 0.8177 (+0.0093 vs. validation) (Q11, Q12). **This confirmation does not
+  exist for the current 12-feature model** — no test-set evaluation was performed for it, by
+  design (Q9/Q10, Q22).
+- When the model predicts High, it is very rarely wrong (0.9933 precision overall on 17-feature
+  validation, 0.9935 on 17-feature test, 0.9870 on 11-feature test; 1.00 precision in 12 of 13
+  occupation subgroups for the 17-feature model). Per-class precision has not been separately
+  computed for the 12-feature model (Q11/Q12).
+- **The 17→11 feature reduction was checked honestly against held-out test data, not just
+  validation — and the check surfaced a real, if small, direction-reversal rather than confirming
+  the validation-only result.** On validation, the 11-feature model looked marginally *better*
+  than the 17-feature model. On test, that reverses: every 11-feature headline metric is very
+  slightly *below* the 17-feature model's test result (deltas of −0.0006 to −0.0058), with
+  Medium-class AUPRC the one metric crossing the 0.01 threshold (Q10, Q11/Q12, Q25). **This
+  disagreement was reported plainly rather than resolved in the more favorable direction** — the
+  honest net conclusion is "no meaningful cost either way," not "the reduction improved the
+  model," even though that is what validation alone had suggested. This is itself evidence of
+  the project's intellectual honesty: a result that could have been quietly left at the
+  validation-only, more flattering reading was instead checked further and reported as found.
+- Four post-selection improvement attempts against the 17-feature model (feature engineering, an
+  RF+XGBoost ensemble, probability calibration, and calibration combined with the
+  uncertainty-flagging threshold), plus a fifth against the 11-feature model (dropping Caffeine
+  Intake), were tested honestly on validation data and none were adopted where the evidence
+  didn't support adoption — including one case where combining two individually-reasonable
+  changes was found to interact badly and was explicitly rejected on that basis, and one case
+  where a real per-class cost (Medium-class recall −1.56 points) was surfaced even though
+  aggregate metrics alone would have looked acceptable (`model_card.md`, "Attempted Improvements
+  (Not Adopted)"). The deployed model is unmodified by any of these five experiments; the
+  onboarding-simplification goal behind the caffeine experiment was instead served by changing
+  *how* that one feature is collected, not by dropping it. Age's later restoration was a separate,
+  sixth, adopted decision — not a rejected experiment — and is documented distinctly in
+  `model_card.md`'s "Features" section, not "Attempted Improvements" (Q9/Q10).
 - The model's behavior has been examined honestly and in reasonable depth for a prototype: full
   per-class AUROC/AUPRC, a 10-bin calibration analysis per class with documented over/under-
   confidence patterns, a threshold-justified uncertainty-flagging mechanism, SHAP-based feature
   attribution, and an occupation-subgroup fairness check with at least one flagged finding
-  actively investigated (and found not to replicate) rather than left unexamined.
+  actively investigated (and found not to replicate) rather than left unexamined. **This full
+  analysis depth exists only for the superseded 17-feature model. The 11-feature model (also
+  superseded) has headline metrics plus two test evaluations. The current, deployed 12-feature
+  model has the least depth of the three: headline validation metrics only, no test-set
+  evaluation at all** (Q22 items 6, 7, 12).
 - The project has an explicit, enforced workflow constraint requiring psychologist review of
   every prediction before it reaches a patient.
 
@@ -399,16 +567,29 @@ report (Q16, Q17, Q19, Q20):
 - **No claim of clinical effectiveness** — no clinical evaluation, trial, or real-outcome
   comparison has occurred (Q20).
 - **No claim the model is calibrated** — it is measurably not, across most of the probability
-  range for Low and Medium, and below P≈0.3 for High (Q13).
-- **No claim of robustness** to noisy or missing inputs — the opposite is documented: the model
-  is measurably fragile to losing or corrupting its top 1-2 features, and to realistic-magnitude
-  input noise (Q16, Q18). No claim of robustness to adversarial inputs specifically — that was
-  not tested.
+  range for Low and Medium, and below P≈0.3 for High (Q13). (Calibration was measured against the
+  17-feature model; not re-measured for the 11-feature or 12-feature models.)
+- **No claim of robustness** to noisy or missing inputs — the opposite is documented for the
+  17-feature model: it is measurably fragile to losing or corrupting its top 1-2 features, and to
+  realistic-magnitude input noise (Q16, Q18). No claim of robustness to adversarial inputs
+  specifically — that was not tested. **Robustness has not been separately re-tested for the
+  12-feature model actually deployed** (or for the 11-feature model before it).
 - **No claim about behavior on out-of-distribution inputs** — untested and undocumented (Q17).
 - **No claim of fairness across patient subgroups in general** — only Occupation has been
-  checked, and even that check surfaced one low-confidence flag that hasn't been resolved with
-  more data, plus one flag investigated and attributed to sampling noise rather than confirmed
-  absent (Q15).
+  checked, only for the 17-feature model, and even that check surfaced one low-confidence flag
+  that hasn't been resolved with more data, plus one flag investigated and attributed to sampling
+  noise rather than confirmed absent (Q15).
+- **No claim that dropping the 6 originally-removed features, or that the 11-feature model
+  generally, was an *improvement*** — the honest, tested result on held-out data was a tiny,
+  direction-reversing regression versus the 17-feature model, not a gain (Q10, Q11/Q12, Q25). The
+  legitimate claim was narrower: "no meaningful cost," in exchange for a real product/UX benefit
+  (fewer required fields). That configuration is now superseded.
+- **No claim that restoring Age was a performance-driven decision, or that it was validated
+  against held-out test data** — it was a clinical/UX decision, deliberately checked only on
+  validation (near-zero cost measured, `reports/feature_addition_age_3class.md`), with no
+  test-set confirmation performed or planned (Q9/Q10, Q22 item 6). The legitimate claim is
+  narrower still than the 17→11 case: "measured not to be harmful on validation," not "confirmed
+  on held-out data" and not "an improvement."
 - **No claim that the reported accuracy reflects broad, robust multi-feature reasoning** for the
   5-class Severity target specifically — that model is, by the project's own ablation finding,
   overwhelmingly dependent on a single feature.
@@ -447,11 +628,32 @@ Based strictly on the gaps this report surfaced:
    Severity target, before that target (if retained at all) is used in any deployment context.
 9. **Completion of Phase 15 (calibration) and Phase 16 (uncertainty) for the 5-class target**, if
    it continues to be maintained as a reference/secondary target.
-10. ~~A final, one-time evaluation on the untouched test set~~ **— done, 2026-09-15**
-    (`reports/final_test_evaluation.md`; Q11, Q12). Results were consistent with validation (no
-    gap ≥0.03) and did not trigger any retraining or model change. This item is complete; the
-    3-class test set must not be evaluated again. The remaining gap is the analogous evaluation
-    for the 5-class target, if that target is ever finalized.
+10. ~~A final, one-time evaluation on the untouched test set~~ **— done, twice, for the
+    17-feature and 11-feature configurations, both now fully spent.** First, 2026-09-15
+    (`reports/final_test_evaluation.md`; Q11, Q12): the 17-feature model, results consistent with
+    validation (no gap ≥0.03), no retraining or model change triggered. Second, 2026-09-22
+    (`reports/final_test_evaluation_11feature.md`; Q10, Q11, Q12): the 11-feature model (since
+    superseded) — justified as a genuinely new configuration, not a re-check of the same model —
+    results showed a small, consistent regression versus the 17-feature model's test performance
+    that validation alone had not predicted, again with no retraining or model change triggered
+    in response. **Both uses are complete and disclosed; the 3-class test set must not be
+    evaluated again for either of those two configurations.** The current, deployed 12-feature
+    model (Age restored) was deliberately NOT given a third test-set evaluation — see item 12
+    below, which is a distinct, still-open item, not resolved by this one. The remaining gap for
+    this item specifically is the analogous evaluation for the 5-class target, if that target is
+    ever finalized (it retains its own, never-touched test split — see Q7).
+11. **Re-running the Phase 15-19 analysis stack (calibration, uncertainty flagging, SHAP,
+    fairness, robustness) against the current 12-feature model.** All of that depth currently
+    exists only for the superseded 17-feature model (Q22 item 7, Q23) — the model actually
+    deployed today has only headline accuracy/balanced-accuracy/macro-F1/recall figures, on
+    validation only, with no test-set evaluation at all. This is a gap in evidentiary depth for
+    the currently-deployed configuration, separate from the earlier items in this list.
+12. *(Surfaced here.)* **A deliberate decision on whether the 12-feature model's clinical/UX
+    justification for Age is sufficient on its own, or whether a third, disclosed test-set use
+    should eventually be authorized for it.** As documented (Q9/Q10, Q22 item 6), the current
+    position is that Age's restoration did not require test-set confirmation because it was not
+    a performance claim — but this report surfaces that position explicitly so it can be
+    revisited by a human decision-maker rather than silently treated as settled by default.
 
 ---
 
@@ -463,10 +665,13 @@ documents cites (`reports/baseline_results_3class.json`, `reports/tuning_results
 `reports/full_evaluation_3class.md`, `reports/calibration_3class.md`,
 `reports/calibration_3class_full.md`, `reports/uncertainty_flagging.md`,
 `reports/threshold_sweep_high.md`, `reports/shap_summary_3class.md`,
-`reports/fairness_report_3class.md`, `reports/advanced_models_3class.md`,
-`reports/robustness_3class.md`, `reports/feature_engineering_3class.md`,
-`reports/ensemble_3class.md`, `reports/postprocessing_3class.md`,
-`reports/calibrated_uncertainty_flagging_3class.md`, `reports/final_test_evaluation.md`,
+`reports/shap_full_ranking_3class.md`, `reports/fairness_report_3class.md`,
+`reports/advanced_models_3class.md`, `reports/robustness_3class.md`,
+`reports/feature_engineering_3class.md`, `reports/ensemble_3class.md`,
+`reports/postprocessing_3class.md`, `reports/calibrated_uncertainty_flagging_3class.md`,
+`reports/final_test_evaluation.md`, `reports/feature_reduction_3class.md`,
+`reports/feature_reduction_caffeine_3class.md`, `reports/final_test_evaluation_11feature.md`,
+`reports/feature_addition_age_3class.md`,
 `src/inference/input_validation.py`). No number in this report was invented, estimated, or newly
 computed — where a question cannot be answered from these sources (Q4, Q12's specificity half,
 Q17, Q19, Q20), this report says so explicitly rather than filling the gap.

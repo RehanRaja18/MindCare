@@ -16,6 +16,9 @@ Do not build or suggest anything that bypasses psychologist review.
 - `docs/master_project_instructions.md` — the full phase-by-phase methodology this project
   follows (Phases 0-35). From now on, if a phase number is referenced that you can't find
   details for elsewhere, check this file before saying it doesn't exist.
+- `docs/setup.md` — model artifacts (`data/processed/*.pkl`/`*.npz`) are not in git; this lists
+  the exact scripts to regenerate them, in order. `mindcare_processed_splits.npz` is the one
+  tracked exception (no script can recreate it from scratch) — never delete it.
 
 ## Dataset
 data/raw/mindcare_dataset_final.csv — ~11,000 rows, 23 columns.
@@ -35,10 +38,13 @@ Reason: per earlier EDA, Severity's 5 class boundaries don't align cleanly with 
 binning, so the 3-class target is built independently from the raw scale rather than by
 re-bucketing Severity.
 
-**The feature set is unchanged.** All 17 features (11 numeric + 6 categorical, listed
-below) — including Stress Level — remain fully included in every model for the 3-class
-target, identical to the 5-class setup. This change only swaps the target labels; it does
-not add, drop, or otherwise touch any feature.
+**The feature set was unchanged at the time of this target switch (2026-09-14).** All 17
+features (11 numeric + 6 categorical, listed below) — including Stress Level — remained fully
+included in every model for the 3-class target, identical to the 5-class setup; this change
+only swapped the target labels. **This is no longer current** — see "Finalized feature
+decisions" below: as of 2026-09-22 the 3-class model uses 12 features (having briefly used 11,
+now superseded), not 17. The 5-class model described in this section's original wording is
+unaffected and still uses all 17.
 
 No re-splitting or re-preprocessing was done: the 3-class target reuses the exact same
 train/val/test row membership as the 5-class split (7700/1650/1650), via the
@@ -60,19 +66,117 @@ report balanced accuracy, macro-F1, and per-class recall (especially High) for t
 
 ## Finalized feature decisions (do not change without discussion)
 - **Target:** Severity (5-class, secondary/reference) or the 3-class Anxiety Level
-  bucket (primary, see "Target change" above) — the feature list below is identical
-  for both; only the target label differs.
-- **Numeric features (11):** Age, Sleep Hours, Physical Activity (hrs/week), Caffeine
-  Intake (mg/day), Alcohol Consumption (drinks/week), Stress Level (1-10), Heart Rate
-  (bpm), Breathing Rate (breaths/min), Sweating Level (1-5), Therapy Sessions (per
-  month), Diet Quality (1-10)
-- **Categorical features (6):** Occupation, Smoking, Family History of Anxiety,
-  Dizziness, Medication, Recent Major Life Event
-- **Dropped, and why:**
-  - Exercises, Sleep_Schedule, Nutrition — downstream recommendation outputs,
-    not predictors (leakage risk)
-  - Anxiety Level (1-10) — near-duplicate of target (0.86 correlation with Severity)
-  - Gender — no signal (ANOVA F=0.025, p=0.98, eta²≈0.0000045)
+  bucket (primary, see "Target change" above).
+- **As of 2026-09-22, the feature set DIFFERS between the two targets** — it is no longer
+  identical. The 5-class Severity model still uses the original 17 features. The 3-class
+  Anxiety Level model (primary, canonical, deployed via `src/api/main.py`) went through two
+  changes the same day: first reduced from 17 to 11 features, then Age was restored, bringing
+  it to **12**. The 11-feature configuration is superseded and kept only for history (see
+  Pipeline Status below); it is not the current canonical model.
+
+### 3-class Anxiety Level (canonical, 12 features)
+- **Numeric (10):** Stress Level (1-10) [now collected via the API as the 4 PSS-4
+  questionnaire items and converted server-side — see "Stress Level input method changed"
+  below, not entered as a raw 1-10 rating], Therapy Sessions (per month), Sleep Hours, Caffeine
+  Intake (mg/day) [now collected via the API as 4 serving-count fields and estimated
+  server-side — see below, not entered as raw mg], Diet Quality (1-10), Physical Activity
+  (hrs/week), Heart Rate (bpm), Breathing Rate (breaths/min), Sweating Level (1-5), Age
+  [restored — see "Age restored" below]
+- **Categorical (2):** Occupation, Family History of Anxiety
+- **Removed entirely (not just deprioritized), 2026-09-22:** Alcohol Consumption
+  (drinks/week), Dizziness, Smoking, Recent Major Life Event, Medication — 5 of the original
+  bottom-6 of 17 by SHAP importance (`reports/shap_full_ranking_3class.md`; Age was the 6th
+  and has since been restored, see below), dropped after `reports/feature_reduction_3class.md`
+  found near-zero validation cost for the full group of 6 (later confirmed on the second,
+  disclosed test-set use — `reports/final_test_evaluation_11feature.md` — with only a tiny,
+  honestly-reported regression; see Pipeline Status below).
+  - **Decision log — why removed:** this was a **product/UX decision, not a
+    performance-driven one**. Fewer required fields reduces onboarding friction for a
+    patient-facing form, and removes exposure to Phase 19's documented missing-data
+    fragility risk for those specific fields (`reports/robustness_3class.md`). The
+    performance case for keeping them was already weak (bottom-6 SHAP rank, near-zero
+    validation cost), so once a product reason to drop them existed, there was no strong
+    performance reason not to.
+  - **Caffeine Intake (mg/day) was separately evaluated for the same treatment and
+    REJECTED.** It ranks **4th** by SHAP importance — real signal, not a bottom-of-the-list
+    feature — and `reports/feature_reduction_caffeine_3class.md` found dropping it costs a
+    real 1.56-point hit to Medium-class recall (aggregate metrics move less, under 1 point,
+    but the per-class cost is real and consistent with its SHAP rank). **Kept as a model
+    input; only the collection method changed.** The API now asks for four everyday serving
+    counts (cups of coffee/tea, energy drinks, cans of soda) and converts them server-side to
+    the mg/day figure the model needs (`src/api/main.py`, `estimate_caffeine_mg()`), rather
+    than dropping the feature outright.
+- **Age restored, 2026-09-22 (subsequent to the removal above):** Age moves from "removed" back
+  to a model input — 10 numeric + 2 categorical = **12 features**, the current canonical set.
+  - **Decision log — why restored:** this was a **clinical/UX decision, not a
+    performance-driven one** — the mirror image of the removal decision above. Age is a
+    professional norm for a healthcare-adjacent platform (age-appropriate reference ranges for
+    physiological features like Heart Rate and Breathing Rate, and legal/consent handling
+    differs for minors vs. adults), independent of what the model's validation metrics show.
+    `reports/feature_addition_age_3class.md`'s near-zero validation cost (largest movement
+    0.39 points, recall_low: 0.7545 → 0.7506) is cited here as **confirmation the restoration
+    isn't harmful, not as the reason for making it** — the decision would have been made
+    regardless of that result, and the report says so explicitly.
+  - **This exact 12-feature combination (11-feature set + Age) had never been tested before
+    that run** — the earlier near-zero-cost finding for dropping the full bottom-6 group
+    (`reports/feature_reduction_3class.md`) does not, by itself, establish the cost of adding
+    back just one of those six in isolation. It was measured for real rather than assumed.
+  - **Validation-only, by design — no test-set evaluation for this configuration.** The
+    3-class test set has already been used twice (17-feature, 11-feature) and is being treated
+    as fully spent; per explicit instruction, `src/models/adopt_12feature_model.py` never
+    loads, transforms, or references `X_test`/`y_test`/`test_original_idx`. This is a
+    deliberate scope difference from the 11-feature adoption script, which did pre-transform
+    (but not evaluate) the test set. **No test-set number exists for the 12-feature model, and
+    none should be quoted or implied anywhere in this project's documentation.**
+- **Stress Level input method changed, 2026-09-24:** Stress Level (1-10) stays a model input
+  (still 12 features, no retraining); only how a live API caller supplies it changed — the same
+  pattern as caffeine above.
+  - **What changed:** the API's raw `Stress Level (1-10)` field was removed. It now takes the 4
+    PSS-4 items — `pss_uncontrollable`, `pss_confident`, `pss_going_your_way`,
+    `pss_difficulties_piling_up`, each an integer 0-4 (0 = Never ... 4 = Very often, "in the
+    last month"), with `pss_confident` and `pss_going_your_way` reverse-scored (`4 - answer`).
+    `estimate_stress_level()` (`src/inference/stress_scale.py`, shared by `src/api/main.py` and
+    `src/inference/predict_single.py`) sums them to a 0-16 total and maps it to
+    `round_half_up(1 + total * 9/16)`, clamped to [1, 10]. The computed value is what
+    `input_validation.py` checks (same Stress Level bounds as before) and what the model
+    receives; the API returns it as `estimated_stress_level`. A raw `Stress Level (1-10)` key
+    sent by an old caller is silently ignored.
+  - **Decision log — why:** the dataset's Stress Level is an unanchored 1-10 self-rating with no
+    defined meaning per point, and it is the model's #1 SHAP feature — the input the model
+    leans on most was the one with the least grounding for a patient to answer consistently. A
+    published questionnaire gives the patient concrete, standard questions instead.
+  - **Evidence levels — do not conflate them:** the PSS-4 questionnaire itself is a validated
+    instrument (Cohen, Kamarck & Mermelstein, 1983, *Journal of Health and Social Behavior*
+    24(4), 385-396). The **0-16 → 1-10 rescale is this project's own invented convention and
+    has not been independently validated.** The dataset's Stress Level was never measured with
+    the PSS, so a PSS-derived value and a training-data value share only a direction and a
+    range, not an established equivalence. Any doc or report that mentions this conversion must
+    keep that distinction (`docs/api_usage.md` and `docs/model_card.md` already do).
+  - **Training and evaluation are unaffected.** The model still learns from the dataset's real
+    `Stress Level (1-10)` column; `src/rebuild_preprocessor.py`,
+    `src/evaluation/robustness_3class.py`, `src/fairness/occupation_fairness.py` and every other
+    training/evaluation script are unchanged, and no model artifact was rebuilt. Verified live:
+    for a fixed patient, PSS answers producing Stress Level N give exactly the same
+    probabilities as feeding N directly, and P(High) went from 0.010 (least-stressed answers)
+    to 0.130 (most-stressed) for the `ambiguous_moderate` example patient. The test set was not
+    used.
+  - **Pitfall to remember:** because of the reverse-scored items, all-0 and all-4 answers both
+    map to 6 (total 8), not to the extremes; the extremes are `0,4,4,0` → 1 and `4,0,0,4` → 10.
+    Covered in `tests/test_api.py` (`test_estimate_stress_level_arithmetic`).
+
+### 5-class Severity (secondary/reference, unchanged — still 17 features)
+- **Numeric (11):** Age, Sleep Hours, Physical Activity (hrs/week), Caffeine Intake
+  (mg/day), Alcohol Consumption (drinks/week), Stress Level (1-10), Heart Rate (bpm),
+  Breathing Rate (breaths/min), Sweating Level (1-5), Therapy Sessions (per month), Diet
+  Quality (1-10)
+- **Categorical (6):** Occupation, Smoking, Family History of Anxiety, Dizziness,
+  Medication, Recent Major Life Event
+
+### Dropped from both targets, and why
+- Exercises, Sleep_Schedule, Nutrition — downstream recommendation outputs,
+  not predictors (leakage risk)
+- Anxiety Level (1-10) — near-duplicate of target (0.86 correlation with Severity)
+- Gender — no signal (ANOVA F=0.025, p=0.98, eta²≈0.0000045)
 
 ## Known finding: Stress Level is the top feature for BOTH targets, but to different degrees
 Stress Level (1-10) is the single most important feature for both the 5-class Severity
@@ -126,18 +230,68 @@ Phases below are now tracked per target, since switching the primary target to 3
 Anxiety Level does not carry over model training/tuning/evaluation work — only
 preprocessing (Phase 10) is shared between the two targets.
 
-### TEST SET USED — 2026-09-15 (3-class target, one-time, final)
-- [x] **The test set (X_test/y_test, 3-class) has now been used, on 2026-09-15 — this was a
-      one-way door and must not be repeated.** (`src/evaluation/final_test_evaluation.py`,
-      `reports/final_test_evaluation.md`.) Evaluated the saved final tuned Random Forest, exactly
-      as-is, no retraining/tuning/model-selection change made in response to the results.
-      Result: accuracy 0.7915, balanced accuracy 0.8193, macro-F1 0.8311, macro AUROC 0.9083,
-      macro AUPRC 0.8691 — every metric within ~0.02 of the validation-set numbers in
-      `reports/full_evaluation_3class.md` (no metric gapped by ≥0.03), and test performance was
-      very slightly *better* than validation across the board — no evidence of overfitting to
-      the validation split during Phases 11-19. **The 3-class test set must not be evaluated
-      again** unless the model is retrained/retuned from scratch as a deliberate, explicit new
-      final-model decision. The 5-class Severity test set remains untouched.
+### TEST SET USED — 2026-09-15 (FIRST use, 3-class target, 17-feature model)
+- [x] **The test set (X_test/y_test, 3-class) was used on 2026-09-15 — the first of two total,
+      now both spent (see SECOND TIME entry below).** (`src/evaluation/final_test_evaluation.py`,
+      `reports/final_test_evaluation.md`.) Evaluated the saved final tuned Random Forest (17
+      features), exactly as-is, no retraining/tuning/model-selection change made in response to
+      the results. Result: accuracy 0.7915, balanced accuracy 0.8193, macro-F1 0.8311, macro
+      AUROC 0.9083, macro AUPRC 0.8691 — every metric within ~0.02 of the validation-set numbers
+      in `reports/full_evaluation_3class.md` (no metric gapped by ≥0.03), and test performance
+      was very slightly *better* than validation across the board — no evidence of overfitting
+      to the validation split during Phases 11-19. The 5-class Severity test set remains
+      untouched.
+
+### TEST SET USED — 2026-09-22 (SECOND AND FINAL use, 3-class target, 11-feature model)
+- [x] **The test set (X_test/y_test, 3-class) was used a second time, on 2026-09-22 — this is
+      now fully spent for the 3-class target. No further evaluation on it is permitted for
+      either the 17-feature or the 11-feature model.**
+      (`src/evaluation/final_test_evaluation_11feature.py`,
+      `reports/final_test_evaluation_11feature.md`.)
+      **Why a second use is disclosed and justified rather than tuning-driven reuse:** this
+      evaluates a genuinely new, different model configuration — the 11-feature model adopted in
+      `reports/feature_reduction_3class.md` / `src/models/adopt_11feature_model.py` to replace
+      the original 17-feature model, dropping 6 SHAP-lowest features (Age, Alcohol Consumption,
+      Dizziness, Smoking, Recent Major Life Event, Medication). It is not a re-run, re-tune, or
+      iterative refinement of the model already evaluated on 2026-09-15 — reusing the test set
+      for that would have been the exact tuning-driven misuse the one-way-door rule exists to
+      prevent. A second disclosed evaluation for a materially different model is the legitimate
+      exception.
+      **Result:** accuracy 0.7891, balanced accuracy 0.8177, macro-F1 0.8285 — consistent with
+      this model's own validation numbers (no gap ≥0.03), but **measurably, consistently
+      (if slightly) worse than the 17-feature model's test performance**: every headline metric
+      moved in the negative direction (accuracy −0.0024, balanced accuracy −0.0016, macro-F1
+      −0.0026, macro AUROC −0.0006, macro AUPRC −0.0058), with Medium-class AUPRC the one metric
+      crossing −0.01 (−0.0122). This **reverses** the validation-only finding in
+      `reports/feature_reduction_3class.md`, which had shown the 11-feature model slightly
+      *ahead* on validation — that gain did not replicate on held-out test data. Net effect is
+      still small (≤0.003 on every headline metric), so the decision to drop those 6 features
+      remains reasonable, but the honest claim is now "no *meaningful* cost" rather than "a
+      slight improvement." **This is exactly the kind of finding a disclosed second test-set use
+      is for** — checking whether a validation-only result holds up, not chasing a better number.
+
+### FEATURE SET CHANGE — 2026-09-22 (THIRD change, 3-class target, Age restored, 12-feature model — VALIDATION ONLY, test set NOT used)
+- [x] **Age was restored as a model input, on top of the 11-feature set, producing the current
+      canonical 12-feature model.** (`src/models/adopt_12feature_model.py`,
+      `reports/feature_addition_age_3class.md`.) **Unlike the first two feature-set changes
+      above, this one is explicitly NOT test-set-verified, by design.** The 3-class test set was
+      already used twice (17-feature, then 11-feature) and is being treated as fully spent —
+      `src/models/adopt_12feature_model.py` never loads, transforms, or references
+      `X_test`/`y_test`/`test_original_idx` anywhere, unlike the 11-feature adoption script
+      (which pre-transformed but did not evaluate the test set). **This configuration has
+      validation-only evidence and always will, unless a future decision explicitly justifies a
+      third test-set use.**
+      **Why this change differs in kind from the first two:** this is a **clinical/UX decision,
+      not a performance or product-friction tradeoff** — Age is a professional norm for a
+      healthcare-adjacent platform (age-appropriate reference ranges for physiological features,
+      legal/consent handling that differs for minors vs. adults). It was not made because
+      validation metrics favored it, and would have been made even if they hadn't.
+      **Result (validation only, vs. the 11-feature baseline 0.7770/0.8084/0.8204):** accuracy
+      0.7739 (−0.0031), balanced accuracy 0.8062 (−0.0022), macro-F1 0.8182 (−0.0022), recall Low
+      0.7506 (−0.0039), recall Medium 0.7709 (−0.0028), recall High 0.8970 (−0.0000) — largest
+      movement 0.39 points, well under the 1-point bar used elsewhere in this project. This exact
+      12-feature combination had never been tested before this run; the near-zero result is
+      **cited as confirmation the restoration isn't harmful, not as the reason for making it.**
 
 - [x] Phase 9 — EDA complete
 - [x] Phase 10 — Preprocessing complete (ColumnTransformer: StandardScaler +
@@ -193,7 +347,11 @@ preprocessing (Phase 10) is shared between the two targets.
       - **No input validation exists anywhere in the pipeline** — physically impossible values
         (Age=-5, Stress Level=250, Heart Rate=9000) are silently transformed and produce a
         confident-looking prediction with no error or warning. **Fixed:** see
-        `src/inference/input_validation.py` below.
+        `src/inference/input_validation.py` below. (Note, 2026-09-24: the Stress Level=250 case
+        describes the pipeline and the historical raw-field API. Since the PSS-4 conversion, a
+        live API caller can no longer send a raw Stress Level at all — it is computed from 4
+        answers of 0-4 and is always 1-10. `validate_patient()`'s Stress Level check itself is
+        unchanged and still rejects 250 if called directly.)
       - Predicted-High rate is asymmetric under Stress Level shift: shifting it down 3 points
         nearly halves the predicted-High fraction (0.0903 → 0.0418), but shifting it up 1-3
         points changes nothing (stays at 0.0903) — not yet root-caused.
@@ -209,8 +367,13 @@ preprocessing (Phase 10) is shared between the two targets.
       done for 5-class Severity.
 
 ### Input validation (fixes a Phase 19 finding, 3-class target)
-- `src/inference/input_validation.py` — validates all 17 raw features before any prediction,
-  wired into `src/inference/predict_single.py`. Two tiers per numeric feature: `observed_min`/
+- `src/inference/input_validation.py` — validates the (now 12, originally 17, briefly 11) raw
+  features before any prediction, wired into `src/inference/predict_single.py` and
+  `src/api/main.py`. Bounds for 5 of the 6 originally-removed features (Alcohol Consumption,
+  Dizziness, Smoking, Recent Major Life Event, Medication) were deleted when those features were
+  dropped, 2026-09-22. Age's bounds were deleted at the same time, then restored later the same
+  day when Age was re-added (reusing the original justification: observed 18-64, hard 0-120,
+  outer bound of recorded human lifespan). Two tiers per numeric feature: `observed_min`/
   `observed_max` (exact CSV min/max) vs `hard_min`/`hard_max` (physically/clinically plausible
   outer bounds — real physiological limits for open-ended quantities like Heart Rate (30-220 bpm)
   and Breathing Rate (5-60), literal unit ceilings for bounded counts like Physical Activity
@@ -222,16 +385,54 @@ preprocessing (Phase 10) is shared between the two targets.
   warn tier. Verified against the exact Age=-5 / Stress Level=250 / Heart Rate=9000 style inputs
   that silently produced confident predictions in the Phase 19 robustness report — all three now
   correctly rejected.
+  - **Note, 2026-09-24 (PSS-4 conversion):** the Stress Level examples above (10.5 warns, 250
+    rejected) describe `validate_patient()` called directly, and the historical raw-field API. A
+    live API caller can no longer send either value: Stress Level is now computed from the 4
+    PSS-4 answers (`src/inference/stress_scale.py`) and is always an integer 1-10, so through
+    the API it can never trip the Stress Level warn or reject tier. The validation logic itself
+    is unchanged — the bounds are still checked, now on the computed value. The equivalent
+    API-level guard is Pydantic's 0-4 limit on each PSS answer.
 
-### Saved final model artifact (3-class target)
-- `data/processed/mindcare_final_model.pkl` — the tuned Random Forest (3-class Anxiety Level
-  target), fit once on `X_train`/`y_train` and persisted via `src/models/save_final_model.py`.
-  Verified two ways before being adopted anywhere: (1) metrics recomputed from this exact
-  artifact on `X_val` match `reports/tuning_results_3class.json`'s `random_forest.tuned_validation`
-  values exactly (accuracy, balanced accuracy, macro-F1, High recall); (2) reloading the `.pkl` in
-  a separate, fresh Python subprocess and predicting on `X_val` gives predictions identical
-  (`np.array_equal`) to predicting with the in-memory freshly-fit model. `src/inference/
-  predict_single.py` loads this saved artifact rather than refitting the model on every run.
+### Saved final model artifact (3-class target) — SUPERSEDED 2026-09-22, kept for history
+- `data/processed/mindcare_final_model.pkl` — the original 17-feature tuned Random Forest
+  (3-class Anxiety Level target), fit once on `X_train`/`y_train` and persisted via
+  `src/models/save_final_model.py`. Verified two ways before being adopted anywhere: (1)
+  metrics recomputed from this exact artifact on `X_val` match
+  `reports/tuning_results_3class.json`'s `random_forest.tuned_validation` values exactly
+  (accuracy, balanced accuracy, macro-F1, High recall); (2) reloading the `.pkl` in a separate,
+  fresh Python subprocess and predicting on `X_val` gives predictions identical
+  (`np.array_equal`) to predicting with the in-memory freshly-fit model.
+  **No longer the canonical/deployed model** — replaced 2026-09-22, first by the 11-feature
+  model below (also since superseded), then the same day by the current 12-feature model
+  (further below). File left on disk, untouched, for historical reference and reproducibility of
+  `reports/final_test_evaluation.md`; not used by `predict_single.py` or `src/api/main.py`
+  anymore.
+
+### Saved final model artifact (3-class target) — SUPERSEDED 2026-09-22 (same day), kept for history, 11 features
+- `data/processed/mindcare_final_model_11feature.pkl` — the tuned Random Forest on the reduced
+  11-feature set, fit on the 11-feature `X_train`, persisted via
+  `src/models/adopt_11feature_model.py`. Verified the same way as the artifact above: reloaded
+  from disk and confirmed to reproduce `reports/feature_reduction_3class.md`'s documented
+  validation metrics exactly (accuracy 0.7770, balanced accuracy 0.8084, macro-F1 0.8204).
+  **No longer the canonical/deployed model** — superseded the same day, 2026-09-22, when Age was
+  restored (see below). File left on disk, untouched, for historical reference and reproducibility
+  of `reports/final_test_evaluation_11feature.md`; not used by `predict_single.py` or
+  `src/api/main.py` anymore.
+
+### Saved final model artifact (3-class target) — CURRENT canonical, 12 features
+- `data/processed/mindcare_final_model_12feature.pkl` — the tuned Random Forest on the
+  11-feature set plus Age restored, fit on the 12-feature `X_train`, persisted via
+  `src/models/adopt_12feature_model.py`. Unlike the two artifacts above, this one's validation
+  metrics are **not verified against a pre-documented expected value** (this exact configuration
+  had never been run before) — instead its own run's numbers ARE the documented source of truth,
+  written to `reports/feature_addition_age_3class.md` (accuracy 0.7739, balanced accuracy 0.8062,
+  macro-F1 0.8182, recall Low/Medium/High 0.7506/0.7709/0.8970). **No test-set number exists or
+  is planned for this configuration** — see "FEATURE SET CHANGE — 2026-09-22 (THIRD change)"
+  above. Paired with `data/processed/mindcare_preprocessor_12feature.pkl` and
+  `data/processed/mindcare_processed_splits_12feature.npz` (the latter has no
+  `X_test`/`y_test`/`test_original_idx` keys — the test set was never loaded). This is what
+  `src/inference/predict_single.py` and `src/api/main.py` actually load and use — the deployed
+  model.
 
 ### Phase 16 — Uncertainty / abstention mechanism (3-class target)
 - [x] Phase 16 — done for 3-class Anxiety Level target (`src/models/uncertainty_flagging.py`,
@@ -239,6 +440,12 @@ preprocessing (Phase 10) is shared between the two targets.
       the tuned Random Forest's P(High) >= 0.10 (the ~10% marginal base rate of High), chosen
       because every prediction is already reviewed by a psychologist, so this reprioritizes
       review attention rather than gatekeeping access to review. Not yet done for 5-class Severity.
+
+### Phase 21/22 — Clinical validation comparison tool (built, no data yet)
+- [x] Clinical scoring scales and agreement metrics built in `src/evaluation/clinical_scales.py` and `src/evaluation/clinical_agreement.py`
+- [x] Unit tests in `tests/test_clinical_scales.py` (arithmetic verification only)
+- [ ] **No Hamilton score data exists in this project** — `clinical_agreement.py` has no real data to run against; do NOT fabricate or use synthetic paired data
+- [x] Tooling built, but genuinely no data to run on yet; do NOT claim these phases are "done"
 
 ## Engineering rules (non-negotiable)
 1. Never fabricate metrics — only report numbers actually computed by running code.
