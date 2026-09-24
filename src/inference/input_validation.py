@@ -1,4 +1,20 @@
-"""Input validation for the 17 MindCare features, used before any prediction.
+"""Input validation for the 12 MindCare features (canonical model as of the
+Age re-addition - see reports/feature_addition_age_3class.md), used before
+any prediction. Alcohol Consumption (drinks/week), Dizziness, Smoking,
+Recent Major Life Event, and Medication remain dropped (bottom-5 of the
+original bottom-6 by SHAP importance, no measurable performance cost -
+reports/feature_reduction_3class.md) and have no bounds here. Age was
+re-added on 2026-09-22 as a clinical/UX decision (not performance-driven);
+its bounds below reuse the original justification from before it was ever
+dropped. Caffeine Intake (mg/day)'s bounds are unchanged - they are checked
+against the *computed* mg value (see src/api/main.py's
+estimate_caffeine_mg()) rather than a raw user-entered mg figure. Likewise,
+Stress Level (1-10)'s bounds are unchanged but are checked against the value
+*computed* from the 4 PSS-4 answers (src/inference/stress_scale.py's
+estimate_stress_level()) - no caller submits a raw Stress Level any more.
+Since that function already clamps to [1, 10], the check cannot fail for a
+PSS-derived value; it stays as a guard in case a future caller bypasses the
+conversion.
 
 Two tiers per numeric feature, derived (not guessed) as follows:
 - `observed_min`/`observed_max`: the exact min/max seen in
@@ -66,11 +82,6 @@ NUMERIC_RANGES: dict[str, NumericRange] = {
         rationale="0-1200: commonly cited threshold above which caffeine intake is associated "
         "with acute toxicity in adults (vs. ~400mg/day considered a high-but-typical intake).",
     ),
-    "Alcohol Consumption (drinks/week)": NumericRange(
-        observed_min=0, observed_max=19, hard_min=0, hard_max=100,
-        rationale="0-100: generous outer self-report ceiling (~14 drinks/day average) for an "
-        "extreme but physically reportable weekly total; no stricter biological ceiling exists.",
-    ),
     "Stress Level (1-10)": NumericRange(
         observed_min=1, observed_max=10, hard_min=0, hard_max=12,
         rationale="0-12: 1-10 rating scale plus a small margin for reporting/rounding variance "
@@ -105,11 +116,7 @@ CATEGORICAL_ALLOWED: dict[str, set[str]] = {
         "Artist", "Athlete", "Chef", "Doctor", "Engineer", "Freelancer", "Lawyer",
         "Musician", "Nurse", "Other", "Scientist", "Student", "Teacher",
     },
-    "Smoking": {"Yes", "No"},
     "Family History of Anxiety": {"Yes", "No"},
-    "Dizziness": {"Yes", "No"},
-    "Medication": {"Yes", "No"},
-    "Recent Major Life Event": {"Yes", "No"},
 }
 
 ALL_FEATURES = list(NUMERIC_RANGES) + list(CATEGORICAL_ALLOWED)

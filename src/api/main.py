@@ -21,17 +21,50 @@ import joblib
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.inference.input_validation import ALL_FEATURES, InputValidationError, validate_patient
+from src.inference.stress_scale import PSS_FIELDS, PSS_ITEM_MAX, PSS_ITEM_MIN, estimate_stress_level
 
 
 ROOT = Path(__file__).resolve().parents[2]
-PREPROCESSOR_PATH = ROOT / "data" / "processed" / "mindcare_preprocessor.pkl"
-MODEL_PATH = ROOT / "data" / "processed" / "mindcare_final_model.pkl"
+MANUAL_TEST_FORM_PATH = Path(__file__).resolve().parent / "static" / "manual_test_form.html"
+# 12-feature canonical model (Age re-added, reports/feature_addition_age_3class.md) - built on top
+# of the 11-feature model (reports/feature_reduction_3class.md), which itself replaced the
+# original 17-feature model; see src/models/adopt_12feature_model.py for the build + evaluation.
+PREPROCESSOR_PATH = ROOT / "data" / "processed" / "mindcare_preprocessor_12feature.pkl"
+MODEL_PATH = ROOT / "data" / "processed" / "mindcare_final_model_12feature.pkl"
 LABEL_ENCODER_PATH = ROOT / "data" / "processed" / "mindcare_label_encoder_3class.pkl"
 
 HIGH_PROBA_THRESHOLD = 0.10  # production uncertainty-flagging rule (src/models/uncertainty_flagging.py)
+
+# Average caffeine content per serving (mg) - commonly-cited USDA/Mayo-Clinic-style figures.
+# These are population averages, not measurements: actual caffeine content varies substantially
+# by brand, brew strength, and serving size. Used only to convert a patient-friendly serving
+# count into the mg/day figure the model was actually trained on.
+COFFEE_MG_PER_CUP = 95
+TEA_MG_PER_CUP = 47
+ENERGY_DRINK_MG_PER_CAN = 80
+SODA_MG_PER_CAN = 35
+
+
+def estimate_caffeine_mg(cups_of_coffee: int, cups_of_tea: int, energy_drinks: int, cans_of_soda: int) -> float:
+    """Estimate total daily caffeine intake (mg) from serving counts.
+
+    Uses fixed average mg-per-serving figures (see module-level constants above,
+    stated explicitly since this is an approximation, not a measurement):
+    coffee ~95mg/cup, tea ~47mg/cup, energy drink ~80mg/can, soda ~35mg/can.
+    The result is fed through the same "Caffeine Intake (mg/day)" validation
+    bounds and preprocessing as before - only how the mg figure is obtained
+    from the patient has changed, not what the model receives.
+    """
+    return (
+        cups_of_coffee * COFFEE_MG_PER_CUP
+        + cups_of_tea * TEA_MG_PER_CUP
+        + energy_drinks * ENERGY_DRINK_MG_PER_CAN
+        + cans_of_soda * SODA_MG_PER_CAN
+    )
 
 # Populated once at startup (see `lifespan` below) - never reloaded per-request.
 ml_artifacts: dict[str, object] = {}
@@ -64,53 +97,73 @@ OccupationValue = Literal[
 ]
 YesNoValue = Literal["Yes", "No"]
 
+# Sane upper bound on each caffeine serving count - catches obvious data-entry errors (e.g. a
+# stray extra digit) at the schema level. Values within this range but still unusually high
+# (see estimate_caffeine_mg()) are NOT rejected here - they flow through to the same warn/reject
+# two-tier check as every other feature, applied to the computed mg total.
+MAX_SERVINGS = 20
+
 
 class PatientFeatures(BaseModel):
-    """All 17 raw feature values, using the exact column names from CLAUDE.md
-    as the JSON keys (via Field aliases)."""
+    """The 12 raw feature values the canonical model uses, using the exact
+    column names from CLAUDE.md as JSON keys (via Field aliases) - except
+    caffeine, which is collected as four patient-friendly serving counts
+    instead of a raw mg/day figure (see estimate_caffeine_mg()), and Stress
+    Level, which is collected as the 4 PSS-4 items instead of a raw 1-10
+    rating (see src/inference/stress_scale.py's estimate_stress_level()).
+
+    Age was re-added on 2026-09-22 (clinical/UX decision, see
+    reports/feature_addition_age_3class.md). Alcohol Consumption
+    (drinks/week), Dizziness, Smoking, Recent Major Life Event, and
+    Medication remain dropped (reports/feature_reduction_3class.md) and are
+    not accepted here."""
 
     model_config = ConfigDict(
         populate_by_name=True,
         json_schema_extra={
             "example": {
-                "Age": 29,
+                "Age": 34,
                 "Sleep Hours": 8.2,
                 "Physical Activity (hrs/week)": 5.5,
-                "Caffeine Intake (mg/day)": 80,
-                "Alcohol Consumption (drinks/week)": 1,
-                "Stress Level (1-10)": 2,
+                "cups_of_coffee": 1,
+                "cups_of_tea": 0,
+                "energy_drinks": 0,
+                "cans_of_soda": 0,
+                "pss_uncontrollable": 0,
+                "pss_confident": 3,
+                "pss_going_your_way": 4,
+                "pss_difficulties_piling_up": 0,
                 "Heart Rate (bpm)": 68,
                 "Breathing Rate (breaths/min)": 14,
                 "Sweating Level (1-5)": 1,
                 "Therapy Sessions (per month)": 0,
                 "Diet Quality (1-10)": 9,
                 "Occupation": "Teacher",
-                "Smoking": "No",
                 "Family History of Anxiety": "No",
-                "Dizziness": "No",
-                "Medication": "No",
-                "Recent Major Life Event": "No",
             }
         },
     )
 
-    age: float = Field(alias="Age")
+    age: int = Field(alias="Age", ge=0, le=120)
     sleep_hours: float = Field(alias="Sleep Hours")
     physical_activity_hrs_week: float = Field(alias="Physical Activity (hrs/week)")
-    caffeine_intake_mg_day: float = Field(alias="Caffeine Intake (mg/day)")
-    alcohol_consumption_drinks_week: float = Field(alias="Alcohol Consumption (drinks/week)")
-    stress_level: float = Field(alias="Stress Level (1-10)")
+    cups_of_coffee: int = Field(ge=0, le=MAX_SERVINGS)
+    cups_of_tea: int = Field(ge=0, le=MAX_SERVINGS)
+    energy_drinks: int = Field(ge=0, le=MAX_SERVINGS)
+    cans_of_soda: int = Field(ge=0, le=MAX_SERVINGS)
+    # PSS-4 items, each 0=Never ... 4=Very often, "in the last month". pss_confident and
+    # pss_going_your_way are positively worded and reverse-scored in estimate_stress_level().
+    pss_uncontrollable: int = Field(ge=PSS_ITEM_MIN, le=PSS_ITEM_MAX)
+    pss_confident: int = Field(ge=PSS_ITEM_MIN, le=PSS_ITEM_MAX)
+    pss_going_your_way: int = Field(ge=PSS_ITEM_MIN, le=PSS_ITEM_MAX)
+    pss_difficulties_piling_up: int = Field(ge=PSS_ITEM_MIN, le=PSS_ITEM_MAX)
     heart_rate_bpm: float = Field(alias="Heart Rate (bpm)")
     breathing_rate_breaths_min: float = Field(alias="Breathing Rate (breaths/min)")
     sweating_level: float = Field(alias="Sweating Level (1-5)")
     therapy_sessions_per_month: float = Field(alias="Therapy Sessions (per month)")
     diet_quality: float = Field(alias="Diet Quality (1-10)")
     occupation: OccupationValue = Field(alias="Occupation")
-    smoking: YesNoValue = Field(alias="Smoking")
     family_history_of_anxiety: YesNoValue = Field(alias="Family History of Anxiety")
-    dizziness: YesNoValue = Field(alias="Dizziness")
-    medication: YesNoValue = Field(alias="Medication")
-    recent_major_life_event: YesNoValue = Field(alias="Recent Major Life Event")
 
 
 class PredictionResponse(BaseModel):
@@ -118,6 +171,8 @@ class PredictionResponse(BaseModel):
     probabilities: dict[str, float]
     uncertainty_flag: bool
     warnings: list[str]
+    estimated_caffeine_mg: float
+    estimated_stress_level: int
 
 
 class HealthResponse(BaseModel):
@@ -125,6 +180,16 @@ class HealthResponse(BaseModel):
     model_loaded: bool
     preprocessor_loaded: bool
     label_encoder_loaded: bool
+
+
+@app.get("/form", include_in_schema=False)
+def manual_test_form() -> FileResponse:
+    """A plain HTML page for manually exercising POST /predict from a browser.
+
+    Local dev/manual-testing convenience only - not part of the documented,
+    deployed API contract (docs/api_usage.md), and not shown in the OpenAPI
+    schema (/docs, /redoc)."""
+    return FileResponse(MANUAL_TEST_FORM_PATH)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -143,6 +208,27 @@ def health() -> HealthResponse:
 @app.post("/predict", response_model=PredictionResponse)
 def predict(patient: PatientFeatures) -> PredictionResponse:
     patient_dict = patient.model_dump(by_alias=True)
+
+    # Convert the 4 patient-friendly serving counts into the single mg/day figure the
+    # model actually expects, then drop the serving-count keys so the rest of the
+    # pipeline (validation, preprocessing) is unchanged from before this feature existed.
+    caffeine_mg = estimate_caffeine_mg(
+        patient.cups_of_coffee, patient.cups_of_tea, patient.energy_drinks, patient.cans_of_soda
+    )
+    for serving_field in ("cups_of_coffee", "cups_of_tea", "energy_drinks", "cans_of_soda"):
+        patient_dict.pop(serving_field, None)
+    patient_dict["Caffeine Intake (mg/day)"] = caffeine_mg
+
+    # Same pattern for stress: the 4 PSS-4 answers become the single 1-10 Stress Level the
+    # model was trained on. The computed value (not anything user-submitted) is what
+    # validate_patient() below checks against the Stress Level (1-10) bounds.
+    stress_level = estimate_stress_level(
+        patient.pss_uncontrollable, patient.pss_confident,
+        patient.pss_going_your_way, patient.pss_difficulties_piling_up,
+    )
+    for pss_field in PSS_FIELDS:
+        patient_dict.pop(pss_field, None)
+    patient_dict["Stress Level (1-10)"] = stress_level
 
     try:
         warnings = validate_patient(patient_dict)
@@ -165,4 +251,6 @@ def predict(patient: PatientFeatures) -> PredictionResponse:
         probabilities={name: float(p) for name, p in zip(class_names, probabilities)},
         uncertainty_flag=p_high >= HIGH_PROBA_THRESHOLD,
         warnings=warnings,
+        estimated_caffeine_mg=caffeine_mg,
+        estimated_stress_level=stress_level,
     )

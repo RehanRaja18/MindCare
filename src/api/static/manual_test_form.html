@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>MindCare — Manual Prediction Test Form</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    max-width: 720px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    line-height: 1.4;
+  }
+  h1 { font-size: 1.3rem; }
+  .note {
+    background: #fff3cd;
+    color: #664d03;
+    border: 1px solid #ffe69c;
+    border-radius: 6px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.9rem;
+    margin-bottom: 1.2rem;
+  }
+  form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem 1.2rem;
+  }
+  fieldset {
+    grid-column: 1 / -1;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+  }
+  fieldset > div {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem 1.2rem;
+  }
+  label { display: block; font-size: 0.85rem; margin-bottom: 0.15rem; }
+  input, select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.35rem 0.4rem;
+    font-size: 0.95rem;
+  }
+  button {
+    grid-column: 1 / -1;
+    padding: 0.6rem;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  #result {
+    margin-top: 1.5rem;
+    border-top: 1px solid #ccc;
+    padding-top: 1rem;
+    display: none;
+  }
+  #result.visible { display: block; }
+  .predicted-class {
+    font-size: 1.4rem;
+    font-weight: bold;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    display: inline-block;
+  }
+  .predicted-class.Low { background: #d1e7dd; color: #0f5132; }
+  .predicted-class.Medium { background: #fff3cd; color: #664d03; }
+  .predicted-class.High { background: #f8d7da; color: #842029; }
+  .bar-row { display: flex; align-items: center; gap: 0.6rem; margin: 0.3rem 0; }
+  .bar-label { width: 70px; font-size: 0.85rem; }
+  .bar-track { flex: 1; background: #eee; border-radius: 4px; height: 14px; overflow: hidden; }
+  .bar-fill { height: 100%; background: #4a7dff; }
+  .bar-value { width: 55px; font-size: 0.85rem; text-align: right; }
+  .flag { font-weight: bold; }
+  .flag.yes { color: #842029; }
+  .flag.no { color: #0f5132; }
+  .warnings { color: #664d03; font-size: 0.85rem; }
+  .error { color: #842029; white-space: pre-wrap; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<h1>MindCare — Manual Prediction Test Form</h1>
+<div class="note">
+  Decision-support model only — not a diagnostic tool. Every real prediction must go through
+  psychologist review before reaching a patient. This page is a local manual-testing convenience
+  for the running dev server (<code>src/api/main.py</code>); it is not part of the documented,
+  deployed patient-facing product.
+</div>
+
+<form id="predict-form">
+  <fieldset>
+    <legend>Demographics &amp; lifestyle</legend>
+    <div>
+      <div><label for="age">Age</label><input type="number" id="age" min="0" max="120" value="30" required /></div>
+      <div><label for="sleep_hours">Sleep Hours</label><input type="number" step="0.1" id="sleep_hours" value="7" required /></div>
+      <div><label for="physical_activity">Physical Activity (hrs/week)</label><input type="number" step="0.1" id="physical_activity" value="3" required /></div>
+      <div><label for="occupation">Occupation</label>
+        <select id="occupation" required>
+          <option>Artist</option><option>Athlete</option><option>Chef</option><option>Doctor</option>
+          <option>Engineer</option><option>Freelancer</option><option>Lawyer</option><option>Musician</option>
+          <option>Nurse</option><option>Other</option><option>Scientist</option>
+          <option selected>Student</option><option>Teacher</option>
+        </select>
+      </div>
+      <div><label for="family_history">Family History of Anxiety</label>
+        <select id="family_history" required>
+          <option>No</option><option>Yes</option>
+        </select>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Caffeine (entered as servings — converted to mg server-side)</legend>
+    <div>
+      <div><label for="cups_of_coffee">Cups of coffee</label><input type="number" id="cups_of_coffee" min="0" value="1" required /></div>
+      <div><label for="cups_of_tea">Cups of tea</label><input type="number" id="cups_of_tea" min="0" value="0" required /></div>
+      <div><label for="energy_drinks">Energy drinks</label><input type="number" id="energy_drinks" min="0" value="0" required /></div>
+      <div><label for="cans_of_soda">Cans of soda</label><input type="number" id="cans_of_soda" min="0" value="0" required /></div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Stress — PSS-4, in the last month how often… (0 = Never … 4 = Very often; converted to 1-10 server-side)</legend>
+    <div>
+      <div><label for="pss_uncontrollable">…felt unable to control important things?</label><input type="number" id="pss_uncontrollable" min="0" max="4" value="2" required /></div>
+      <div><label for="pss_confident">…felt confident handling personal problems?</label><input type="number" id="pss_confident" min="0" max="4" value="2" required /></div>
+      <div><label for="pss_going_your_way">…felt things were going your way?</label><input type="number" id="pss_going_your_way" min="0" max="4" value="2" required /></div>
+      <div><label for="pss_difficulties_piling_up">…felt difficulties piling up too high to overcome?</label><input type="number" id="pss_difficulties_piling_up" min="0" max="4" value="2" required /></div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Physiological &amp; clinical</legend>
+    <div>
+      <div><label for="heart_rate">Heart Rate (bpm)</label><input type="number" id="heart_rate" value="80" required /></div>
+      <div><label for="breathing_rate">Breathing Rate (breaths/min)</label><input type="number" id="breathing_rate" value="16" required /></div>
+      <div><label for="sweating_level">Sweating Level (1-5)</label><input type="number" id="sweating_level" min="0" max="6" value="2" required /></div>
+      <div><label for="therapy_sessions">Therapy Sessions (per month)</label><input type="number" id="therapy_sessions" min="0" value="1" required /></div>
+      <div><label for="diet_quality">Diet Quality (1-10)</label><input type="number" id="diet_quality" min="0" max="12" value="6" required /></div>
+    </div>
+  </fieldset>
+
+  <button type="submit">Predict</button>
+</form>
+
+<div id="result">
+  <div id="result-body"></div>
+</div>
+
+<script>
+document.getElementById('predict-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  const payload = {
+    "Age": Number(document.getElementById('age').value),
+    "Sleep Hours": Number(document.getElementById('sleep_hours').value),
+    "Physical Activity (hrs/week)": Number(document.getElementById('physical_activity').value),
+    "cups_of_coffee": Number(document.getElementById('cups_of_coffee').value),
+    "cups_of_tea": Number(document.getElementById('cups_of_tea').value),
+    "energy_drinks": Number(document.getElementById('energy_drinks').value),
+    "cans_of_soda": Number(document.getElementById('cans_of_soda').value),
+    "pss_uncontrollable": Number(document.getElementById('pss_uncontrollable').value),
+    "pss_confident": Number(document.getElementById('pss_confident').value),
+    "pss_going_your_way": Number(document.getElementById('pss_going_your_way').value),
+    "pss_difficulties_piling_up": Number(document.getElementById('pss_difficulties_piling_up').value),
+    "Heart Rate (bpm)": Number(document.getElementById('heart_rate').value),
+    "Breathing Rate (breaths/min)": Number(document.getElementById('breathing_rate').value),
+    "Sweating Level (1-5)": Number(document.getElementById('sweating_level').value),
+    "Therapy Sessions (per month)": Number(document.getElementById('therapy_sessions').value),
+    "Diet Quality (1-10)": Number(document.getElementById('diet_quality').value),
+    "Occupation": document.getElementById('occupation').value,
+    "Family History of Anxiety": document.getElementById('family_history').value
+  };
+
+  const resultDiv = document.getElementById('result');
+  const body = document.getElementById('result-body');
+  resultDiv.classList.add('visible');
+  body.innerHTML = '<p>Predicting…</p>';
+
+  try {
+    const response = await fetch('/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      const detail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail, null, 2);
+      body.innerHTML = '<p><strong>Rejected (HTTP ' + response.status + ')</strong></p><div class="error"></div>';
+      body.querySelector('.error').textContent = detail;
+      return;
+    }
+
+    const bars = ['Low', 'Medium', 'High'].map(cls => {
+      const p = data.probabilities[cls];
+      const pct = (p * 100).toFixed(1);
+      return '<div class="bar-row">' +
+        '<div class="bar-label">' + cls + '</div>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+        '<div class="bar-value">' + pct + '%</div>' +
+        '</div>';
+    }).join('');
+
+    const warnings = data.warnings.length
+      ? '<p class="warnings"><strong>Warnings:</strong><br>' + data.warnings.join('<br>') + '</p>'
+      : '';
+
+    body.innerHTML =
+      '<p><span class="predicted-class ' + data.predicted_class + '">' + data.predicted_class + '</span></p>' +
+      bars +
+      '<p>Uncertainty flag (P(High) ≥ 0.10): <span class="flag ' + (data.uncertainty_flag ? 'yes">YES — recommend review' : 'no">no') + '</span></p>' +
+      '<p>Estimated caffeine intake: ' + data.estimated_caffeine_mg + ' mg/day</p>' +
+      '<p>Stress Level (from PSS-4): ' + data.estimated_stress_level + ' / 10</p>' +
+      warnings;
+  } catch (err) {
+    body.innerHTML = '<p class="error">Request failed: ' + err + '</p>';
+  }
+});
+</script>
+
+</body>
+</html>
