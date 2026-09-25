@@ -22,6 +22,15 @@ html {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Safety net: no page should ever scroll sideways on a phone. `clip`
+   (unlike `hidden`) doesn't create a scroll container, so sticky/fixed
+   elements and window scroll listeners keep working. */
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);

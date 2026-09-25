@@ -208,7 +208,11 @@ const TherapistRegisterPage: React.FC = () => {
                     >
                       {isDone ? <Check size={14} /> : i + 1}
                     </span>
-                    <span className={`text-sm font-semibold ${isActive || isDone ? 'text-gray-900' : 'text-gray-400'}`}>
+                    <span
+                      className={`text-sm font-semibold ${isActive ? '' : 'hidden sm:inline'} ${
+                        isActive || isDone ? 'text-gray-900' : 'text-gray-400'
+                      }`}
+                    >
                       {step.label}
                     </span>
                   </button>

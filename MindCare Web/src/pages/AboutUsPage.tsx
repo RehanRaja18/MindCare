@@ -2,15 +2,19 @@
 // MindCare — About Us Page ("Built by people who had to look for care.")
 // ============================================================
 
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { User } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import Reveal, { RevealGroup, RevealItem } from '../components/motion/Reveal';
-import { ABOUT_INTRO, ABOUT_VALUES, ABOUT_TIMELINE, TEAM_MEMBERS, HELP_EMAIL_MAILTO } from '../constants';
+import ContactModal from '../components/contact/ContactModal';
+import { ABOUT_INTRO, ABOUT_VALUES, ABOUT_TIMELINE, TEAM_MEMBERS } from '../constants';
 
 const AboutUsPage: React.FC = () => {
+  const [contactOpen, setContactOpen] = useState(false);
+  const closeContact = useCallback(() => setContactOpen(false), []);
+
   return (
     <div className="min-h-screen mc-page-glow">
       <Navbar />
@@ -107,18 +111,21 @@ const AboutUsPage: React.FC = () => {
 
           <Reveal>
           <div className="flex flex-wrap gap-3 mt-10">
-            <a
-              href={HELP_EMAIL_MAILTO}
+            <button
+              type="button"
+              onClick={() => setContactOpen(true)}
               className="bg-gray-900 text-white text-sm font-semibold px-5 py-3 rounded-full hover:bg-gray-800 transition-colors"
             >
               Contact
-            </a>
+            </button>
           </div>
           </Reveal>
         </div>
       </main>
 
       <Footer />
+
+      <ContactModal open={contactOpen} onClose={closeContact} />
     </div>
   );
 };

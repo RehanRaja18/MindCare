@@ -4,7 +4,7 @@
 // ============================================================
 
 import { API_BASE_URL } from '../constants';
-import type { SignInPayload, SignUpPayload, ApiResponse } from '../types';
+import type { SignInPayload, SignUpPayload, ApiResponse, StoryEntry, StorySubmission, ContactMessage } from '../types';
 
 // ——— Generic fetch wrapper (CSRF + auth headers ready) ———
 async function apiFetch<T>(
@@ -87,6 +87,63 @@ export async function getTherapists(): Promise<ApiResponse<{ id: string; name: s
         loading: false,
       });
     }, 600)
+  );
+}
+
+// ——— Stories ———
+// Until the backend exposes a stories endpoint, submissions are kept on this
+// device so the author sees their story (marked "awaiting review") right away.
+
+const MY_STORIES_KEY = 'mc_my_stories';
+const STORY_COLORS = ['bg-emerald-700', 'bg-rose-400', 'bg-amber-600', 'bg-violet-500', 'bg-sky-600', 'bg-orange-500'];
+
+export function getMyStories(): StoryEntry[] {
+  try {
+    const raw = localStorage.getItem(MY_STORIES_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as StoryEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function submitStory(payload: StorySubmission): Promise<ApiResponse<StoryEntry>> {
+  // TODO: return apiFetch('/stories', { method: 'POST', body: JSON.stringify(payload) });
+  const name = payload.name.trim() || 'Anonymous';
+  const story: StoryEntry = {
+    id: `my-story-${Date.now()}`,
+    quote: payload.quote.trim(),
+    name,
+    age: payload.age,
+    location: payload.location.trim(),
+    tag: payload.tag,
+    avatarInitials: `${name.charAt(0).toUpperCase()}${payload.age ? Math.floor(payload.age / 10) : ''}`,
+    avatarColor: STORY_COLORS[Math.floor(Math.random() * STORY_COLORS.length)],
+    pending: true,
+  };
+
+  return new Promise((resolve) =>
+    setTimeout(() => {
+      try {
+        localStorage.setItem(MY_STORIES_KEY, JSON.stringify([story, ...getMyStories()]));
+      } catch {
+        // Storage unavailable (private mode) — the story still shows for this visit.
+      }
+      resolve({ data: story, error: null, loading: false });
+    }, 700)
+  );
+}
+
+// ——— Contact ———
+
+export async function sendContactMessage(
+  payload: ContactMessage
+): Promise<ApiResponse<{ received: true }>> {
+  // TODO: return apiFetch('/contact', { method: 'POST', body: JSON.stringify(payload) });
+  console.info('[MindCare] sendContactMessage called with', { ...payload, message: '[redacted]' });
+
+  return new Promise((resolve) =>
+    setTimeout(() => resolve({ data: { received: true }, error: null, loading: false }), 700)
   );
 }
 
