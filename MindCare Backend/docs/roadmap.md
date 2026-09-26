@@ -32,6 +32,10 @@ Phase 1 (see @decisions.md, 2026-09-15).
 
 - **Approval-workflow endpoints** for pending psychologist and NGO accounts:
   list pending accounts, approve, reject.
+- **Credential change → re-review:** approved psychologists and NGOs can't edit
+  their credential fields (locked in Phase 2; see @decisions.md). This phase adds a
+  flow where they request a change, an admin reviews it, and on approval the new
+  values replace the old ones, alongside the approval endpoints above.
 - **Super-admin workflow:** a super-admin creates sub-admin accounts, promotes a
   sub-admin to super-admin, and may demote themselves.
 - **Invariant:** at least one super-admin must always exist. The check is done

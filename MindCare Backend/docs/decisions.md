@@ -316,3 +316,31 @@ ISO 639-1, admin-editable). The 18+ declaration (`User.adult_confirmed_at`) appl
 to **all** public registration roles.
 **Alternatives considered:** City-only service areas (forces national NGOs to list
 every city); headquarters-only location (can't represent where an NGO operates).
+
+## 2026-09-26 - Credential fields are locked after registration; Phase 2 access and API-shape choices
+**Decision:** Once registered, the fields an admin reviews for approval can't be
+changed through the API: psychologist `license_number`, `license_issuing_country`,
+`license_issuing_authority`, `qualifications`; NGO `registration_number`,
+`registration_country`, `registering_authority`, `organization_name`. A profile
+update that tries to change them is rejected. Every other field (bio, languages,
+specializations, city, service areas, etc.) stays editable. Real corrections are
+made by an admin in Django admin for now, until Phase 2.5 adds a "request credential
+change → re-review" flow (see @roadmap.md).
+**Why:** If credentials could be edited after approval, the approval would no longer
+guarantee that the credentials an admin checked are the ones on the account. Sending
+the account back to `pending` on any edit would lock working psychologists out over
+typo fixes before Phase 2.5 has the review tools to clear them quickly.
+
+**Also settled for Phase 2:**
+- **Access:** a profile can be read and edited only by its owner and by admins.
+  There is no psychologist directory for patients and no psychologist access to
+  patient profiles until Phase 3 adds the relationship-based ownership check.
+- **`/stats/public/`:** anonymous rate limiting plus a cache of about 5 minutes, so
+  an unauthenticated endpoint that counts across tables can't be used to overload
+  the database.
+- **Register request shape:** `POST /api/v1/accounts/register/` keeps its path and
+  takes a nested `profile` object whose fields depend on `role`. This is a
+  contract change both frontends must adopt.
+**Alternatives considered:** Returning to `pending` on credential edits (too harsh
+without Phase 2.5 tooling); allowing edits and only logging them (approval stops
+guaranteeing anything).
