@@ -144,3 +144,45 @@ registration — rejected for psychologist/NGO, because pending accounts can't l
 so they'd need a limited "complete your application" access state just to submit
 credentials. Creating profiles on first edit — rejected, because every later phase
 would then have to handle "no profile yet".
+
+## 2026-09-26 - Pakistan-first, open to international users from day one: hybrid location model + timezone
+**Why:** MindCare is a Pakistani hospital's product (its home market), but it is
+open to international psychologists and patients from launch, not "international
+later". Location is therefore modelled as:
+- a `Country` table of all ISO 3166-1 countries, seeded by a data migration from a
+  list stored in the repo (no new package), required on every profile;
+- a `City` table (country FK, name unique per country ignoring case), **seeded with
+  major Pakistani cities**. For other countries users type a city name, which the
+  service cleans up (trim, collapse whitespace, compare ignoring case) and matches to
+  an existing row or creates one. Remaining duplicates (abbreviations, alternative
+  spellings) are fixed by admins in Django admin.
+
+`/stats/public/`'s `cities` counts distinct `City` rows used by at least one profile.
+Every profile also stores an IANA `timezone` now, because Phase 4 schedules sessions
+across timezones and backfilling one later would be awkward. Psychologist
+credentials record the **issuing country and issuing authority** alongside the
+license number: licenses are jurisdiction-specific, and an admin can't verify one
+without knowing where it was issued.
+
+The religious content in the motivation corner (Quran / Hadith recitations and
+readings) reflects the product's Pakistan-first, Islamic identity. It stays
+**opt-in** as specified in @project-vision.md §20, which also keeps it appropriate for
+international users.
+**Alternatives considered:** Free-text city (breaks the distinct-city count and Phase
+13's region matching); a fully controlled global city list (~150k rows, needs an
+outside dataset or package); Pakistan-only controlled list (blocks international users).
+
+## 2026-09-26 - FYP defence note: data minimisation serves both HIPAA and GDPR
+**Why:** Because international patients (including EU residents) are in scope, GDPR
+applies alongside HIPAA. Several design choices already made serve both, and are
+worth stating explicitly in the FYP defence write-up:
+- **Pseudonym by default** (`is_profile_public=False`): other users see no real
+  identity unless the patient chooses otherwise (data minimisation / "minimum necessary").
+- **Admin identity access is narrow and audited**: identity only, never PHI, and every
+  reveal of a private patient's identity is logged (`identity_reveal`).
+- **PHI never in application logs**; a DB-backed PHI access audit trail is due with Phase 5.
+- **Opt-in religious-content preference**: under GDPR Art. 9 a stored preference that
+  reveals religious belief is *special category* data, so when the motivation corner
+  is built this preference must be opt-in, minimal, and treated as sensitive, not as
+  an ordinary setting.
+**Alternatives considered:** — (records existing choices for the write-up; nothing new decided).
