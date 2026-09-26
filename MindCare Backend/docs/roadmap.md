@@ -8,7 +8,7 @@ and @decisions.md for the reasoning behind scope and ordering choices.
 |-------|-------|--------|
 | 0 | Project scaffolding | Done |
 | 1 | Auth/RBAC: custom `User` model, JWT auth with rotation + blacklisting, RBAC permission classes, auth audit logging, Django admin panel for approving pending accounts | Done |
-| 2 | Patient & Psychologist profiles | Not started |
+| 2 | Patient, Psychologist & NGO profiles; patient privacy (pseudonym, `is_profile_public`, display-identity selector); `GET /stats/public/` | In progress |
 | 2.5 | Admin Management (see below) | Not started |
 | 3 | Psychologist ↔ Patient relationship (request / accept / decline) | Not started |
 | 4 | Appointments & sessions (Zoom metadata) | Not started |

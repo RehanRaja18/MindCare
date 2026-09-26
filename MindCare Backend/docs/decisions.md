@@ -116,7 +116,31 @@ means "patients with an accepted psychologist", which needs the Phase 3 relation
 model. Rather than block the endpoint, it ships now using **registered patient count
 as a temporary definition**, marked in the code as temporary. **Phase 3 must switch
 it** to patients with an accepted psychologist.
+
+**Expected early undercount in `cities` (not a bug):** psychologist and NGO profiles
+are created at registration with their city filled in, but patient profiles start
+empty and get a city only when the patient fills in their profile later (see the
+profile-creation entry below). So for a while after launch, `cities` will reflect
+psychologist/NGO locations fully and patient locations only partly. A low
+number early on is expected.
 **Alternatives considered:** Returning 0 or leaving out `people_in_care` until Phase 3
 — rejected, since the frontend already copes with 0 and an honest interim count is
 more useful; waiting on Phase 3 for the whole endpoint — rejected, as the other two
 counts don't depend on it.
+
+## 2026-09-26 - Profile creation: at registration for psychologist/NGO, auto-created empty for patients
+**Why:** Psychologist and NGO accounts are admin-approved (Phase 2.5), and an admin
+can only review real material, not just a name. So their registration request
+carries the role's credential fields (psychologist: license / qualifications; NGO:
+organisation registration details), and `register_user()` creates the `User` and
+the profile in one transaction. Patients need no approval and signup on MindCare App
+should be quick, so a patient's profile is auto-created empty at registration
+(just the pseudonym) and filled in later. Every user of these three roles therefore
+always has a profile, and later phases never have to handle a missing one.
+`NGOProfile` is pulled forward into Phase 2 (in `apps/ngo`) because of this. The
+rest of NGO onboarding stays in Phase 12.
+**Alternatives considered:** Empty profiles for everyone, filled in after
+registration — rejected for psychologist/NGO, because pending accounts can't log in,
+so they'd need a limited "complete your application" access state just to submit
+credentials. Creating profiles on first edit — rejected, because every later phase
+would then have to handle "no profile yet".
