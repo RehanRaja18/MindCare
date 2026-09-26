@@ -33,7 +33,7 @@ const AboutUsPage: React.FC = () => {
 
             <p className="text-gray-600 text-lg leading-relaxed max-w-xl mb-12">{ABOUT_INTRO}</p>
 
-            <h2 className="text-xs font-bold tracking-widest text-gray-900 uppercase mb-6">Our path so far</h2>
+            <h2 className="text-xs font-bold tracking-widest text-gray-900 uppercase mb-6">Our path</h2>
           </Reveal>
           <motion.ol
             className="space-y-6"

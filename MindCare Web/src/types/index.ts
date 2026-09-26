@@ -183,16 +183,11 @@ export interface AboutTimelineEntry {
 }
 
 // ——— Help page ———
-export interface HelpCategory {
-  id: string;
-  icon: 'users' | 'calendar' | 'file-text' | 'activity' | 'code' | 'heart';
-  title: string;
-  articleCount: number;
-}
-
 export interface HelpTopQuestion {
   id: string;
   question: string;
+  /** Paragraphs shown when the question is expanded */
+  answer: string[];
 }
 
 // ——— Pricing page ———

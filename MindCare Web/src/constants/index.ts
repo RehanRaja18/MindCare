@@ -15,7 +15,6 @@ import type {
   TherapistFeature,
   AboutValueCard,
   AboutTimelineEntry,
-  HelpCategory,
   HelpTopQuestion,
   PricingFeatureStrip,
   LegalSection,
@@ -354,7 +353,7 @@ export const THERAPIST_FOCUS_AREAS = [
 
 // ——— About Us page ———
 export const ABOUT_INTRO =
-  "We started MindCare in 2024 after watching too many friends drift through three apps, two therapists, and zero continuity. The honest answer wasn't another app — it was a steady human, supported by good technology, with the dignity to outlast the bad weeks.";
+  "We started MindCare in 2026 after watching too many friends drift through three apps, two therapists, and zero continuity. The honest answer wasn't another app — it was a steady human, supported by good technology, with the dignity to outlast the bad weeks.";
 
 export const ABOUT_VALUES: AboutValueCard[] = [
   { id: 'val-1', title: 'Slow over flashy', description: 'A year of quiet work beats a viral feature.' },
@@ -363,40 +362,83 @@ export const ABOUT_VALUES: AboutValueCard[] = [
   { id: 'val-4', title: 'Built where we live', description: 'In Urdu and English. With local NGOs.' },
 ];
 
+// Milestones only — no dates or figures that haven't happened yet.
 export const ABOUT_TIMELINE: AboutTimelineEntry[] = [
-  { id: 'tl-1', date: '2024 · Mar', description: 'Maryam and Hassan write the manifesto on a napkin.' },
-  { id: 'tl-2', date: '2024 · Sep', description: '12 founding therapists. First 30 patients.' },
-  { id: 'tl-3', date: '2025 · Feb', description: 'Aida v1 ships — therapist-shaped AI co-pilot.' },
-  { id: 'tl-4', date: '2025 · Nov', description: 'MindBand launches. NGO partnerships expand.' },
-  { id: 'tl-5', date: '2026 · May', description: '12,400 people in active care. 184 verified therapists.', current: true },
+  {
+    id: 'tl-1',
+    date: '2026 · Founded',
+    description: 'MindCare begins: one place that connects people with verified psychologists, without the stigma.',
+  },
+  {
+    id: 'tl-2',
+    date: 'Now',
+    description: 'Building the web and mobile apps on one secure backend — sessions, journaling, communities and SOS.',
+    current: true,
+  },
+  {
+    id: 'tl-3',
+    date: 'Next',
+    description: 'Aida recommendations: exercise, sleep and diet plans that reach you only after your psychologist approves them.',
+  },
+  {
+    id: 'tl-4',
+    date: 'Next',
+    description: 'MindCare Band: a wearable that shares heart-rate and breathing trends with your psychologist.',
+  },
+  {
+    id: 'tl-5',
+    date: 'Next',
+    description: 'NGO partnerships for emergency support and help for those who can’t afford care.',
+  },
 ];
 
 // ——— Help page ———
-export const HELP_POPULAR_LINKS = ['Cancel subscription', 'Switch therapist', 'Refund policy', 'Pair MindBand'];
-
-export const HELP_CATEGORIES: HelpCategory[] = [
-  { id: 'cat-1', icon: 'users', title: 'Getting started', articleCount: 18 },
-  { id: 'cat-2', icon: 'calendar', title: 'Sessions & booking', articleCount: 24 },
-  { id: 'cat-3', icon: 'file-text', title: 'Billing & refunds', articleCount: 14 },
-  { id: 'cat-4', icon: 'activity', title: 'MindBand', articleCount: 11 },
-  { id: 'cat-5', icon: 'code', title: 'Aida & privacy', articleCount: 22 },
-  { id: 'cat-6', icon: 'heart', title: 'Community & circles', articleCount: 9 },
-];
-
 export const HELP_TOP_QUESTIONS: HelpTopQuestion[] = [
-  { id: 'q-1', question: 'How do I switch my therapist?' },
-  { id: 'q-2', question: 'When am I charged for the trial?' },
-  { id: 'q-3', question: 'Can MindCare diagnose me?' },
-  { id: 'q-4', question: 'Is my data shared with my employer or insurer?' },
-  { id: 'q-5', question: 'What if I miss a session?' },
+  {
+    id: 'q-1',
+    question: 'How do I switch my therapist?',
+    answer: [
+      'You can switch any time, with no fee and no need to explain why.',
+      'In the app, choose a different verified psychologist and send them a request. Once they accept, you agree your session times with them and continue your care there.',
+    ],
+  },
+  {
+    id: 'q-2',
+    question: 'When am I charged for the trial?',
+    answer: [
+      'You aren’t. Your first 7 days are free and we don’t ask for a card to start.',
+      'Payment only begins if you choose a plan after the trial ends, and you’ll see the price before you confirm. Every payment appears in your payment history with an invoice.',
+    ],
+  },
+  {
+    id: 'q-3',
+    question: 'Can MindCare diagnose me?',
+    answer: [
+      'No. MindCare doesn’t diagnose anyone. Aida, your journal, your MindCare Band readings and your reports help your psychologist understand how you are doing, but they are not a medical diagnosis.',
+      'Clinical judgement always stays with your verified psychologist, who reviews and approves every AI recommendation before it reaches you.',
+    ],
+  },
+  {
+    id: 'q-4',
+    question: 'Is my data shared with my employer or insurer?',
+    answer: [
+      'No. We don’t share your information with your employer or insurer, we don’t sell it, and we don’t use it for ads.',
+      'Only your own psychologist can see your therapy record, notes and health data, and everything is encrypted. The one exception is an SOS emergency, when the contacts you set up yourself and partner helplines may be alerted to get you help.',
+    ],
+  },
+  {
+    id: 'q-5',
+    question: 'What if I miss a session?',
+    answer: [
+      'It happens, so don’t worry. Message your psychologist in the app and agree a new time together; sessions are always scheduled at times you both accept.',
+      'If you’re struggling and can’t wait for your next session, use SOS in the app or call our 24/7 crisis line.',
+    ],
+  },
 ];
 
 export const HELP_CRISIS_PHONE = '0311-7786264';
 export const HELP_CRISIS_PHONE_TEL = 'tel:+923117786264';
-export const HELP_EMAIL = 'help@mindcare.pk';
-export const HELP_EMAIL_MAILTO = 'mailto:help@mindcare.pk';
-
-// Official inbox for the About page "Contact" form. Leave empty until the
+// Official inbox for the About page "Contact" and Help page "Email us" form. Leave empty until the
 // team's address is live — the form still works; once this is set, sending
 // also opens the visitor's mail app with the message pre-filled to it.
 export const CONTACT_EMAIL = '';
