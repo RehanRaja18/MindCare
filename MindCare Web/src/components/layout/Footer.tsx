@@ -38,7 +38,7 @@ const Footer: React.FC = () => (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
         {/* Brand */}
         <div className="md:col-span-1">
-          <Logo className="text-white" />
+          <Logo className="text-white" onDark />
           <p className="mt-4 text-sm leading-relaxed">
             Weekly therapy, AI co-pilot, and the days between — all in one place.
           </p>

@@ -24,7 +24,7 @@ const PartnersSection: React.FC = () => (
         </p>
 
         <div
-          className="group relative flex-1 overflow-hidden py-3 [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]"
+          className="group relative w-full min-w-0 flex-1 overflow-hidden py-3 [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]"
         >
           <div className="flex w-max gap-6 sm:gap-8 animate-marquee group-hover:[animation-play-state:paused]">
             {[...PARTNERS, ...PARTNERS].map((p, i) => (

@@ -8,6 +8,7 @@ import type {
   HowItWorksStep,
   Partner,
   Stat,
+  PlatformStats,
   MoodEntry,
   StoryEntry,
   NGOPartnerEntry,
@@ -36,10 +37,11 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 // ——— Landing page stats ———
-export const HERO_STATS: Stat[] = [
-  { value: '12,400+', label: 'People in care' },
-  { value: '184', label: 'Verified therapists' },
-  { value: '14', label: 'Cities' },
+// Values are live from the backend (see usePlatformStats); only labels live here.
+export const HERO_STATS: { key: keyof PlatformStats; label: string }[] = [
+  { key: 'people_in_care', label: 'People in care' },
+  { key: 'verified_therapists', label: 'Verified therapists' },
+  { key: 'cities', label: 'Cities' },
 ];
 
 // ——— Partners ———
@@ -393,6 +395,11 @@ export const HELP_CRISIS_PHONE = '0311-7786264';
 export const HELP_CRISIS_PHONE_TEL = 'tel:+923117786264';
 export const HELP_EMAIL = 'help@mindcare.pk';
 export const HELP_EMAIL_MAILTO = 'mailto:help@mindcare.pk';
+
+// Official inbox for the About page "Contact" form. Leave empty until the
+// team's address is live — the form still works; once this is set, sending
+// also opens the visitor's mail app with the message pre-filled to it.
+export const CONTACT_EMAIL = '';
 
 // ——— Pricing page ———
 export const PRICING_PLAN = {

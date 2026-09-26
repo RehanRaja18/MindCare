@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'core/theme/app_theme.dart';
 import 'providers/onboarding_provider.dart';
 import 'providers/checkin_provider.dart';
@@ -12,6 +13,7 @@ import 'providers/user_session_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/onboarding/welcome_screen.dart';
 import 'screens/home/home_shell.dart';
+import 'screens/splash/splash_screen.dart';
 
 void main() {
   runApp(const MindCareApp());
@@ -42,17 +44,23 @@ class MindCareApp extends StatelessWidget {
             theme: AppTheme.light(),
             builder: (context, child) {
               return MediaQuery(
-                data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(settings.textScale)),
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(settings.textScale)),
                 child: child!,
               );
             },
-            home: const MobileFrame(child: WelcomeScreen()),
+            home: const MobileFrame(child: SplashScreen()),
             onGenerateRoute: (settings) {
               if (settings.name == '/home') {
-                return MaterialPageRoute(builder: (_) => const MobileFrame(child: HomeShell()));
+                return MaterialPageRoute(
+                  builder: (_) => const MobileFrame(child: HomeShell()),
+                );
               }
               if (settings.name == '/welcome') {
-                return MaterialPageRoute(builder: (_) => const MobileFrame(child: WelcomeScreen()));
+                return MaterialPageRoute(
+                  builder: (_) => const MobileFrame(child: WelcomeScreen()),
+                );
               }
               return null;
             },
@@ -82,7 +90,9 @@ class MobileFrame extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
-            boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 40, spreadRadius: 4)],
+            boxShadow: const [
+              BoxShadow(color: Colors.black54, blurRadius: 40, spreadRadius: 4),
+            ],
           ),
           child: child,
         ),

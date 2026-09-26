@@ -8,6 +8,7 @@ import { Check } from 'lucide-react';
 import { HERO_STATS } from '../../constants';
 import Reveal from '../motion/Reveal';
 import AnimatedCounter from '../motion/AnimatedCounter';
+import { usePlatformStats } from '../../hooks/usePlatformStats';
 
 const promises = [
   'A real, verified human at the center of every plan.',
@@ -16,7 +17,9 @@ const promises = [
   "If you can't afford it, our NGO partners can.",
 ];
 
-const VisionMissionSection: React.FC = () => (
+const VisionMissionSection: React.FC = () => {
+  const stats = usePlatformStats();
+  return (
   <section
     className="bg-gray-900 text-white py-24"
     aria-label="Vision, mission and our promise"
@@ -54,7 +57,7 @@ const VisionMissionSection: React.FC = () => (
             {HERO_STATS.map((s) => (
               <div key={s.label}>
                 <p className="text-2xl font-black text-white">
-                  <AnimatedCounter value={s.value} />
+                  <AnimatedCounter value={stats[s.key].toLocaleString('en-US')} />
                 </p>
                 <p className="text-xs text-gray-500 mt-1">{s.label}</p>
               </div>
@@ -95,5 +98,6 @@ const VisionMissionSection: React.FC = () => (
     </div>
   </section>
 );
+};
 
 export default VisionMissionSection;
