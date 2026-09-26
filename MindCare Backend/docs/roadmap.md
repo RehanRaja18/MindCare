@@ -37,3 +37,24 @@ Phase 1 (see @decisions.md, 2026-09-15).
 - **Invariant:** at least one super-admin must always exist. The check is done
   atomically (inside the same transaction as the demotion, with row locking) so
   two concurrent demotions cannot leave the system with zero super-admins.
+- **Credential document upload** (deferred from Phase 2, which ships text
+  credentials only): psychologists upload license / degree certificates and NGOs
+  their registration certificate, for admin review. Includes the
+  `integrations/storage_client/` integration (private object storage; Render's disk
+  is temporary), short-lived signed URLs for admin-only access, and file type and
+  size validation. Any new dependency this needs (e.g. a storage SDK) is proposed
+  for approval in this phase.
+
+## Unscheduled
+
+Features from @project-vision.md that are part of the product but **not yet
+assigned to a phase**. Listed here so they aren't lost. Assign each one a phase
+when its turn comes.
+
+- **Motivation Corner** (@project-vision.md §20): motivational quotes, messages and
+  periodic reminders, plus opt-in religious content (Quran / Hadith). The religious
+  preference is GDPR Art. 9 special-category data; see @decisions.md.
+- **AI Chat Assistant** (@project-vision.md §14): patient-side supportive chat
+  (explicitly not a replacement for a psychologist) and a more advanced
+  psychologist-side assistant. Backend side is integration with the separate AI
+  service.
