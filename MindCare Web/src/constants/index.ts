@@ -8,6 +8,7 @@ import type {
   HowItWorksStep,
   Partner,
   Stat,
+  PlatformStats,
   MoodEntry,
   StoryEntry,
   NGOPartnerEntry,
@@ -36,10 +37,11 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 // ——— Landing page stats ———
-export const HERO_STATS: Stat[] = [
-  { value: '12,400+', label: 'People in care' },
-  { value: '184', label: 'Verified therapists' },
-  { value: '14', label: 'Cities' },
+// Values are live from the backend (see usePlatformStats); only labels live here.
+export const HERO_STATS: { key: keyof PlatformStats; label: string }[] = [
+  { key: 'people_in_care', label: 'People in care' },
+  { key: 'verified_therapists', label: 'Verified therapists' },
+  { key: 'cities', label: 'Cities' },
 ];
 
 // ——— Partners ———

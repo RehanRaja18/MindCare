@@ -4,7 +4,15 @@
 // ============================================================
 
 import { API_BASE_URL } from '../constants';
-import type { SignInPayload, SignUpPayload, ApiResponse, StoryEntry, StorySubmission, ContactMessage } from '../types';
+import type {
+  SignInPayload,
+  SignUpPayload,
+  ApiResponse,
+  StoryEntry,
+  StorySubmission,
+  ContactMessage,
+  PlatformStats,
+} from '../types';
 
 // ——— Generic fetch wrapper (CSRF + auth headers ready) ———
 async function apiFetch<T>(
@@ -132,6 +140,25 @@ export async function submitStory(payload: StorySubmission): Promise<ApiResponse
       resolve({ data: story, error: null, loading: false });
     }, 700)
   );
+}
+
+// ——— Public platform stats ———
+// Backend contract: GET /stats/public/ → { people_in_care, verified_therapists, cities }
+// (aggregate counts only, no auth). Until that endpoint is live, or if it
+// fails, every count shows 0 rather than a made-up figure.
+
+export const EMPTY_PLATFORM_STATS: PlatformStats = { people_in_care: 0, verified_therapists: 0, cities: 0 };
+
+const toCount = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
+
+export async function getPlatformStats(): Promise<PlatformStats> {
+  const res = await apiFetch<Partial<PlatformStats>>('/stats/public/');
+  if (!res.data) return EMPTY_PLATFORM_STATS;
+  return {
+    people_in_care: toCount(res.data.people_in_care),
+    verified_therapists: toCount(res.data.verified_therapists),
+    cities: toCount(res.data.cities),
+  };
 }
 
 // ——— Contact ———

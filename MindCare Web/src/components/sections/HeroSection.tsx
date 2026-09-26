@@ -9,6 +9,8 @@ import { Shield, Heart, Lock, Stethoscope } from 'lucide-react';
 import Button from '../common/Button';
 import { ROUTES } from '../../constants';
 import { RevealGroup, RevealItem } from '../motion/Reveal';
+import AnimatedCounter from '../motion/AnimatedCounter';
+import { usePlatformStats } from '../../hooks/usePlatformStats';
 
 // ——— Headline word-stagger: each phrase swings and focuses into place ———
 const headlineContainer: Variants = {
@@ -92,6 +94,7 @@ const MoodCard: React.FC = () => (
 const AvatarGroup: React.FC = () => {
   const colors = ['bg-orange-400', 'bg-emerald-400', 'bg-purple-400', 'bg-blue-400'];
   const labels = ['L', 'A', 'H', 'O'];
+  const { people_in_care, cities } = usePlatformStats();
   return (
     <div className="flex items-center gap-2">
       <div className="flex -space-x-2">
@@ -106,8 +109,12 @@ const AvatarGroup: React.FC = () => {
         ))}
       </div>
       <div>
-        <p className="text-xs font-semibold text-gray-900">12,400+</p>
-        <p className="text-[10px] text-gray-500">walking the path · 14 cities</p>
+        <p className="text-xs font-semibold text-gray-900">
+          <AnimatedCounter value={people_in_care.toLocaleString('en-US')} />
+        </p>
+        <p className="text-[10px] text-gray-500">
+          walking the path · {cities.toLocaleString('en-US')} {cities === 1 ? 'city' : 'cities'}
+        </p>
       </div>
     </div>
   );
@@ -194,7 +201,7 @@ const HeroVisualBackdrop: React.FC = () => {
 };
 
 // ——— "Walking the path": a couple of small figures travelling a winding
-// route across the hero, echoing the "12,400+ walking the path" copy. Real
+// route across the hero, echoing the "walking the path" count. Real
 // motion, not just a color shift — built in plain SVG/CSS, on-theme color. ———
 const PATH_D = 'M -40 300 Q 220 120 460 240 T 900 160';
 
@@ -244,7 +251,7 @@ const HeroSection: React.FC = () => (
       {/* Eyebrow */}
       <RevealItem>
         <p className="text-xs font-semibold tracking-[0.2em] text-gray-500 uppercase mb-8">
-          Mental Care · Weekly · Since 2024
+          Mental Care · Weekly · Since 2026
         </p>
       </RevealItem>
 
