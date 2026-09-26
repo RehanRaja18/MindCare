@@ -235,3 +235,36 @@ widen the general selector. How approximate, and who in the match sees it, is fo
 Phase 11 to decide; Phase 2 only ensures the fields exist.
 **Alternatives considered:** Adding optional demographic fields to the general
 selector — rejected for the re-identification risk above.
+
+## 2026-09-26 - Adults only (18+), self-declared at registration; minors explicitly out of scope
+**Decision:** Registration requires an explicit "I confirm I am 18 or older"
+declaration. The backend rejects registration without it, and stores the time it was
+made on the account (`User.adult_confirmed_at`) so it can be audited. `date_of_birth`
+stays optional (see above), but if a patient enters one, it must show them as 18 or
+older or validation rejects it.
+
+**Why minors are out of scope** (for citation in the FYP defence):
+1. **Pakistani law.** The age of majority is 18. A minor generally can't consent to
+   treatment alone, so a psychologist could not lawfully take a minor on as a client
+   through the platform without a guardian's involvement.
+2. **GDPR parental-consent thresholds.** Since international users (including EU
+   residents) are in scope, GDPR Art. 8 requires parental consent to process a
+   child's data on the basis of consent below an age each member state sets between
+   13 and 16. Supporting that means verifying the parent and recording consent for
+   each jurisdiction.
+3. **Conflict with the privacy design.** Guardians commonly have rights to see a
+   minor's health records (as under HIPAA's parent-as-personal-representative rule).
+   That directly contradicts the promise that the patient journal belongs to the
+   patient (@project-vision.md §11) and the pseudonym-by-default identity system.
+   Supporting minors would mean redesigning both around guardian access, not
+   adding a flag.
+4. **Scope.** Doing it properly needs guardian accounts, consent records,
+   guardian-visibility rules and psychologist obligations. That's a subsystem of
+   its own, beyond the FYP timeline.
+
+Self-declaration is the standard approach for adult-only telehealth services. It is
+self-reported, which is an accepted limitation. A required date of birth would be
+equally self-reported, so it wouldn't be more reliable, and it would slow signup.
+**Alternatives considered:** Required date of birth checked to be 18+ (no more
+reliable than a declaration, and reverses the optional-DOB decision); minors with
+guardian consent (see reasons 1–4).
