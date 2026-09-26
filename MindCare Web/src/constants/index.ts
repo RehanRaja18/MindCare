@@ -16,6 +16,7 @@ import type {
   AboutValueCard,
   AboutTimelineEntry,
   HelpTopQuestion,
+  HelpGuide,
   PricingFeatureStrip,
   LegalSection,
   TeamMember,
@@ -393,13 +394,87 @@ export const ABOUT_TIMELINE: AboutTimelineEntry[] = [
 ];
 
 // ——— Help page ———
+// "Start here" guides. Patients use the mobile app; psychologists use the website.
+export const HELP_GUIDES: HelpGuide[] = [
+  {
+    id: 'patient',
+    tab: 'I’m a patient',
+    intro: 'Your care happens in the MindCare mobile app. Here’s how to get going.',
+    steps: [
+      {
+        id: 'p1',
+        title: 'Get the app',
+        where: 'Website',
+        body: 'Tap Get started on this website, then download MindCare for Android or iPhone, or scan the QR code with your phone.',
+        link: { label: 'Get the app', to: '/get-started' },
+      },
+      {
+        id: 'p2',
+        title: 'Create your account',
+        where: 'Mobile app',
+        body: 'Open the app and tap Create your account. Add your name, date of birth, gender, email, phone number, CNIC and a password. Your CNIC is only used for verification and is never shown publicly. Already registered? Tap Sign in instead.',
+      },
+      {
+        id: 'p3',
+        title: 'Tell us how you’re feeling',
+        where: 'Mobile app',
+        body: 'Pick the feelings that fit and how strong they are right now, then share a little of your story: whether you’ve seen a therapist before, any medication, and what’s been on your mind. You can skip anything. Tap Finish setup.',
+      },
+      {
+        id: 'p4',
+        title: 'Find your psychologist',
+        where: 'Mobile app',
+        body: 'Open the Care tab to browse verified psychologists. Sort and filter, open a profile, then start the 7-day free trial or choose a plan and pick a session time that suits you.',
+      },
+      {
+        id: 'p5',
+        title: 'Use MindCare between sessions',
+        where: 'Mobile app',
+        body: 'Home: check in your mood and chat with Aida. Care: your sessions, reschedules and your program. Pulse: your MindCare Band readings. Circles: peer support groups. Me: your profile, wallet and settings. The SOS button is always there if you need urgent help.',
+      },
+    ],
+  },
+  {
+    id: 'psychologist',
+    tab: 'I’m a psychologist',
+    intro: 'Psychologists join and work with patients on the MindCare website.',
+    steps: [
+      {
+        id: 't1',
+        title: 'Apply to practice',
+        where: 'Website',
+        body: 'Go to For therapists and tap Apply. The form has 4 steps: Identity (name, email, phone, password), Credentials (PMDC licence number, specialty, focus areas, degree and supporting documents), Practice (session pricing, weekly availability and languages), then Review and submit. It takes about 10 minutes.',
+        link: { label: 'Start your application', to: '/therapist/apply' },
+      },
+      {
+        id: 't2',
+        title: 'Get verified',
+        where: 'Email',
+        body: 'We check your PMDC, HEC and Verisys records, usually overnight, and a senior reviewer looks at anything flagged within about 24 hours. Once approved, you’ll get a welcome email and an onboarding call.',
+      },
+      {
+        id: 't3',
+        title: 'Sign in to your dashboard',
+        where: 'Website',
+        body: 'Once approved, sign in on the therapist sign-in page with the email and password you applied with.',
+        link: { label: 'Therapist sign in', to: '/therapist/sign-in' },
+      },
+      {
+        id: 't4',
+        title: 'Work with your patients',
+        where: 'Website',
+        body: 'Requests: accept or decline new patients. Schedule and Today: your sessions. Patients: history, notes and MindCare Band trends. Care plans: review, edit and approve Aida’s recommendations before a patient sees them. Also Messages, Reports, and Profile & availability.',
+      },
+    ],
+  },
+];
+
 export const HELP_TOP_QUESTIONS: HelpTopQuestion[] = [
   {
     id: 'q-1',
     question: 'How do I switch my therapist?',
     answer: [
-      'You can switch any time, with no fee and no need to explain why.',
-      'In the app, choose a different verified psychologist and send them a request. Once they accept, you agree your session times with them and continue your care there.',
+      'You can switch your psychologist any time you need. In the app, choose a different verified psychologist and send them a request. Once they accept, you can continue with them.',
     ],
   },
   {

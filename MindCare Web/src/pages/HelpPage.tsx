@@ -10,6 +10,7 @@ import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import Reveal from '../components/motion/Reveal';
 import ContactModal from '../components/contact/ContactModal';
+import GettingStartedGuide from '../components/help/GettingStartedGuide';
 import { HELP_TOP_QUESTIONS, HELP_CRISIS_PHONE, HELP_CRISIS_PHONE_TEL, ROUTES } from '../constants';
 
 const HelpPage: React.FC = () => {
@@ -21,16 +22,16 @@ const HelpPage: React.FC = () => {
     <div className="min-h-screen mc-page-glow">
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-24 grid grid-cols-1 lg:grid-cols-2 gap-10">
-        {/* Left column — intro + crisis support */}
-        <div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-24 space-y-10">
+        {/* Intro + crisis support */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:items-end">
           <Reveal>
             <p className="text-xs font-semibold tracking-widest text-gray-500 uppercase mb-6">Help center</p>
             <h1 className="text-4xl sm:text-6xl font-black text-gray-900 leading-[1.05] mb-6">
               How can we <span className="italic font-serif font-normal">help?</span>
             </h1>
-            <p className="text-gray-600 text-lg mb-10 max-w-md">
-              Find answers to the questions we hear most, or send us a message and our team will get back to you.
+            <p className="text-gray-600 text-lg max-w-md">
+              New here? Follow the step-by-step guide below. You can also find answers to common questions, or send us a message.
             </p>
           </Reveal>
 
@@ -62,8 +63,13 @@ const HelpPage: React.FC = () => {
           </Reveal>
         </div>
 
-        {/* Right column — top questions + email */}
-        <div>
+        {/* Start here — the main thing on this page */}
+        <Reveal>
+          <GettingStartedGuide />
+        </Reveal>
+
+        {/* Top questions + email */}
+        <div className="max-w-4xl">
           <Reveal delay={0.1}>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
               <p className="text-xs font-semibold tracking-widest text-gray-500 uppercase mb-1">Top questions</p>

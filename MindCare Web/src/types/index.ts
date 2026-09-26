@@ -183,6 +183,23 @@ export interface AboutTimelineEntry {
 }
 
 // ——— Help page ———
+export interface HelpGuideStep {
+  id: string;
+  title: string;
+  /** Where this step happens */
+  where: 'Mobile app' | 'Website' | 'Email';
+  body: string;
+  /** Optional in-site link for the step, e.g. the apply form */
+  link?: { label: string; to: string };
+}
+
+export interface HelpGuide {
+  id: 'patient' | 'psychologist';
+  tab: string;
+  intro: string;
+  steps: HelpGuideStep[];
+}
+
 export interface HelpTopQuestion {
   id: string;
   question: string;
