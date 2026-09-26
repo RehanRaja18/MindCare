@@ -12,11 +12,11 @@ void main() {
     expect(find.byType(MaterialApp), findsOneWidget);
 
     // Let the splash screen's delayed navigation fire and the fade
-    // transition settle, so no pending Timer/Ticker remains at teardown
-    // (the splash screen's own animation controllers repeat forever, so
-    // this must happen after it's been replaced).
+    // transition finish. Both screens run looping animations, so pump a
+    // fixed duration instead of pumpAndSettle (which would never settle).
+    await tester.pump(const Duration(milliseconds: 3500));
+    await tester.pump(const Duration(seconds: 1));
     await tester.pump(const Duration(seconds: 3));
-    await tester.pumpAndSettle();
 
     expect(find.text('Create your account'), findsOneWidget);
   });
