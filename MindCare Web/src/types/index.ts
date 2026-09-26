@@ -89,11 +89,29 @@ export interface StoryEntry {
   id: string;
   quote: string;
   name: string;
-  age: number;
+  age: number | null;
   location: string;
   tag: string;
   avatarInitials: string;
   avatarColor: string;
+  /** Submitted by this visitor and still awaiting moderation. */
+  pending?: boolean;
+}
+
+export interface StorySubmission {
+  name: string;
+  age: number | null;
+  location: string;
+  tag: string;
+  quote: string;
+}
+
+// ——— Contact ———
+export interface ContactMessage {
+  name: string;
+  email: string;
+  topic: string;
+  message: string;
 }
 
 // ——— For NGOs page ———

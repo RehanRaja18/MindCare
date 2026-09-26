@@ -2,7 +2,7 @@
 // MindCare — Hero Section (Screen 1)
 // ============================================================
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, type Variants } from 'framer-motion';
 import { Shield, Heart, Lock, Stethoscope } from 'lucide-react';
@@ -38,13 +38,13 @@ const AppointmentCard: React.FC = () => (
       scale: { duration: 0.6, delay: 0.5 },
       y: { duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 1.1 },
     }}
-    className="absolute top-8 right-0 bg-gray-900 text-white rounded-2xl px-5 py-4 shadow-2xl min-w-[220px] z-10"
+    className="absolute top-3 right-3 sm:top-8 sm:right-0 bg-gray-900 text-white rounded-2xl px-4 py-3 sm:px-5 sm:py-4 shadow-2xl sm:min-w-[220px] z-10"
   >
-    <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-3">
+    <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-2 sm:mb-3">
       Next · Today 5 PM
     </p>
     <div className="flex items-center gap-3">
-      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-400 to-rose-400 flex items-center justify-center">
+      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-orange-400 to-rose-400 flex items-center justify-center shrink-0">
         <Stethoscope size={16} className="text-white" aria-hidden="true" />
       </div>
       <div>
@@ -65,13 +65,13 @@ const MoodCard: React.FC = () => (
       scale: { duration: 0.6, delay: 0.7 },
       y: { duration: 6, repeat: Infinity, ease: 'easeInOut', delay: 1.3 },
     }}
-    className="absolute bottom-0 right-8 bg-white rounded-2xl px-5 py-4 shadow-xl border border-gray-100 min-w-[200px]"
+    className="absolute bottom-3 left-3 sm:left-auto sm:bottom-0 sm:right-8 bg-white rounded-2xl px-4 py-3 sm:px-5 sm:py-4 shadow-xl border border-gray-100 w-[170px] sm:w-auto sm:min-w-[200px] z-10"
   >
     <p className="text-[10px] font-semibold tracking-widest text-gray-500 uppercase mb-2">
       Mood · 14 Days
     </p>
     {/* Tiny SVG sparkline */}
-    <svg viewBox="0 0 120 30" className="w-full h-8" aria-hidden="true">
+    <svg viewBox="0 0 120 30" className="w-full h-6 sm:h-8" aria-hidden="true">
       <polyline
         points="0,20 20,18 40,22 60,14 80,16 100,10 120,12"
         fill="none"
@@ -130,12 +130,49 @@ const TrustBadges: React.FC = () => (
 );
 
 // ——— Looping meditation clip, standing in for "the work" ———
-const HeroVisualBackdrop: React.FC = () => (
+// React sets `muted` only as a property (never the attribute), which mobile
+// autoplay policies can reject — so set both and start playback ourselves,
+// retrying on the first touch/scroll or when the tab becomes visible again.
+function useMobileSafeAutoplay() {
+  const ref = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    video.muted = true;
+    video.setAttribute('muted', '');
+
+    const tryPlay = () => {
+      if (video.paused) video.play().catch(() => {});
+    };
+    const onVisible = () => document.visibilityState === 'visible' && tryPlay();
+
+    tryPlay();
+    video.addEventListener('canplay', tryPlay);
+    window.addEventListener('touchstart', tryPlay, { passive: true });
+    window.addEventListener('scroll', tryPlay, { passive: true });
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      video.removeEventListener('canplay', tryPlay);
+      window.removeEventListener('touchstart', tryPlay);
+      window.removeEventListener('scroll', tryPlay);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
+
+  return ref;
+}
+
+const HeroVisualBackdrop: React.FC = () => {
+  const videoRef = useMobileSafeAutoplay();
+  return (
   <div className="relative w-full h-full" aria-hidden="true">
     <div className="absolute inset-0 bg-gray-900 rounded-3xl overflow-hidden">
       {/* Short looping clip — poster shows instantly, video fades in once it can play */}
       <video
+        ref={videoRef}
         autoPlay
+        preload="auto"
         muted
         loop
         playsInline
@@ -153,7 +190,8 @@ const HeroVisualBackdrop: React.FC = () => (
       />
     </div>
   </div>
-);
+  );
+};
 
 // ——— "Walking the path": a couple of small figures travelling a winding
 // route across the hero, echoing the "12,400+ walking the path" copy. Real
@@ -210,12 +248,12 @@ const HeroSection: React.FC = () => (
         </p>
       </RevealItem>
 
-      <div className="grid lg:grid-cols-2 gap-12 items-center">
+      <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-center">
         {/* Left: Copy */}
         <RevealGroup stagger={0.12}>
           <motion.h1
             id="hero-heading"
-            className="text-5xl sm:text-6xl xl:text-7xl font-black text-gray-900 leading-[1.05] tracking-tight mb-8"
+            className="text-[2.75rem] sm:text-6xl xl:text-7xl font-black text-gray-900 leading-[1.05] tracking-tight mb-8"
             style={{ fontFamily: "'Inter', sans-serif" }}
             initial="hidden"
             animate="visible"
@@ -310,7 +348,7 @@ const HeroSection: React.FC = () => (
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          className="relative h-96 lg:h-[520px] hidden md:block"
+          className="relative h-[340px] sm:h-96 lg:h-[520px]"
         >
           <div className="absolute inset-0 lg:inset-8">
             <HeroVisualBackdrop />

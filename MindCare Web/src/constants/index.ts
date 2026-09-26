@@ -394,6 +394,11 @@ export const HELP_CRISIS_PHONE_TEL = 'tel:+923117786264';
 export const HELP_EMAIL = 'help@mindcare.pk';
 export const HELP_EMAIL_MAILTO = 'mailto:help@mindcare.pk';
 
+// Official inbox for the About page "Contact" form. Leave empty until the
+// team's address is live — the form still works; once this is set, sending
+// also opens the visitor's mail app with the message pre-filled to it.
+export const CONTACT_EMAIL = '';
+
 // ——— Pricing page ———
 export const PRICING_PLAN = {
   price: 'Rs 6,500',
