@@ -14,6 +14,13 @@ export interface Stat {
   label: string;
 }
 
+// Public, aggregate-only platform counts (GET /stats/public/)
+export interface PlatformStats {
+  people_in_care: number;
+  verified_therapists: number;
+  cities: number;
+}
+
 export type FeatureIcon = 'therapist' | 'aida' | 'mindband' | 'journal' | 'circles' | 'sos';
 
 export interface Feature {
