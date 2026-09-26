@@ -4,7 +4,6 @@
 
 import React from 'react';
 import { motion, type Variants } from 'framer-motion';
-import { useHashScroll } from '../hooks/useHashScroll';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import HeroSection from '../components/sections/HeroSection';
@@ -24,8 +23,6 @@ const fadeUp: Variants = {
 };
 
 const LandingPage: React.FC = () => {
-  useHashScroll();
-
   return (
   <>
     <Navbar />

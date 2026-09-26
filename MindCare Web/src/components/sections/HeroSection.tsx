@@ -200,53 +200,12 @@ const HeroVisualBackdrop: React.FC = () => {
   );
 };
 
-// ——— "Walking the path": a couple of small figures travelling a winding
-// route across the hero, echoing the "walking the path" count. Real
-// motion, not just a color shift — built in plain SVG/CSS, on-theme color. ———
-const PATH_D = 'M -40 300 Q 220 120 460 240 T 900 160';
-
-const WalkerIcon: React.FC<{ className?: string; delay: string; duration: string }> = ({
-  className,
-  delay,
-  duration,
-}) => (
-  <div
-    className={`walker absolute ${className ?? ''}`}
-    style={{
-      offsetPath: `path('${PATH_D}')`,
-      animationDelay: delay,
-      animationDuration: duration,
-    } as React.CSSProperties}
-  >
-    <svg width="22" height="30" viewBox="0 0 20 28" fill="none">
-      <circle cx="10" cy="4" r="4" fill="currentColor" />
-      <path
-        d="M10 8 L10 18 M10 12 L4 16 M10 12 L16 16 M10 18 L5 27 M10 18 L15 27"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  </div>
-);
-
-const WalkingPathMotif: React.FC = () => (
-  <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-    <svg className="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 900 400" preserveAspectRatio="none">
-      <path d={PATH_D} fill="none" stroke="#c48a5a" strokeWidth="2" strokeDasharray="2 10" strokeLinecap="round" />
-    </svg>
-    <WalkerIcon className="text-orange-500/70" delay="0s" duration="16s" />
-    <WalkerIcon className="text-rose-500/60" delay="7s" duration="16s" />
-  </div>
-);
-
 // ——— Main Hero Section ———
 const HeroSection: React.FC = () => (
   <section
     className="relative min-h-screen pt-24 pb-16 overflow-hidden"
     aria-labelledby="hero-heading"
   >
-    <WalkingPathMotif />
     <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Eyebrow */}
       <RevealItem>
