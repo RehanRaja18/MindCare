@@ -3,7 +3,8 @@
 MindCare Backend is a modular monolith: a single Django project (`config`) containing
 one Django app per product domain under `apps/`, plus two shared, non-app modules
 (`core/` and `integrations/`) used across those apps. See @docs/decisions.md for the
-reasoning behind this structure.
+reasoning behind this structure, and @docs/roadmap.md for the phased build order and
+current phase status.
 
 ## Project layout
 
@@ -13,7 +14,7 @@ apps/               One Django app per domain (see "Modules" below)
 core/               Shared, non-app code: exceptions, permissions, audit, encryption, pagination
 integrations/       Outbound clients for third-party services
 requirements/       base / dev / prod pip requirement sets
-docs/               This file, decisions.md, deployment.md
+docs/               This file, decisions.md, roadmap.md, deployment.md
 ```
 
 ## Modules (apps/)

@@ -27,9 +27,11 @@ judged out of scope for the auth/RBAC foundation task. Auth events (login, faile
 login, logout, token refresh, register) are emitted as structured JSON log lines via
 a dedicated `mindcare.audit` logger instead.
 **Alternatives considered:** A new `apps/audit` app with a DB-backed `AuditLog` model,
-queryable for a future admin security dashboard — deferred to a later task once
-there's an actual consumer (e.g. an admin-facing audit view) that needs it queryable
-rather than just captured.
+queryable for a future admin security dashboard — deferred, but with a hard
+deadline: a DB-backed audit trail for PHI access must ship before or with Phase 5
+(journals / clinical notes; see @roadmap.md), the first phase that stores PHI. This
+is not contingent on an admin-facing audit view existing first — structured log
+lines are acceptable for auth events, not for PHI access.
 
 ## 2026-09-15 - Deferred the super-admin promote/demote workflow; only the `is_super_admin` field ships now
 **Why:** The auth/RBAC foundation task needed a bootstrap mechanism for the system's
@@ -38,9 +40,19 @@ first super-admin before any admin-management endpoints exist, so `User` gets an
 The actual workflow — an existing super-admin creating sub-admin accounts, promoting
 a sub-admin to super-admin, a super-admin demoting themselves, and the invariant that
 at least one super-admin must always exist (checked atomically to avoid a race) — is
-deferred to the same future admin-management task that already owns the
+deferred to **Phase 2.5: Admin Management** (see @roadmap.md), which also owns the
 admin-approval-workflow endpoints (see the auth/RBAC design doc's Section 2 non-goals,
 `docs/superpowers/specs/2026-09-15-auth-rbac-design.md`).
 **Alternatives considered:** Building the full promote/demote workflow now — rejected
 as out of scope; the auth/RBAC task's job is the foundation (the field), not the
 admin-management feature built on top of it.
+
+## 2026-09-26 - Added Phase 2.5 (Admin Management) to the roadmap and gave the PHI audit trail a hard deadline
+**Why:** Two Phase 1 deferrals had no owner in the phase list. The super-admin
+promote/demote workflow and the admin approval endpoints now belong to Phase 2.5,
+placed right after profiles so the Django-admin approval stopgap doesn't last long.
+The DB-backed audit trail's trigger was changed from "once an admin audit view needs
+it" to "before or with Phase 5", because PHI access has to be auditable from the
+first moment PHI is stored. Both are recorded in @roadmap.md.
+**Alternatives considered:** Leaving both open-ended until a consumer showed up —
+rejected, because nothing in the roadmap would have triggered either one.
