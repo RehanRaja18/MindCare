@@ -169,30 +169,12 @@ img {
   100% { transform: translate(-5%, 3%) scale(1.08) rotate(5deg); }
 }
 
-/* "Walking the path" figures in the hero — real motion along an SVG path,
-   not just a color shift. offset-rotate: 0 keeps the figure upright rather
-   than tilting to match the path's tangent. */
-@keyframes walk-path {
-  0%   { offset-distance: 0%; opacity: 0; }
-  8%   { opacity: 1; }
-  92%  { opacity: 1; }
-  100% { offset-distance: 100%; opacity: 0; }
-}
-
-.walker {
-  offset-rotate: 0deg;
-  animation-name: walk-path;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .animate-breathe,
   .animate-marquee,
   .floating-card,
   .floating-text,
   .animate-text-shimmer,
-  .walker,
   .mc-page-glow::before,
   .mc-page-glow::after {
     animation: none;
