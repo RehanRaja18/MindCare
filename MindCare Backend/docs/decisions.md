@@ -268,3 +268,27 @@ equally self-reported, so it wouldn't be more reliable, and it would slow signup
 **Alternatives considered:** Required date of birth checked to be 18+ (no more
 reliable than a declaration, and reverses the optional-DOB decision); minors with
 guardian consent (see reasons 1–4).
+
+## 2026-09-26 - Psychologist profile fields, visibility, and a placeholder specialization list
+**Decision:** The psychologist profile is sent at registration with: license number
+(**admin-only**), issuing country, issuing authority, qualifications,
+specializations (at least one), years of experience, languages (at least one),
+country / city / timezone, and optional gender and professional bio. Everything
+except the license number is visible to patients (the Phase 3 directory). The
+consultation fee goes to Phase 9. License numbers are **unique per
+`(issuing_country, license_number)`**. A duplicate is rejected with a general error
+that doesn't confirm who holds the license.
+
+`Specialization` (and `Language`) are **DB-backed, admin-editable tables**, the same
+pattern as `City`: seeded once by a data migration, then corrected in Django admin
+with no code change or new migration. Entries are retired with an `is_active` flag,
+not deleted, so existing profiles never point to a missing row.
+
+**The seeded specialization list is a PLACEHOLDER, not a finished taxonomy.** It
+must be reviewed by an actual clinical advisor before real launch. Starter list:
+anxiety, depression, trauma / PTSD, couples / relationship, grief, addiction /
+substance use, stress management, OCD, eating disorders, sleep issues, anger
+management, family therapy.
+**Alternatives considered:** Free-text specializations (can't be filtered reliably in
+Phase 3); a `TextChoices` list baked into code (every correction becomes a code
+change plus a migration).
