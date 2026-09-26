@@ -292,3 +292,27 @@ management, family therapy.
 **Alternatives considered:** Free-text specializations (can't be filtered reliably in
 Phase 3); a `TextChoices` list baked into code (every correction becomes a code
 change plus a migration).
+
+## 2026-09-26 - NGO profile fields and country-or-city service areas
+**Decision:** The NGO profile is sent at registration with: organisation name,
+registration number (**admin-only**), registration country, registering authority,
+headquarters country / city / timezone, official phone and email (admin-only for now;
+Phase 13 decides who else sees them), optional website and description, and **at
+least one service area**. The account holder (`User.full_name`) is the NGO's
+representative, not the organisation itself. Registration numbers are **unique per
+`(registration_country, registration_number)`**, matching the psychologist license rule.
+
+A **service area** is a country plus an optional city. **No city means the whole
+country.** So a national NGO covers all of Pakistan with one row, and a local one
+lists specific cities. The service areas are what Phase 13 will match on, since it
+alerts NGOs "according to the region". Headquarters location alone would not do.
+
+**Deliberately not collected:** the kinds of emergency support an NGO offers (crisis
+line, ambulance, shelter, etc.). That belongs to Phase 13's escalation design, which
+must not be invented ahead of time.
+
+`Language` follows the `City` / `Specialization` pattern (DB-backed, seeded with
+ISO 639-1, admin-editable). The 18+ declaration (`User.adult_confirmed_at`) applies
+to **all** public registration roles.
+**Alternatives considered:** City-only service areas (forces national NGOs to list
+every city); headquarters-only location (can't represent where an NGO operates).
