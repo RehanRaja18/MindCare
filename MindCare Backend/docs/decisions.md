@@ -186,3 +186,52 @@ worth stating explicitly in the FYP defence write-up:
   is built this preference must be opt-in, minimal, and treated as sensitive, not as
   an ordinary setting.
 **Alternatives considered:** — (records existing choices for the write-up; nothing new decided).
+
+## 2026-09-26 - Phase 2 patient profile holds demographics only; no health data before the Phase 5 audit trail
+**Why:** The DB-backed PHI access audit trail is due with Phase 5 (see above), so
+Phase 2 must not store health information. The Phase 2 `PatientProfile` holds identity,
+demographics and preferences only: pseudonym, `is_profile_public`, country/city,
+timezone, and optional `date_of_birth`, `gender`, `phone_number`,
+`preferred_language`. Deliberately left out:
+- **Presenting concerns, diagnoses, medications, history.** Clinical data, so it
+  goes to Phase 5 behind the audit trail.
+- **Emergency / trusted contacts.** Third parties' personal data, collected for
+  escalation, so it moves to **Phase 13** and is designed with the emergency flow.
+- **Bio and avatar.** An avatar needs file storage (Phase 2.5); a free-text bio is
+  exactly where patients would write health details, so both are left out for now.
+
+Strictly, under HIPAA a name plus date of birth held by a healthcare provider is
+already PHI. Phase 2 follows the narrower working definition in @../CLAUDE.md (names,
+journals, clinical notes, health data) and relies on the protections already in place
+(pseudonym by default, audited admin identity access, no PHI in logs).
+**Alternatives considered:** A fuller intake profile in Phase 2 (concerns, history,
+emergency contacts) — rejected, since it would store health data and third-party
+contacts three phases before they can be audited or properly designed.
+
+## 2026-09-26 - `PatientProfile.phone_number` is a contact field, not a login identifier
+**Why:** `PatientProfile.phone_number` exists so the patient can be contacted. It is
+**not** the deferred phone-number-login feature, which is recorded here for the first
+time and is unscheduled (see @roadmap.md). Phone login has to work across every role,
+so it would need its own field on `User` (unique, verified), not on a role-specific
+profile. The two must stay separate fields: a contact number has no uniqueness or
+verification requirement, and merging them would force login rules onto a contact
+field (or the reverse). The model carries a comment saying the same.
+**Alternatives considered:** Reusing `PatientProfile.phone_number` for login later —
+rejected: patient-only, unverified, and not unique.
+
+## 2026-09-26 - Gender and date of birth never go through the general display-identity selector
+**Why:** `gender` and `date_of_birth` exist on `PatientProfile` from Phase 2, but
+`get_patient_display_identity()` (used for ordinary community content such as posts
+and comments) must **never** return them. Age + gender + city next to a pseudonym is
+a well-known re-identification combination and would undo the anonymity the pseudonym
+exists to provide.
+
+**Phase 11 design note:** the outing / volunteer-matching feature
+(@project-vision.md §24, an unscheduled Phase 11 sub-feature) has a real safety need
+to show gender and approximate age when strangers arrange to meet. It must use its
+**own narrow query**, scoped to that matching context, that exposes gender and an
+**approximate age (e.g. an age band), never the exact `date_of_birth`**. It must not
+widen the general selector. How approximate, and who in the match sees it, is for
+Phase 11 to decide; Phase 2 only ensures the fields exist.
+**Alternatives considered:** Adding optional demographic fields to the general
+selector — rejected for the re-identification risk above.

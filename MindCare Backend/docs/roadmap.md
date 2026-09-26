@@ -58,3 +58,7 @@ when its turn comes.
   (explicitly not a replacement for a psychologist) and a more advanced
   psychologist-side assistant. Backend side is integration with the separate AI
   service.
+- **Phone-number login**: logging in with a phone number instead of email, for all
+  roles. Needs its own unique, verified field on `User`. It is **not**
+  `PatientProfile.phone_number`, which is contact-only (see @decisions.md). Pairs
+  naturally with Phase 10's verification work.
