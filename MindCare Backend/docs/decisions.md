@@ -56,3 +56,67 @@ it" to "before or with Phase 5", because PHI access has to be auditable from the
 first moment PHI is stored. Both are recorded in @roadmap.md.
 **Alternatives considered:** Leaving both open-ended until a consumer showed up —
 rejected, because nothing in the roadmap would have triggered either one.
+
+## 2026-09-26 - Patient privacy: pseudonym + public flag behind one display-identity selector
+**Why:** Patients need to take part in the platform (communities, psychologist
+requests) without showing their real name to other users unless they choose to.
+Phase 2 gives `PatientProfile` an auto-generated pseudonym (`Patient-` + 6 random hex
+characters, unique, never usable for login) and `is_profile_public` (default
+`False`). A single selector in `apps/patients/selectors.py`,
+`get_patient_display_identity()`, decides which one a viewer sees: the real name if
+the profile is public, otherwise the pseudonym. The patient always sees their own real
+identity. Two hardcoded exceptions see the real name regardless of the flag:
+- **The patient's assigned psychologist.** Normal care relationship, not logged.
+- **Any admin.** This covers display identity only (name vs. pseudonym) and never
+  gives access to PHI (journals, clinical notes, health data). Every time an admin
+  resolves a *private* patient's real identity, an `identity_reveal` event is logged
+  via `mindcare.audit` (viewer id, patient id, no names).
+
+Enforcement is split across phases, and the later phases **must** use this selector
+and not reimplement the rule:
+- **Phase 3** (psychologist ↔ patient relationship) must wire the
+  assigned-psychologist exception into `get_patient_display_identity()` once the
+  relationship model exists. Until then, psychologists get the pseudonym for private
+  profiles like any other viewer.
+- **Phase 11** (communities) must show every patient's identity through this
+  selector.
+- **Phase 11's community-creator application must require `is_profile_public=True`**
+  as a precondition. A community creator's story is tied to their real identity.
+**Alternatives considered:** Per-viewer permission grants (patient chooses who sees
+their name) — more flexible, but much more complex, and a single flag plus fixed
+exceptions covers the stated need. Unlogged admin access — rejected under HIPAA's
+"minimum necessary" principle; admin identity access is kept but made auditable.
+
+## 2026-09-26 - Pseudonyms are immutable; going public is a permanent disclosure
+**Why:** Regenerating the pseudonym when a patient goes back to private would only
+partly protect them. The display identity is worked out when content is viewed, so
+anything the patient wrote while public would switch to the new pseudonym, and anyone
+who saw it before could link the two again from the content itself. Rather than
+promise a privacy reset the system can't deliver, the pseudonym never changes and the
+API contract states that switching to public is a disclosure that can't be undone:
+people who saw the real name may still recognise the patient later. The default of
+`is_profile_public=False` is the real protection.
+
+**Open question, owned by Phase 11:** should community content show the author's
+identity as of when it was posted, or as of when it is viewed? This decides whether
+a post's attribution can ever be separated from a real name, and so whether
+pseudonym regeneration could become meaningful. Phase 11 must settle it before it
+ships community posting.
+**Alternatives considered:** Regenerating the pseudonym on public → private (see
+above: partial protection that suggests more privacy than it gives); deferring the
+whole question to Phase 11 (rejected for the pseudonym itself, which later phases,
+e.g. moderation reports, may reference and so needs to be stable now).
+
+## 2026-09-26 - `GET /stats/public/` ships in Phase 2 with an interim `people_in_care`
+**Why:** MindCare Web (PR #10) already calls `GET /stats/public/` for
+`{ people_in_care, verified_therapists, cities }`, unauthenticated, and shows 0 until
+the endpoint exists. `verified_therapists` (approved psychologists) and `cities`
+(from the new profile city field) can be built fully now. `people_in_care` really
+means "patients with an accepted psychologist", which needs the Phase 3 relationship
+model. Rather than block the endpoint, it ships now using **registered patient count
+as a temporary definition**, marked in the code as temporary. **Phase 3 must switch
+it** to patients with an accepted psychologist.
+**Alternatives considered:** Returning 0 or leaving out `people_in_care` until Phase 3
+— rejected, since the frontend already copes with 0 and an honest interim count is
+more useful; waiting on Phase 3 for the whole endpoint — rejected, as the other two
+counts don't depend on it.
