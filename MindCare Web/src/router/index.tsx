@@ -10,6 +10,7 @@ import { CONSOLE_ROUTES } from '../constants/therapistConsole';
 import { ADMIN_ROUTES } from '../constants/adminConsole';
 import { TherapistAuthProvider, RequireTherapistAuth } from '../utils/authGuard';
 import { AdminAuthProvider, RequireAdminAuth } from '../utils/adminAuthGuard';
+import ScrollManager from './ScrollManager';
 
 const LandingPage = lazy(() => import('../pages/LandingPage'));
 const ClientAppPage = lazy(() => import('../pages/ClientAppPage'));
@@ -58,6 +59,7 @@ const PageLoader: React.FC = () => (
 
 const AppRouter: React.FC = () => (
   <BrowserRouter>
+    <ScrollManager />
     <TherapistAuthProvider>
       <AdminAuthProvider>
         <Suspense fallback={<PageLoader />}>

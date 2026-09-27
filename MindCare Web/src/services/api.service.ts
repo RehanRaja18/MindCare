@@ -28,6 +28,10 @@ async function apiFetch<T>(
     ...options.headers,
   };
 
+  if (!API_BASE_URL) {
+    return { data: null, error: 'API base URL is not configured (VITE_API_BASE_URL).', loading: false };
+  }
+
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
@@ -53,7 +57,7 @@ async function apiFetch<T>(
 export async function signIn(
   payload: SignInPayload
 ): Promise<ApiResponse<{ token: string; user: { id: string; name: string; role: string } }>> {
-  // TODO: replace with real call → return apiFetch('/auth/sign-in', { method: 'POST', body: JSON.stringify(payload) });
+  // TODO: replace with real call → return apiFetch('/accounts/login/', { method: 'POST', body: JSON.stringify(payload) });
   console.info('[MindCare] signIn called with', payload);
 
   // Dummy response for UI testing
@@ -71,7 +75,11 @@ export async function signIn(
 export async function signUp(
   payload: SignUpPayload
 ): Promise<ApiResponse<{ token: string; userId: string }>> {
-  // TODO: return apiFetch('/auth/sign-up', { method: 'POST', body: JSON.stringify(payload) });
+  // TODO: return apiFetch('/accounts/register/', { method: 'POST', body: JSON.stringify(payload) });
+  // TODO(backend): request BODY SHAPE IS PENDING CONFIRMATION — do not wire this
+  // up yet. The backend is finalising it; it will include a nested "profile"
+  // object that differs by role (patient / psychologist / ngo), so the current
+  // SignUpPayload will change once the exact shape is sent over.
   console.info('[MindCare] signUp called with', payload);
 
   return new Promise((resolve) =>

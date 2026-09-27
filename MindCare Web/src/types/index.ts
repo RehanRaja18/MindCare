@@ -183,16 +183,28 @@ export interface AboutTimelineEntry {
 }
 
 // ——— Help page ———
-export interface HelpCategory {
+export interface HelpGuideStep {
   id: string;
-  icon: 'users' | 'calendar' | 'file-text' | 'activity' | 'code' | 'heart';
   title: string;
-  articleCount: number;
+  /** Where this step happens */
+  where: 'Mobile app' | 'Website' | 'Email';
+  body: string;
+  /** Optional in-site link for the step, e.g. the apply form */
+  link?: { label: string; to: string };
+}
+
+export interface HelpGuide {
+  id: 'patient' | 'psychologist';
+  tab: string;
+  intro: string;
+  steps: HelpGuideStep[];
 }
 
 export interface HelpTopQuestion {
   id: string;
   question: string;
+  /** Paragraphs shown when the question is expanded */
+  answer: string[];
 }
 
 // ——— Pricing page ———
