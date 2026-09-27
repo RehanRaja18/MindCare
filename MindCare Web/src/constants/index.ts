@@ -793,6 +793,15 @@ export const COOKIE_SECTIONS: LegalSection[] = [
   },
 ];
 
-// ——— API base URL (swap to real endpoint) ———
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? 'https://api.mindcare.pk/v1';
+// ——— API base URL ———
+// The Django backend serves everything under ".../api/v1", so this must end in
+// "/api/v1" (e.g. https://<backend-host>/api/v1). It comes from VITE_API_BASE_URL:
+//   • production — set in Vercel → Project → Settings → Environment Variables,
+//     then redeploy (Vite bakes it in at build time);
+//   • local dev  — set in .env.local (see .env.example); falls back to Django's
+//     default runserver address.
+// No hardcoded production fallback: if it's unset, API calls fail fast and the
+// UI shows its empty/offline state instead of calling a wrong server.
+export const API_BASE_URL: string = (
+  import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000/api/v1' : '')
+).replace(/\/+$/, '');
