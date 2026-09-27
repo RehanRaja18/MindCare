@@ -1,7 +1,7 @@
 # Design: Phase 2 — Profiles, Patient Privacy, Reference Data, Public Stats
 
 **Date:** 2026-09-26
-**Status:** Draft — awaiting user review
+**Status:** Approved for planning (2026-09-27), including all review points in §16
 **Branch:** `backend-work`
 **Apps:** `apps/patients`, `apps/psychologists`, `apps/ngo`, new `apps/reference`,
 new `apps/stats`; changes to `apps/accounts`, `core/audit.py`, `config/`.
@@ -406,3 +406,18 @@ Per CLAUDE.md, service-layer tests come first.
 - MindCare App: public/private toggle warning copy (given to the user separately).
 - MindCare Web: `VITE_API_BASE_URL` must include `/api/v1`; the placeholder
   `/auth/sign-in`, `/auth/sign-up`, `/therapists` paths don't match backend routes.
+
+## 16. Review resolutions (approved 2026-09-27)
+
+1. **Patient timezone at registration.** `profile.timezone` is required in the
+   patient register body, sent automatically by the device (§4.2). See
+   decisions.md, 2026-09-27.
+2. **Django admin panel identity access is not logged** as `identity_reveal` in
+   Phase 2 (§5.3, known limitation). Phase 2.5's admin API must use the logged
+   selector.
+3. **`cities` counts each profile's own city** (including NGO headquarters), not NGO
+   service areas (§9).
+4. **`people_in_care` counts active patients only** (temporary until Phase 3) (§9).
+5. **The credential lock accepts unchanged values** on a full-object PATCH; only a
+   real change is rejected. License and registration numbers are normalised
+   (trimmed, upper-cased) before the uniqueness check (§6.1, §6.2, §7.1).
