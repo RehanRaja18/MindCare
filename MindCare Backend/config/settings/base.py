@@ -135,11 +135,13 @@ REST_FRAMEWORK = {
 }
 
 # django-cors-headers: lets MindCare Web call this API from a browser.
+# Only the deployed web origin here; dev.py adds the local Vite dev server.
 CORS_ALLOWED_ORIGINS = [
     "https://mind-care-web-seven.vercel.app",
-    "http://localhost:5173",
 ]
-CORS_ALLOW_CREDENTIALS = True
+# Auth is JWT bearer tokens in the Authorization header, not cookies, so
+# cross-origin requests never need credentials.
+CORS_ALLOW_CREDENTIALS = False
 
 # djangorestframework-simplejwt
 from datetime import timedelta  # noqa: E402
