@@ -344,3 +344,37 @@ typo fixes before Phase 2.5 has the review tools to clear them quickly.
 **Alternatives considered:** Returning to `pending` on credential edits (too harsh
 without Phase 2.5 tooling); allowing edits and only logging them (approval stops
 guaranteeing anything).
+
+## 2026-09-27 - Phase 6 must store the full recommendation triple, and needs separate training-use consent
+**Decision (for Phase 6, recorded now so it isn't lost):** Every AI recommendation
+record must store three things as **distinct fields**, not only the final result:
+1. **The input**: the patient data snapshot sent to the AI service to produce the
+   suggestion. A snapshot, not a live reference, because the profile and other
+   inputs will change later.
+2. **The AI's raw suggestion**, exactly as the AI service returned it.
+3. **The psychologist's final version**: approved unchanged, or modified (and
+   rejected, if Phase 6 allows rejection).
+
+**Why:** This triple (input → AI suggestion → psychologist's correction) is the
+training data for future model improvement described in @project-vision.md §13.
+If only the approved result is stored, the feedback signal (what the psychologist
+changed and why) is lost for good, and records from before the fix can't be
+reconstructed.
+
+**Consent precondition. Must be resolved before Phase 6 is built:** Using a
+patient's data to improve the model is a **different purpose** from producing a
+recommendation for that patient. The patient consent wording must cover
+future-model-improvement use **explicitly and separately** from consenting to
+receive recommendations. Under GDPR this is a separate processing purpose that needs
+its own lawful basis, and health data is special-category data (Art. 9). Under
+HIPAA, using PHI beyond treatment needs its own authorisation or de-identification.
+Patients who decline training use must still be able to receive recommendations, and
+their triples must be excluded from any training export.
+
+**Deliberately not decided now:** retraining mechanism, model versioning, evaluation
+and validation process, de-identification method for training exports, and
+deployment of retrained models. @project-vision.md §13 says these need careful
+design; they are a full design task for when Phase 6 is actually underway.
+**Alternatives considered:** Storing only the final approved recommendation, which
+loses the feedback signal permanently; treating recommendation consent as covering
+training use, which conflates two purposes and isn't defensible under GDPR or HIPAA.
