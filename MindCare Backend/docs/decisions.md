@@ -421,3 +421,20 @@ the quick-signup decision); treating unknown age as eligible (rejected; eligibil
 would then depend on missing evidence, not positive evidence); showing AI
 suggestions for over-50s with a warning (rejected; it still presents unvalidated
 model output to a psychologist as if it were valid).
+
+## 2026-09-27 - Resolved: patients send `profile.timezone` at registration, set automatically by the device
+**Decision:** The patient register request includes `profile.timezone` (required,
+IANA name). MindCare App reads it from the device, so the patient never types or
+picks it. This resolves the open question raised in the Phase 2 spec review
+(2026-09-26), where two earlier entries seemed to conflict: patient profiles are
+"auto-created empty (just the pseudonym)", while "every profile stores an IANA
+`timezone`".
+**Why:** The "quick signup" goal behind the empty patient profile was about
+**avoiding manual data entry**, not about keeping the profile empty for its own sake.
+A value filled in automatically adds no friction, so it doesn't reopen the
+empty-profile decision. Every other patient field is still filled in later by the
+patient.
+**Alternatives considered:** A server-side default of `Asia/Karachi` (a guess that
+would silently mis-schedule international patients in Phase 4); leaving it empty
+until the patient sets it (every Phase 4 scheduling path would then have to handle a
+missing timezone).
