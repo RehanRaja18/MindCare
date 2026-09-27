@@ -46,6 +46,7 @@ THIRD_PARTY_APPS = [
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
+    "corsheaders",
 ]
 
 DJANGO_APPS = [
@@ -62,6 +63,9 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    # Must sit above CommonMiddleware so CORS headers are added to every response,
+    # including CommonMiddleware's own redirects.
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -129,6 +133,13 @@ REST_FRAMEWORK = {
     },
     "NUM_PROXIES": env.int("NUM_PROXIES", default=0),
 }
+
+# django-cors-headers: lets MindCare Web call this API from a browser.
+CORS_ALLOWED_ORIGINS = [
+    "https://mind-care-web-seven.vercel.app",
+    "http://localhost:5173",
+]
+CORS_ALLOW_CREDENTIALS = True
 
 # djangorestframework-simplejwt
 from datetime import timedelta  # noqa: E402
