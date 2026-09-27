@@ -378,3 +378,46 @@ design; they are a full design task for when Phase 6 is actually underway.
 **Alternatives considered:** Storing only the final approved recommendation, which
 loses the feedback signal permanently; treating recommendation consent as covering
 training use, which conflates two purposes and isn't defensible under GDPR or HIPAA.
+
+## 2026-09-27 - Phase 6: AI-assisted recommendations only for patients aged 18–50; unknown age means manual-only
+**Decision (Phase 6 forward-note; related to the 18+ registration decision and the
+recommendation-triple entry above):** AI-assisted recommendations are limited to
+patients aged **18–50**, the population the model is trained and validated for.
+Patients over 50 register normally and use the whole platform, but get
+**psychologist-only manual recommendations**. For them the AI step is **skipped
+entirely**, not just deprioritised.
+
+**Eligibility requires positive evidence.** It depends on `date_of_birth`, which
+stays **optional** (Phase 2 decision, not reopened here). A patient with no
+`date_of_birth` on file gets the manual-only flow, the same as a patient confirmed
+to be outside 18–50. Unknown age is **never** treated as AI-eligible.
+
+**How Phase 6 must apply this:**
+- **The check runs in the backend before any call to the AI service.** An
+  ineligible patient's data is never sent to the AI service at all, not even to be
+  thrown away afterwards.
+- **Age is calculated when the recommendation is generated**, not at registration.
+  A patient who turns 51 moves to manual-only from then on. Working reading of
+  "18–50": whole years, inclusive, so eligible from the 18th birthday until the day
+  before the 51st. Confirm this when Phase 6 is designed.
+- **Each recommendation records whether AI was used and why** (e.g. `ai_used`,
+  plus a reason such as `no_date_of_birth` / `outside_validated_age_range`). For a
+  manual-only recommendation, the AI-suggestion field of the triple is empty, not
+  filled with placeholder data. This keeps the training data clean and makes the
+  gate auditable.
+- The psychologist dashboard should say *why* AI assistance isn't available for a
+  patient (e.g. "no date of birth on file"). That's a UX note for Phase 6, not a
+  backend rule.
+
+`date_of_birth` is self-reported and the patient can edit it (validated 18+ when
+set), so eligibility is only as reliable as what the patient declares. This is the
+same accepted limitation as the 18+ declaration. Under-18s remain fully out of scope
+under the 18+ registration decision; they are not a separate case here.
+**Why:** It avoids claiming the model is valid for a population outside the range
+it was trained and evaluated on. Defaulting unknown age to manual-only means a
+missing field can never quietly put a patient into an unvalidated AI flow.
+**Alternatives considered:** Making `date_of_birth` required (rejected; that reopens
+the quick-signup decision); treating unknown age as eligible (rejected; eligibility
+would then depend on missing evidence, not positive evidence); showing AI
+suggestions for over-50s with a warning (rejected; it still presents unvalidated
+model output to a psychologist as if it were valid).
