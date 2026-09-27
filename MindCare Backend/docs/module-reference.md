@@ -58,6 +58,6 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 
 | File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
 |------|-------------------|---------|--------------|--------------------|
-| `config/settings/base.py` | `CORS_ALLOWED_ORIGINS`, `CORS_ALLOW_CREDENTIALS`, `corsheaders.middleware.CorsMiddleware` | CORS configured via `django-cors-headers` (`requirements/base.txt`, 4.9.0): allows browser calls from the deployed MindCare Web origin (`https://mind-care-web-seven.vercel.app`) and the Vite dev server (`http://localhost:5173`); middleware sits above `CommonMiddleware` | all `/api/v1/` endpoints | MindCare Web |
+| `config/settings/base.py`, `dev.py`, `prod.py` | `CORS_ALLOWED_ORIGINS`, `CORS_ALLOW_CREDENTIALS`, `corsheaders.middleware.CorsMiddleware` | CORS configured via `django-cors-headers` (`requirements/base.txt`, 4.9.0). `base.py`/`prod.py` allow only the deployed MindCare Web origin (`https://mind-care-web-seven.vercel.app`; pinned explicitly in `prod.py`); `dev.py` adds the Vite dev server (`http://localhost:5173`). `CORS_ALLOW_CREDENTIALS=False` because auth is JWT bearer tokens in the `Authorization` header, not cookies. Middleware sits above `CommonMiddleware` | all `/api/v1/` endpoints | MindCare Web |
 
 <!-- Add new `### apps/<app_name>` sections below as modules are implemented. -->
