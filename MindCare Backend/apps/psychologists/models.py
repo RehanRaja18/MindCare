@@ -19,6 +19,9 @@ CREDENTIAL_FIELDS = (
     "qualifications",
 )
 
+MIN_YEARS_OF_EXPERIENCE = 0
+MAX_YEARS_OF_EXPERIENCE = 70
+
 
 class PsychologistProfile(models.Model):
     user = models.OneToOneField(
@@ -37,7 +40,7 @@ class PsychologistProfile(models.Model):
         "reference.Specialization", related_name="+"
     )
     years_of_experience = models.PositiveSmallIntegerField(
-        validators=[MaxValueValidator(70)]
+        validators=[MaxValueValidator(MAX_YEARS_OF_EXPERIENCE)]
     )
     languages = models.ManyToManyField("reference.Language", related_name="+")
     country = models.ForeignKey(

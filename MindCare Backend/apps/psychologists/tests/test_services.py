@@ -74,6 +74,34 @@ class CreatePsychologistProfileTests(TestCase):
         self.assertEqual(ctx.exception.errors, {"gender": ["Choose a valid option."]})
         self.assertEqual(PsychologistProfile.objects.count(), 0)
 
+    def test_create_with_years_of_experience_above_max_rejected(self):
+        from apps.psychologists.models import PsychologistProfile
+
+        with self.assertRaises(DomainValidationError) as ctx:
+            _create(years_of_experience=71)
+        self.assertEqual(
+            ctx.exception.errors,
+            {"years_of_experience": ["Enter a whole number of years from 0 to 70."]},
+        )
+        self.assertEqual(PsychologistProfile.objects.count(), 0)
+
+    def test_create_with_negative_years_of_experience_rejected(self):
+        from apps.psychologists.models import PsychologistProfile
+
+        with self.assertRaises(DomainValidationError) as ctx:
+            _create(years_of_experience=-1)
+        self.assertEqual(
+            ctx.exception.errors,
+            {"years_of_experience": ["Enter a whole number of years from 0 to 70."]},
+        )
+        self.assertEqual(PsychologistProfile.objects.count(), 0)
+
+    def test_create_with_years_of_experience_boundaries_accepted(self):
+        profile_low = _create(license_number="B-0", years_of_experience=0)
+        self.assertEqual(profile_low.years_of_experience, 0)
+        profile_high = _create(license_number="B-70", years_of_experience=70)
+        self.assertEqual(profile_high.years_of_experience, 70)
+
 
 class UpdatePsychologistProfileTests(TestCase):
     def setUp(self):
@@ -137,3 +165,13 @@ class UpdatePsychologistProfileTests(TestCase):
         update_psychologist_profile(profile=self.profile, gender=None)
         self.profile.refresh_from_db()
         self.assertIsNone(self.profile.gender)
+
+    def test_update_with_years_of_experience_above_max_rejected(self):
+        with self.assertRaises(DomainValidationError) as ctx:
+            update_psychologist_profile(profile=self.profile, years_of_experience=71)
+        self.assertEqual(
+            ctx.exception.errors,
+            {"years_of_experience": ["Enter a whole number of years from 0 to 70."]},
+        )
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.years_of_experience, 5)

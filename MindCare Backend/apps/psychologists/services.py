@@ -7,7 +7,12 @@ business rules themselves. Anything that mutates state belongs here.
 from django.db import IntegrityError, transaction
 
 from apps.accounts.models import Role
-from apps.psychologists.models import CREDENTIAL_FIELDS, PsychologistProfile
+from apps.psychologists.models import (
+    CREDENTIAL_FIELDS,
+    MAX_YEARS_OF_EXPERIENCE,
+    MIN_YEARS_OF_EXPERIENCE,
+    PsychologistProfile,
+)
 from apps.reference.services import (
     ensure_active_choices,
     resolve_city,
@@ -69,6 +74,19 @@ def _validate_gender(gender):
         raise DomainValidationError({"gender": ["Choose a valid option."]})
 
 
+def _validate_years_of_experience(years_of_experience):
+    if (
+        isinstance(years_of_experience, bool)
+        or not isinstance(years_of_experience, int)
+        or not (
+            MIN_YEARS_OF_EXPERIENCE <= years_of_experience <= MAX_YEARS_OF_EXPERIENCE
+        )
+    ):
+        raise DomainValidationError(
+            {"years_of_experience": ["Enter a whole number of years from 0 to 70."]}
+        )
+
+
 def create_psychologist_profile(
     *,
     user,
@@ -93,6 +111,7 @@ def create_psychologist_profile(
     ensure_active_choices(items=languages, field="languages")
     run_validator(validate_iana_timezone, timezone, field="timezone")
     _validate_gender(gender)
+    _validate_years_of_experience(years_of_experience)
 
     normalized_license = _normalize_credential("license_number", license_number)
     if PsychologistProfile.objects.filter(
@@ -150,6 +169,8 @@ def update_psychologist_profile(*, profile, **fields):
 
     if "gender" in fields:
         _validate_gender(fields["gender"])
+    if "years_of_experience" in fields:
+        _validate_years_of_experience(fields["years_of_experience"])
 
     specializations = fields.pop("specializations", None)
     languages = fields.pop("languages", None)
