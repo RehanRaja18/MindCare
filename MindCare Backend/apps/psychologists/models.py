@@ -1,3 +1,66 @@
-"""Database models for the psychologists app. No fields defined yet — scaffolding only."""
+"""Database models for the psychologists app.
 
-from django.db import models  # noqa: F401
+Credential fields are sent at registration and LOCKED afterwards: they are what
+an admin reviews for approval (docs/decisions.md, 2026-09-26). Corrections go
+through Django admin until Phase 2.5's re-review flow.
+"""
+
+from django.conf import settings
+from django.core.validators import MaxValueValidator
+from django.db import models
+
+from core.choices import Gender
+from core.validators import validate_iana_timezone
+
+CREDENTIAL_FIELDS = (
+    "license_number",
+    "license_issuing_country",
+    "license_issuing_authority",
+    "qualifications",
+)
+
+
+class PsychologistProfile(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="psychologist_profile",
+    )
+    # Admin-only; stored normalized (stripped, upper-cased).
+    license_number = models.CharField(max_length=64)
+    license_issuing_country = models.ForeignKey(
+        "reference.Country", on_delete=models.PROTECT, related_name="+"
+    )
+    license_issuing_authority = models.CharField(max_length=200)
+    qualifications = models.TextField(max_length=1000)
+    specializations = models.ManyToManyField(
+        "reference.Specialization", related_name="+"
+    )
+    years_of_experience = models.PositiveSmallIntegerField(
+        validators=[MaxValueValidator(70)]
+    )
+    languages = models.ManyToManyField("reference.Language", related_name="+")
+    country = models.ForeignKey(
+        "reference.Country", on_delete=models.PROTECT, related_name="+"
+    )
+    city = models.ForeignKey(
+        "reference.City", on_delete=models.PROTECT, related_name="+"
+    )
+    timezone = models.CharField(max_length=64, validators=[validate_iana_timezone])
+    gender = models.CharField(
+        max_length=20, choices=Gender.choices, null=True, blank=True
+    )
+    bio = models.TextField(max_length=2000, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["license_issuing_country", "license_number"],
+                name="psychologists_unique_license_per_country",
+            )
+        ]
+
+    def __str__(self):
+        return f"Psychologist profile #{self.pk}"
