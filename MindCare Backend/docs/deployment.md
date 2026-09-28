@@ -54,4 +54,3 @@ Render redeploys.
       demos or over a break) takes the database offline.
 - [ ] Merge `backend-work` so CORS (and Phase 2) reach production.
 - [ ] Celery worker as a separate Render service (first needed in Phase 7).
-- [ ] Pin `gunicorn` in `requirements/prod.txt` (currently unpinned).
