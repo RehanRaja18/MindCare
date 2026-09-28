@@ -32,10 +32,11 @@ Production backend runs on **Render**, with **Supabase** (Postgres) and
 frontend: `https://mind-care-web-seven.vercel.app`. `CORS_ALLOW_CREDENTIALS=False`
 (JWT bearer auth, no cookies). The local Vite origin is allowed only in `dev.py`.
 
-**Status (2026-09-27): not yet live.** The CORS commits are on `backend-work` and
-not merged to `main`. A preflight against the live service returned `200` with no
-`Access-Control-*` headers. CORS takes effect once `backend-work` is merged and
-Render redeploys.
+**Status:** ships with the `backend-cors-and-prod-pins` PR. Before it merged, a
+preflight against the live service (2026-09-27) returned `200` with no
+`Access-Control-*` headers. After Render redeploys, re-check that
+`OPTIONS /api/v1/accounts/login/` with `Origin: https://mind-care-web-seven.vercel.app`
+returns `Access-Control-Allow-Origin` for that origin.
 
 ### Known tradeoffs (free tier)
 
@@ -52,5 +53,5 @@ Render redeploys.
       lightweight query at least every few days, so the free-tier project is never
       paused. Not implemented yet. Until it is, a 7-day quiet period (e.g. between
       demos or over a break) takes the database offline.
-- [ ] Merge `backend-work` so CORS (and Phase 2) reach production.
+- [ ] After this PR deploys, verify the CORS preflight on the live service (see CORS above).
 - [ ] Celery worker as a separate Render service (first needed in Phase 7).
