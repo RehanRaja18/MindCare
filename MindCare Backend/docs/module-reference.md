@@ -44,6 +44,19 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 
 ---
 
+### apps/patients
+
+| File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
+|------|-------------------|---------|--------------|--------------------|
+| `apps/patients/models.py` | `PatientProfile` | Patient demographics/preferences, immutable pseudonym, `is_profile_public` (default False); no health data | — | MindCare App |
+| `apps/patients/services.py` | `create_patient_profile()` | Creates the profile at registration with a unique pseudonym (retries collisions) | via `POST /api/v1/accounts/register/` | MindCare App |
+| `apps/patients/services.py` | `update_patient_profile()` | Owner edits; rejects pseudonym changes, under-18 DOB, bad timezone/phone; resolves city | `PATCH /api/v1/patients/me/` | MindCare App |
+| `apps/patients/selectors.py` | `get_patient_profile_for_user()` | Loads the requesting patient's own profile | `GET /api/v1/patients/me/` | MindCare App |
+| `apps/patients/selectors.py` | `get_patient_display_identity()` | Single rule for real name vs pseudonym; an admin reveal of a private profile logs `identity_reveal`; Phases 3/11 must use it | — (no endpoint in Phase 2) | MindCare Web, MindCare App (Phase 3+) |
+| `apps/patients/api/views.py` | `MyPatientProfileView` | Owner-only read/update of the patient profile | `GET`/`PATCH /api/v1/patients/me/` | MindCare App |
+
+---
+
 ### apps/reference
 
 | File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
