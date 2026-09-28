@@ -8,14 +8,13 @@ import { Eye, EyeOff, ArrowRight } from 'lucide-react';
 import Logo from '../components/common/Logo';
 import Button from '../components/common/Button';
 import { ROUTES, THERAPIST_LOGIN_TESTIMONIAL, THERAPIST_WAITING_ITEMS } from '../constants';
-import { CONSOLE_ROUTES } from '../constants/therapistConsole';
-import { validateEmailOrPmdcId, validatePasswordForSignIn, MAX_LENGTHS } from '../utils/validation';
-import { useTherapistAuth } from '../utils/authGuard';
+import { validateEmail, validatePasswordForSignIn, MAX_LENGTHS } from '../utils/validation';
+import { useAuth, homeForRole } from '../utils/auth';
 import type { TherapistLoginPayload } from '../types';
 
 const TherapistLoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login } = useTherapistAuth();
+  const { signIn } = useAuth();
   const [form, setForm] = useState<TherapistLoginPayload>({
     identifier: '',
     password: '',
@@ -24,7 +23,8 @@ const TherapistLoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [attempts, setAttempts] = useState(0);
+  // Render's free tier can take ~50s to wake up — say so instead of looking stuck.
+  const [slow, setSlow] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -32,27 +32,18 @@ const TherapistLoginPage: React.FC = () => {
     setError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
 
-    // Basic client-side UX guard only — the real rate limit,
-    // account lockout, and credential check MUST happen server-side.
-    if (attempts >= 5) {
-      setError('Too many attempts. Please wait a moment and try again, or reset your password.');
+    const email = form.identifier.trim().toLowerCase();
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setError(emailError);
       return;
     }
-
-    const identifier = form.identifier.trim();
-
-    const identifierError = validateEmailOrPmdcId(identifier);
-    if (identifierError) {
-      setError(identifierError);
-      return;
-    }
-
-    // Sign-in uses the lighter length-only check — existing accounts
-    // predate any policy change, so this only rejects clearly invalid
-    // input, not passwords that don't meet the current signup bar.
+    // Length-only check — the backend owns the real credential check,
+    // rate limiting (5/min) and lockout.
     const passwordError = validatePasswordForSignIn(form.password);
     if (passwordError) {
       setError(passwordError);
@@ -60,18 +51,18 @@ const TherapistLoginPage: React.FC = () => {
     }
 
     setLoading(true);
-    setAttempts((prev) => prev + 1);
-    // TODO: wire to real auth service — send over HTTPS only, never log
-    // the password, and let the backend own rate limiting + lockout.
-    window.setTimeout(() => {
-      setLoading(false);
-      const success = login(identifier, form.password);
-      if (success) {
-        navigate(CONSOLE_ROUTES.TODAY, { replace: true });
-      } else {
-        setError('Sign-in failed. Please check your details and try again.');
-      }
-    }, 800);
+    setError(null);
+    const slowTimer = window.setTimeout(() => setSlow(true), 6000);
+    const result = await signIn(email, form.password, { remember: form.keepSignedIn });
+    window.clearTimeout(slowTimer);
+    setSlow(false);
+    setLoading(false);
+
+    if (result.ok) {
+      navigate(homeForRole(result.session.role), { replace: true });
+    } else {
+      setError(result.error); // backend message as-is (e.g. "pending admin approval")
+    }
   };
 
   return (
@@ -97,16 +88,17 @@ const TherapistLoginPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div>
               <label htmlFor="identifier" className="block text-xs font-semibold text-gray-700 mb-1.5">
-                Email or PMDC ID
+                Email
               </label>
               <input
                 id="identifier"
                 name="identifier"
-                type="text"
+                type="email"
+                inputMode="email"
                 value={form.identifier}
                 onChange={handleChange}
                 placeholder="tariq.mahmood@mindcare.pk"
-                autoComplete="username"
+                autoComplete="email"
                 maxLength={MAX_LENGTHS.email}
                 spellCheck={false}
                 className="w-full px-4 py-3.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
@@ -164,6 +156,11 @@ const TherapistLoginPage: React.FC = () => {
             <Button type="submit" variant="primary" size="lg" fullWidth loading={loading}>
               Sign in <ArrowRight size={16} aria-hidden="true" />
             </Button>
+            {slow && (
+              <p className="text-xs text-gray-500 text-center -mt-2" aria-live="polite">
+                Waking up the server, this can take up to a minute…
+              </p>
+            )}
 
             <div className="flex items-center gap-3 py-1">
               <span className="flex-1 h-px bg-gray-200" />

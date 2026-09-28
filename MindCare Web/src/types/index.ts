@@ -88,6 +88,8 @@ export interface SignUpPayload {
 export interface ApiResponse<T> {
   data: T | null;
   error: string | null;
+  /** HTTP status (0 = network failure); absent on local stubs */
+  status?: number;
   loading: boolean;
 }
 

@@ -13,7 +13,7 @@ import QRCode from '../components/mockup/QRCode';
 import Button from '../components/common/Button';
 import Reveal from '../components/motion/Reveal';
 import { ROUTES } from '../constants';
-import { signIn } from '../services/api.service';
+import { requestAppLink } from '../services/api.service';
 
 // ——— Email capture form (dummy flow for data testing) ———
 const EmailLinkForm: React.FC = () => {
@@ -29,8 +29,8 @@ const EmailLinkForm: React.FC = () => {
     setLoading(true);
     setError(null);
 
-    // Dummy API call — replace with real endpoint later
-    const result = await signIn({ email, password: 'app-link-request' });
+
+    const result = await requestAppLink(email);
 
     setLoading(false);
     if (result.error) {
