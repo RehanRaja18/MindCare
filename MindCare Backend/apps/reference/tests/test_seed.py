@@ -22,8 +22,8 @@ class SeedDataTests(TestCase):
             self.assertTrue(Country.objects.filter(code=code).exists(), code)
 
     def test_languages_seeded_and_active(self):
-        self.assertEqual(Language.objects.count(), len(_load("languages.json")))
-        self.assertGreaterEqual(Language.objects.count(), 180)
+        self.assertEqual(Language.objects.count(), 183)
+        self.assertFalse(Language.objects.filter(code="bh").exists())
         for code in ["en", "ur", "ar", "pa", "ps", "sd", "fa", "hi", "zh"]:
             self.assertTrue(
                 Language.objects.filter(code=code, is_active=True).exists(), code
