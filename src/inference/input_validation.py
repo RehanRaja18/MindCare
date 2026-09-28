@@ -44,6 +44,18 @@ range is allowed through with a warning (valid but untested territory for
 this model). Categorical features are closed sets (exact values observed in
 the training data); anything else is rejected - there is no "unusual but
 valid" tier for a fixed category list.
+
+Separately from those tiers, Age must fall in the model's supported range,
+ELIGIBLE_AGE_MIN-ELIGIBLE_AGE_MAX (18-49, decided 2026-09-27). These are
+scope rules, not plausibility bounds, and the two sides are handled
+differently (decided 2026-09-28):
+- Under 18: minors may not register for MindCare at all - the web app's
+  registration must block them. A request reaching this model with Age < 18
+  means that check failed; it is rejected as "not eligible for MindCare",
+  with no referral (UNDER_AGE_RATIONALE).
+- Over 49: adults 50+ may use MindCare but get no AI pre-assessment; the
+  request is rejected with an error telling the caller to refer the person
+  directly to a psychologist (OVER_AGE_RATIONALE).
 """
 
 from __future__ import annotations
@@ -121,6 +133,18 @@ CATEGORICAL_ALLOWED: dict[str, set[str]] = {
 
 ALL_FEATURES = list(NUMERIC_RANGES) + list(CATEGORICAL_ALLOWED)
 
+# Supported age range for AI pre-assessment (inclusive). Outside it the model is not used at all.
+ELIGIBLE_AGE_MIN = 18
+ELIGIBLE_AGE_MAX = 49
+UNDER_AGE_RATIONALE = (
+    "the training data contains no one under 18, and physiological norms and consent rules "
+    "differ for minors"
+)
+OVER_AGE_RATIONALE = (
+    "in the training data the High-anxiety rate drops from 12-15% below age 50 to about 1% from "
+    "50 on (a dataset artifact), so the model systematically lowers P(High) for older users"
+)
+
 
 def validate_patient(patient: dict) -> list[str]:
     """Validate one patient's raw feature dict.
@@ -128,7 +152,8 @@ def validate_patient(patient: dict) -> list[str]:
     Returns a list of human-readable warnings for values that are valid but
     outside the training data's observed range. Raises InputValidationError
     (listing every violation found, not just the first) if any feature is
-    missing or physically/logically impossible.
+    missing or physically/logically impossible, or if Age is outside the
+    supported ELIGIBLE_AGE_MIN-ELIGIBLE_AGE_MAX range.
     """
     errors: list[str] = []
     warnings: list[str] = []
@@ -154,6 +179,26 @@ def validate_patient(patient: dict) -> list[str]:
                 f"{feature}={value} is outside the training data's observed range "
                 f"[{bounds.observed_min}, {bounds.observed_max}] - plausible, but this model has "
                 f"never seen a value like this; treat the prediction with extra caution."
+            )
+
+    # Eligibility, checked only for a plausible numeric Age (an impossible one is already an error above).
+    age = patient.get("Age")
+    age_bounds = NUMERIC_RANGES["Age"]
+    if (
+        isinstance(age, (int, float)) and not isinstance(age, bool)
+        and age_bounds.hard_min <= age <= age_bounds.hard_max
+    ):
+        if age < ELIGIBLE_AGE_MIN:
+            errors.append(
+                f"Age={age} is under {ELIGIBLE_AGE_MIN} - not eligible for MindCare (adults only; "
+                f"registration should have blocked this user). No prediction is made "
+                f"({UNDER_AGE_RATIONALE})."
+            )
+        elif age > ELIGIBLE_AGE_MAX:
+            errors.append(
+                f"Age={age} is outside the supported range for AI pre-assessment "
+                f"[{ELIGIBLE_AGE_MIN}, {ELIGIBLE_AGE_MAX}] - no prediction is made; refer this person "
+                f"directly to a psychologist ({OVER_AGE_RATIONALE})."
             )
 
     for feature, allowed in CATEGORICAL_ALLOWED.items():

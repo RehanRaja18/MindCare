@@ -60,7 +60,7 @@ Stress Level is collected as the four PSS-4 questionnaire answers instead of a r
 
 | JSON key | Type | Valid values |
 |---|---|---|
-| `Age` | integer | 0–120 |
+| `Age` | integer | **18–49 supported** (0–120 accepted by the schema; anything outside 18–49 is rejected — see "Supported age range" below) |
 | `Sleep Hours` | number | — |
 | `Physical Activity (hrs/week)` | number | — |
 | `cups_of_coffee` | integer | 0–20 |
@@ -83,6 +83,33 @@ All 18 fields above are required. Numeric fields may be sent as JSON integers or
 accepted); `Age`, the 4 caffeine fields, and the 4 PSS fields must be whole numbers. A raw
 `Stress Level (1-10)` key is **no longer accepted as input** — if an older integration still
 sends it, it is silently ignored and the value computed from the PSS answers is used instead.
+
+#### Supported age range: 18–49
+
+The model only makes a prediction for ages **18 to 49 inclusive**. Any other age returns
+**HTTP 422**, but the two sides mean different things for the platform (decided 2026-09-28):
+
+| Age | Platform rule | 422 `detail` says | What the calling system should do |
+|---|---|---|---|
+| Under 18 | **Cannot register for MindCare at all** | `Age=… is under 18 - not eligible for MindCare (adults only; registration should have blocked this user)` | Nothing to route — this should never happen. It means the web app's registration age check failed; treat it as a bug to fix there. |
+| 18–49 | Normal use | — (HTTP 200, prediction returned) | Send the prediction to psychologist review as usual. |
+| 50 and over | **Can register**, but gets no AI pre-assessment | `Age=… is outside the supported range for AI pre-assessment [18, 49] - … refer this person directly to a psychologist` | Redirect the user straight to a psychologist. |
+
+The **under-18 block belongs in the web app's registration**. This API only has a backstop
+check, and it deliberately does *not* suggest a psychologist referral for minors, because they
+shouldn't be on the platform at all.
+
+- **Why under 18:** the training data contains no one under 18, and physiological norms (heart
+  rate, breathing rate) and consent rules differ for minors.
+- **Why 50 and over:** these ages are in the training data, but the share of High-anxiety cases
+  drops from 12–15% below age 50 to about 1% from 50 on. That's almost certainly an artifact of
+  a very likely synthetic dataset. The model has learned it: for otherwise identical people,
+  mean P(High) falls from 0.90 at age 49 to 0.63 at 55, and the priority-review flag switches
+  off for some borderline cases. The biggest risk is missing High anxiety in older users, so
+  the model is not used for them.
+
+This is a scope limit set by the training data, not a clinical rule. It could be revisited with
+real data that covers these ages.
 
 #### Caffeine: serving counts, not milligrams
 
@@ -161,9 +188,13 @@ caffeine mg value and the *computed* Stress Level, not the raw serving counts or
   is attempted. Response is **HTTP 422** with a `detail` string listing every violation found.
   (A PSS-derived Stress Level is always 1–10 by construction, so it can never trip this check;
   the check stays in place as a guard.)
+- **Outside the supported age range**: **rejected with HTTP 422** as well, with a different
+  message per side. `Age: 16` → "not eligible for MindCare", with no referral (registration
+  should have blocked them). `Age: 55` → "refer this person directly to a psychologist". See
+  "Supported age range" above.
 - **Valid, but outside what the training data ever contained** (e.g. **8 cups of coffee =
-  760mg**, above the observed 0-599mg training range but below the 1200mg hard cutoff, or
-  `Age: 70`, above the observed 18-64 range): the request **proceeds normally**, but the
+  760mg**, above the observed 0-599mg training range but below the 1200mg hard cutoff): the
+  request **proceeds normally**, but the
   response's `warnings` array is non-empty, flagging exactly which field(s) are in untested
   territory.
 - **Malformed JSON, wrong type, an `Occupation`/`Yes`-`No` value not in the allowed list, a
@@ -304,5 +335,7 @@ This model has documented weaknesses that matter for how a caller should treat i
   trained on an unanchored 1–10 self-rating, not PSS scores. Since Stress Level is the model's
   single most important feature, any mismatch between the two scales feeds directly into
   predictions.
+- **Ages 18–49 only.** Requests for anyone else are rejected (see "Supported age range"). The web
+  app must block under-18s at registration, and send users 50+ straight to a psychologist.
 - This is a prototype/research model on a very likely synthetic dataset — never represent its
   output as clinically validated, and never let it bypass psychologist review.

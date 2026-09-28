@@ -116,7 +116,14 @@ class PatientFeatures(BaseModel):
     reports/feature_addition_age_3class.md). Alcohol Consumption
     (drinks/week), Dizziness, Smoking, Recent Major Life Event, and
     Medication remain dropped (reports/feature_reduction_3class.md) and are
-    not accepted here."""
+    not accepted here.
+
+    Age's schema bound (0-120) only catches impossible values. The supported
+    range for a prediction is narrower, 18-49 (decided 2026-09-27), and is
+    enforced by validate_patient(), with a 422 whose message differs by side
+    (decided 2026-09-28): under 18 = not eligible for MindCare at all
+    (registration should have blocked them); 50+ = refer the person directly
+    to a psychologist."""
 
     model_config = ConfigDict(
         populate_by_name=True,

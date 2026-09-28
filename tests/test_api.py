@@ -277,3 +277,36 @@ def test_age_out_of_range_is_rejected(client: TestClient) -> None:
     print(f"status: {response.status_code}")
     print(json.dumps(response.json(), indent=2))
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize("age", [0, 16, 17])
+def test_under_18_is_rejected_as_not_eligible(client: TestClient, age: int) -> None:
+    """Minors may not register for MindCare at all (decided 2026-09-28), so a
+    minor reaching the model means the web app's registration check failed.
+    422, "not eligible", and deliberately NO psychologist referral."""
+    response = client.post("/predict", json={**API_PATIENTS["ambiguous_moderate"], "Age": age})
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert f"Age={age} is under 18 - not eligible for MindCare" in detail
+    assert "psychologist" not in detail
+
+
+@pytest.mark.parametrize("age", [50, 55, 64, 120])
+def test_over_49_is_rejected_with_psychologist_referral(client: TestClient, age: int) -> None:
+    """Adults 50+ may use MindCare but get no AI pre-assessment (the training
+    data has almost no High cases from 50 on) - 422 telling the caller to
+    refer them directly to a psychologist. 50-64 were accepted before the
+    2026-09-27 age rule (inside the observed range), so they are covered
+    explicitly."""
+    response = client.post("/predict", json={**API_PATIENTS["ambiguous_moderate"], "Age": age})
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert f"Age={age} is outside the supported range for AI pre-assessment [18, 49]" in detail
+    assert "refer this person directly to a psychologist" in detail
+
+
+@pytest.mark.parametrize("age", [18, 49])
+def test_age_supported_range_boundaries_are_accepted(client: TestClient, age: int) -> None:
+    response = client.post("/predict", json={**API_PATIENTS["ambiguous_moderate"], "Age": age})
+    assert response.status_code == 200
+    assert response.json()["warnings"] == []  # 18-49 is inside the observed training range too

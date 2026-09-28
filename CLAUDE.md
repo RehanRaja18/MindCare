@@ -163,6 +163,43 @@ report balanced accuracy, macro-F1, and per-class recall (especially High) for t
   - **Pitfall to remember:** because of the reverse-scored items, all-0 and all-4 answers both
     map to 6 (total 8), not to the extremes; the extremes are `0,4,4,0` → 1 and `4,0,0,4` → 10.
     Covered in `tests/test_api.py` (`test_estimate_stress_level_arithmetic`).
+- **Supported age range restricted to 18-49, 2026-09-27:** the model makes predictions only for
+  ages 18-49 inclusive. Any other age gets HTTP 422, with a different message per side (see the
+  platform rules below). Enforced in `validate_patient()` (`ELIGIBLE_AGE_MIN`/`ELIGIBLE_AGE_MAX` in
+  `src/inference/input_validation.py`), so the API and `predict_single.py` both apply it. The
+  Pydantic Age bound stays 0-120 (impossible values only), and the model is unchanged — no
+  retraining, and the test set was not used.
+  - **Decision log — why 18 as the floor:** the dataset has no one under 18 (Age 18-64);
+    physiological norms (heart and breathing rate) and consent rules differ for minors.
+  - **Decision log — why 49 as the ceiling (not 40, not 55):** in the dataset the High rate is
+    12-15% at every age up to 49, then drops to about 1% from 50 on (49: 15.5%, 50: 1.4%). This is
+    almost certainly a synthetic-data artifact, and the model has learned it. Evidence, all on
+    validation data:
+    - For the 161 true-High validation rows under 50, changing only Age drops mean P(High) from
+      0.903 at 49 to 0.773 at 50 and 0.628 at 55.
+    - Across all 1169 validation rows under 50, moving them to age 55 turns off the
+      priority-review flag (P(High) >= 0.10) for 17 of 282 flagged rows. No High predictions
+      flipped.
+    - The 53-64 band had 3 true-High validation cases, and all 3 were missed.
+
+    Under-calling High is the most dangerous error for this system. 40 was rejected because
+    30-40 and 41-52 perform alike (balanced acc. 0.807 vs 0.815), so a lower cap would exclude
+    well-served users without evidence. 55 was considered with a forced review flag for 50-55,
+    and rejected in favour of the cleaner cut.
+  - **This is a data-coverage limit, not a clinical judgement about older adults** — revisit if
+    real data covering 50+ becomes available. Docs: `docs/api_usage.md` ("Supported age range"),
+    `docs/model_card.md` (Intended Use; Known Limitations #12). Tests:
+    `test_age_supported_range_boundaries_are_accepted` (plus the two per-side tests below).
+  - **Platform rules, decided 2026-09-28** (these close the question left open on 2026-09-27):
+    - **Under 18: cannot register for MindCare at all.** The block belongs in the web app's
+      registration, which is not in this repo. `validate_patient()` is only a backstop. A minor
+      reaching the model means the registration check failed, so the 422 says "not eligible for
+      MindCare" and deliberately does NOT suggest a psychologist referral.
+    - **50 and over: can register, and are redirected straight to a psychologist**, with no AI
+      pre-assessment. The 422 says "refer this person directly to a psychologist" — the calling
+      backend should act on that.
+    - Tests: `test_under_18_is_rejected_as_not_eligible`,
+      `test_over_49_is_rejected_with_psychologist_referral`.
 
 ### 5-class Severity (secondary/reference, unchanged — still 17 features)
 - **Numeric (11):** Age, Sleep Hours, Physical Activity (hrs/week), Caffeine Intake
@@ -392,6 +429,11 @@ preprocessing (Phase 10) is shared between the two targets.
     the API it can never trip the Stress Level warn or reject tier. The validation logic itself
     is unchanged — the bounds are still checked, now on the computed value. The equivalent
     API-level guard is Pydantic's 0-4 limit on each PSS answer.
+  - **Age scope rule, 2026-09-27:** besides the plausibility tiers, `validate_patient()` rejects
+    any Age outside 18-49 (the supported range; see "Supported age range restricted to 18-49"
+    above). Under 18 gets "not eligible for MindCare", and 50+ gets "refer directly to a
+    psychologist". Ages 50-64 were previously accepted without a warning, since they're inside
+    the observed range; they are now rejected.
 
 ### Saved final model artifact (3-class target) — SUPERSEDED 2026-09-22, kept for history
 - `data/processed/mindcare_final_model.pkl` — the original 17-feature tuned Random Forest

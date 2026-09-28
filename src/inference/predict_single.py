@@ -169,6 +169,9 @@ INVALID_PROBE_PATIENTS = {
     "impossible_heart_rate": {**EXAMPLE_PATIENTS["ambiguous_moderate"], "Heart Rate (bpm)": 9000},
     "impossible_caffeine": {**EXAMPLE_PATIENTS["ambiguous_moderate"], "Caffeine Intake (mg/day)": 5000},
     "negative_age": {**EXAMPLE_PATIENTS["ambiguous_moderate"], "Age": -5},
+    # Plausible ages outside the supported 18-49 range (decided 2026-09-27) - rejected as out of scope.
+    "minor_age": {**EXAMPLE_PATIENTS["ambiguous_moderate"], "Age": 16},
+    "age_over_supported_range": {**EXAMPLE_PATIENTS["ambiguous_moderate"], "Age": 55},
 }
 
 

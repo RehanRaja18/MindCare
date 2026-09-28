@@ -22,6 +22,18 @@ It is not an autonomous diagnostic tool, and nothing in this card should be read
 validation of diagnostic accuracy. This is a research/prototype model (`CLAUDE.md` Engineering
 Rule 7).
 
+**Intended population: adults aged 18–49 (decided 2026-09-27).** The API refuses a prediction
+for any other age. Platform rules (decided 2026-09-28):
+- **Under 18: cannot register for MindCare at all.** The web app's registration must block
+  them. The training data has no one under 18, and physiological norms and consent rules differ
+  for minors. If a minor ever reaches this model, the API rejects them as "not eligible", with
+  no referral.
+- **50 and over: can register, and are redirected straight to a psychologist**, with no AI
+  pre-assessment. The training data has almost no High-anxiety cases from age 50 on, and the
+  model has learned to lower P(High) for older users.
+
+See Known Limitations #12.
+
 ---
 
 ## Training Data
@@ -713,9 +725,20 @@ Not yet done for the 5-class Severity target beyond what's already in `reports/f
     close later: restoring Age was a clinical/UX decision, not a performance claim, so a
     validation-only check (confirming it isn't harmful) was judged sufficient and a third
     one-way-door test-set use was not. Also unlike the 17-feature and 11-feature models, the
-    12-feature model has **no** per-class AUROC/AUPRC, calibration, uncertainty-flagging,
-    SHAP, fairness, or robustness analysis run against it specifically — see "Performance —
-    12-Feature Model" above; only headline validation metrics exist.
+    12-feature model has **no** calibration, uncertainty-flagging, SHAP, fairness, or
+    robustness analysis run against it specifically — see "Performance — 12-Feature Model"
+    above. It does have a full validation-set evaluation (classification report, confusion
+    matrix, per-class and macro AUROC/AUPRC): `reports/full_evaluation_12feature.md`.
+12. **Supported age range is 18–49 (decided 2026-09-27).** The API rejects any other age. Under
+    18 is rejected as not eligible (minors can't register), and 50+ is rejected with a
+    psychologist referral; see "Intended Use".
+    Evidence behind the upper bound, all on validation data:
+    - The dataset's High rate falls from 12–15% below age 50 to about 1% from 50 on.
+    - For identical people, mean P(High) drops from 0.90 at 49 to 0.63 at 55.
+    - The 53–64 band had only 3 true-High cases, and all were missed.
+    - Moving under-50 validation rows to age 55 turns off the review flag for 17 of 282.
+
+    This is a data-coverage limit, not a clinical judgement about older adults.
 
 ---
 
