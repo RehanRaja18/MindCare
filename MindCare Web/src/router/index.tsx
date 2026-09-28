@@ -8,8 +8,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ROUTES } from '../constants';
 import { CONSOLE_ROUTES } from '../constants/therapistConsole';
 import { ADMIN_ROUTES } from '../constants/adminConsole';
-import { TherapistAuthProvider, RequireTherapistAuth } from '../utils/authGuard';
-import { AdminAuthProvider, RequireAdminAuth } from '../utils/adminAuthGuard';
+import { RequireTherapistAuth } from '../utils/authGuard';
+import { RequireAdminAuth } from '../utils/adminAuthGuard';
+import { AuthProvider } from '../utils/auth';
 import ScrollManager from './ScrollManager';
 
 const LandingPage = lazy(() => import('../pages/LandingPage'));
@@ -60,8 +61,7 @@ const PageLoader: React.FC = () => (
 const AppRouter: React.FC = () => (
   <BrowserRouter>
     <ScrollManager />
-    <TherapistAuthProvider>
-      <AdminAuthProvider>
+    <AuthProvider>
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path={ROUTES.HOME} element={<LandingPage />} />
@@ -105,8 +105,7 @@ const AppRouter: React.FC = () => (
             <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
           </Routes>
         </Suspense>
-      </AdminAuthProvider>
-    </TherapistAuthProvider>
+      </AuthProvider>
   </BrowserRouter>
 );
 
