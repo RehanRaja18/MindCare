@@ -137,3 +137,16 @@ class UpdatePatientProfileTests(TestCase):
     def test_unknown_field_rejected(self):
         with self.assertRaises(DomainValidationError):
             update_patient_profile(profile=self.profile, diagnosis="x")
+
+    def test_invalid_gender_rejected(self):
+        with self.assertRaises(DomainValidationError) as ctx:
+            update_patient_profile(profile=self.profile, gender="not-a-real-value")
+        self.assertIn("gender", ctx.exception.errors)
+        self.profile.refresh_from_db()
+        self.assertIsNone(self.profile.gender)
+
+    def test_gender_can_be_cleared(self):
+        update_patient_profile(profile=self.profile, gender="female")
+        update_patient_profile(profile=self.profile, gender=None)
+        self.profile.refresh_from_db()
+        self.assertIsNone(self.profile.gender)

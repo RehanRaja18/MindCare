@@ -9,6 +9,7 @@ from django.db import IntegrityError, transaction
 from apps.accounts.models import Role
 from apps.patients.models import PatientProfile, generate_pseudonym
 from apps.reference.services import resolve_location_fields
+from core.choices import Gender
 from core.exceptions import DomainValidationError
 from core.validators import (
     E164_VALIDATOR,
@@ -70,6 +71,8 @@ def update_patient_profile(*, profile, **fields):
         run_validator(
             validate_adult_date_of_birth, fields["date_of_birth"], field="date_of_birth"
         )
+    if fields.get("gender") is not None and fields["gender"] not in Gender.values:
+        raise DomainValidationError({"gender": ["Choose a valid option."]})
 
     resolve_location_fields(
         current_country=profile.country,
