@@ -312,7 +312,10 @@ line, ambulance, shelter, etc.). That belongs to Phase 13's escalation design, w
 must not be invented ahead of time.
 
 `Language` follows the `City` / `Specialization` pattern (DB-backed, seeded with
-ISO 639-1, admin-editable). The 18+ declaration (`User.adult_confirmed_at`) applies
+ISO 639-1, admin-editable). The product interface is English-only: `Language`
+records the languages a psychologist can hold sessions in (and a patient's
+preferred session language); it is not interface translation and is not
+enforced on text input. The 18+ declaration (`User.adult_confirmed_at`) applies
 to **all** public registration roles.
 **Alternatives considered:** City-only service areas (forces national NGOs to list
 every city); headquarters-only location (can't represent where an NGO operates).
