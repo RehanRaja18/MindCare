@@ -438,3 +438,20 @@ patient.
 would silently mis-schedule international patients in Phase 4); leaving it empty
 until the patient sets it (every Phase 4 scheduling path would then have to handle a
 missing timezone).
+
+## 2026-09-28 - Tests never inherit `DATABASE_URL`; they run only against a local, disposable Postgres
+**Decision:** `config/settings/test.py` sets its own `DATABASES` from
+`TEST_DATABASE_URL`, defaulting to the docker-compose `db` service
+(`localhost:5432/mindcare`), and raises `ImproperlyConfigured` if the host isn't
+`localhost`, `127.0.0.1` or `::1`. There is deliberately **no override flag**.
+**Why:** `DATABASE_URL` in a developer's `.env` can point at the production Supabase
+project. Before this change the test settings inherited it, so every test run would
+create and drop a `test_<name>` database on that server. Tests must never be able to
+reach production. The guard makes a misconfiguration fail loudly before any
+connection, instead of silently using a remote database. CI sets `TEST_DATABASE_URL`
+to its own localhost Postgres service.
+**Alternatives considered:** SQLite for tests (fast, but diverges from Postgres
+behaviour this project relies on, such as functional and conditional unique
+indexes); a `TEST_DATABASE_URL` without a host guard (one wrong env var away from
+the same risk); an escape-hatch flag for remote test DBs (rejected — an override
+that exists will eventually be used by accident).
