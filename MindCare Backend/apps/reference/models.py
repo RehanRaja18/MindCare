@@ -1,0 +1,71 @@
+"""Shared, admin-editable reference data used by every profile app.
+
+Seeded once by data migrations, then maintained in Django admin — corrections
+never need a code change or a new migration. Language/Specialization are
+retired with is_active=False, never deleted (profiles reference them with
+on_delete=PROTECT).
+"""
+
+from django.db import models
+from django.db.models.functions import Lower
+
+
+class Country(models.Model):
+    code = models.CharField(max_length=2, unique=True)  # ISO 3166-1 alpha-2
+    name = models.CharField(max_length=100)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name_plural = "countries"
+
+    def __str__(self):
+        return self.name
+
+
+class City(models.Model):
+    country = models.ForeignKey(
+        Country, on_delete=models.PROTECT, related_name="cities"
+    )
+    name = models.CharField(max_length=120)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name_plural = "cities"
+        constraints = [
+            models.UniqueConstraint(
+                Lower("name"),
+                "country",
+                name="reference_city_unique_name_per_country_ci",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.name}, {self.country.code}"
+
+
+class Language(models.Model):
+    code = models.CharField(max_length=2, unique=True)  # ISO 639-1
+    name = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Specialization(models.Model):
+    """PLACEHOLDER taxonomy — must be reviewed by a clinical advisor before
+    real launch (docs/decisions.md, 2026-09-26)."""
+
+    slug = models.SlugField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "specialization (placeholder list)"
+
+    def __str__(self):
+        return self.name
