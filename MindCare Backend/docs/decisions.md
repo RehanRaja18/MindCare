@@ -458,3 +458,45 @@ behaviour this project relies on, such as functional and conditional unique
 indexes); a `TEST_DATABASE_URL` without a host guard (one wrong env var away from
 the same risk); an escape-hatch flag for remote test DBs (rejected — an override
 that exists will eventually be used by accident).
+
+## 2026-09-29 - Phase 11 forward-note: community moderation reports, admin review, and time-limited bans
+**Decided (direction for Phase 11):**
+- **Reports aggregate per content item, not per user.** Each reported message, post,
+  image or video accumulates its own reports.
+- **Admin review screen** shows the flagged content, the report reason(s), and lets
+  the admin open the surrounding community thread for context before deciding.
+- **Admin actions:** *dismiss* (no violation found) or *ban for a fixed period*
+  (e.g. 15 days). The ban **lifts automatically** when the period ends.
+- **Ban actions are audited:** acting admin (viewer), target user, reason, duration.
+
+**Open choices, not yet made** (Phase 11 must settle these; they were left as
+placeholders when this note was written):
+1. **Which path surfaces an item to admin review:**
+   - *Volume path*: N reports from distinct accounts surface it;
+   - *Severity path*: a report tagged with a severity reason (e.g. self-harm,
+     threat) surfaces immediately regardless of count;
+   - or both together.
+2. **Ban scope: account-wide (cannot log in) or community-only.**
+   - An account-wide ban on a *patient* would also cut off their psychologist
+     sessions, recommendations and emergency assistance (SOS, Phase 13).
+   - A community-only ban leaves care access intact.
+   - This is a patient-safety decision, not just a moderation one.
+3. **Severity reasons that signal risk to the reporter's or poster's safety**
+   (e.g. self-harm) may need to reach the emergency / psychologist flow (Phase 13),
+   not only the moderation queue. Phase 11 and Phase 13 must decide this together,
+   and the thresholds must not be invented (see @project-vision.md §27).
+
+**Also deferred to Phase 11 design:**
+- the exact report/volume threshold (N);
+- the list of severity reasons;
+- whether repeat bans escalate in length;
+- whether a banned user is told the reason.
+
+**Why recorded now:** these rules shape the moderation data model: per-item report
+aggregation, ban records with an expiry, and an audit trail of ban actions. Writing
+them down before Phase 11 keeps them from being rediscovered or reversed. The open
+choices are listed explicitly so they aren't mistaken for decisions.
+**Alternatives considered:** Per-user report counts (rejected: one bad post
+shouldn't be judged against a user's whole history, and it makes pile-on
+brigading easier); permanent bans by default (rejected: a fixed period that lifts
+automatically is the stated intent).
