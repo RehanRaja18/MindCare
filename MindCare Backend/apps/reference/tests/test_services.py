@@ -23,6 +23,11 @@ class ResolveCityTests(TestCase):
             City.objects.filter(country=self.pk, name__iexact="lahore").count(), 1
         )
 
+    def test_new_city_is_unverified_and_seeded_city_stays_verified(self):
+        created = resolve_city(country=self.gb, name="Leeds")
+        self.assertFalse(created.is_verified)
+        self.assertTrue(resolve_city(country=self.pk, name="lahore").is_verified)
+
     def test_creates_new_city_once(self):
         first = resolve_city(country=self.gb, name="london")
         second = resolve_city(country=self.gb, name="LONDON")

@@ -45,6 +45,16 @@ class PsychologistMeAPITests(APITestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
 
+    def test_owner_still_sees_own_unverified_city(self):
+        user = make_user(role=Role.PSYCHOLOGIST)
+        create_psychologist_profile(
+            user=user,
+            **psychologist_profile_data(license_number="PMDC-99999", city="Newtown"),
+        )
+        self.client.force_authenticate(user)
+        r = self.client.get(ME_URL)
+        self.assertEqual(r.data["city"]["name"], "Newtown")
+
     def test_patient_forbidden(self):
         self.client.force_authenticate(make_user(role=Role.PATIENT))
         self.assertEqual(self.client.get(ME_URL).status_code, status.HTTP_403_FORBIDDEN)

@@ -4,6 +4,8 @@ from django.core.cache import cache
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from apps.reference.models import City, Country
+
 BASE = "/api/v1/reference"
 
 
@@ -27,6 +29,14 @@ class ReferenceAPITests(APITestCase):
         self.assertEqual(r.data[0]["name"], "Lahore")
         self.assertEqual(r.data[0]["country"], "PK")
         self.assertIn("id", r.data[0])
+
+    def test_unverified_city_not_in_public_dropdown_until_verified(self):
+        city = City.objects.create(country=Country.objects.get(code="GB"), name="Leeds")
+        params = {"country": "GB", "search": "lee"}
+        self.assertEqual(self.client.get(f"{BASE}/cities/", params).data, [])
+        City.objects.filter(pk=city.pk).update(is_verified=True)
+        r = self.client.get(f"{BASE}/cities/", params)
+        self.assertEqual([c["name"] for c in r.data], ["Leeds"])
 
     def test_languages_and_specializations_public(self):
         langs = self.client.get(f"{BASE}/languages/")

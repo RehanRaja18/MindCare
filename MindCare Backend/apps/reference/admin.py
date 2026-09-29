@@ -13,10 +13,17 @@ class CountryAdmin(admin.ModelAdmin):
 
 @admin.register(City)
 class CityAdmin(admin.ModelAdmin):
-    list_display = ["name", "country"]
-    list_filter = ["country"]
+    list_display = ["name", "country", "is_verified"]
+    list_filter = ["is_verified", "country"]
+    list_editable = ["is_verified"]
     search_fields = ["name"]
     autocomplete_fields = ["country"]
+    actions = ["mark_verified"]
+
+    @admin.action(description="Mark selected cities as verified")
+    def mark_verified(self, request, queryset):
+        updated = queryset.update(is_verified=True)
+        self.message_user(request, f"{updated} city(ies) marked as verified.")
 
 
 @admin.register(Language)

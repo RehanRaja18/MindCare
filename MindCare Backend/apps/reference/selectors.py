@@ -9,9 +9,9 @@ def list_countries():
 
 
 def search_cities(*, country_code, search=None, limit=20):
-    qs = City.objects.filter(country__code=country_code.upper()).select_related(
-        "country"
-    )
+    qs = City.objects.filter(
+        country__code=country_code.upper(), is_verified=True
+    ).select_related("country")
     if search:
         qs = qs.filter(name__istartswith=normalize_display_text(search))
     return list(qs.order_by("name")[:limit])

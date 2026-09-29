@@ -2,7 +2,7 @@
 
 from django.test import TestCase
 
-from apps.reference.models import Language
+from apps.reference.models import City, Country, Language
 from apps.reference.selectors import (
     list_languages,
     list_specializations,
@@ -16,6 +16,15 @@ class SearchCitiesTests(TestCase):
         self.assertIn("Lahore", names)
         self.assertIn("Larkana", names)
         self.assertNotIn("Islamabad", names)
+
+    def test_unverified_city_hidden_until_verified(self):
+        city = City.objects.create(country=Country.objects.get(code="GB"), name="Leeds")
+        self.assertEqual(search_cities(country_code="GB", search="lee"), [])
+        City.objects.filter(pk=city.pk).update(is_verified=True)
+        self.assertEqual(
+            [c.name for c in search_cities(country_code="GB", search="lee")],
+            ["Leeds"],
+        )
 
     def test_limit(self):
         self.assertEqual(len(search_cities(country_code="PK", limit=5)), 5)

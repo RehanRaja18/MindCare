@@ -27,6 +27,10 @@ class City(models.Model):
         Country, on_delete=models.PROTECT, related_name="cities"
     )
     name = models.CharField(max_length=120)
+    # Seeded cities are verified. Cities typed at registration stay unverified:
+    # usable on the profile that created them, hidden from the public dropdown
+    # until an admin verifies them.
+    is_verified = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["name"]

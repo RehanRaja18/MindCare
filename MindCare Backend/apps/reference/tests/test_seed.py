@@ -21,6 +21,12 @@ class SeedDataTests(TestCase):
         for code in ["PK", "GB", "US", "DE", "AE", "SA", "IN", "CN", "CA"]:
             self.assertTrue(Country.objects.filter(code=code).exists(), code)
 
+    def test_turkey_uses_current_official_name(self):
+        self.assertEqual(Country.objects.get(code="TR").name, "Türkiye")
+
+    def test_seeded_pakistani_cities_are_verified(self):
+        self.assertFalse(City.objects.filter(country__code="PK", is_verified=False))
+
     def test_languages_seeded_and_active(self):
         self.assertEqual(Language.objects.count(), 183)
         self.assertFalse(Language.objects.filter(code="bh").exists())
