@@ -23,10 +23,16 @@ Production backend runs on **Render**, with **Supabase** (Postgres) and
 | `DJANGO_SETTINGS_MODULE` | `config.settings.prod` |
 | `ALLOWED_HOSTS` | `.onrender.com` |
 
-**Local development:** the developer's local `.env` `DATABASE_URL` should point at
-the local docker Postgres, with production credentials only in Render. (Tests are
-already guarded against remote databases, see @decisions.md, 2026-09-28, but
-`runserver`, `migrate` and `dbshell` use `DATABASE_URL` as-is.)
+**Local development:** the developer's local `.env` `DATABASE_URL` points at the
+local docker Postgres (switched 2026-09-30); production credentials live only in
+Render. Keep it that way: tests are guarded against remote databases (see
+@decisions.md, 2026-09-28), but `runserver`, `migrate` and `dbshell` use
+`DATABASE_URL` as-is.
+
+**Supabase password resets:** after resetting the Supabase database password,
+update `DATABASE_URL` on Render to match. On 2026-09-30 a stale `DATABASE_URL`
+after a reset caused `/admin/` 500s and a failed deploy (not caused by Phase 2
+code). It was fixed by updating the variable on Render.
 
 `JWT_SIGNING_KEY` is not set, so JWTs are signed with `SECRET_KEY` (see
 `config/settings/base.py`).
@@ -53,19 +59,23 @@ Render redeploys.
 
 ## Pre-deploy checklist for the Phase 2 merge
 
+Status 2026-09-30: migrations-on-deploy and existing users are done. **Still open
+before merging:** `NUM_PROXIES` on Render, and both frontends confirming they send
+the new register body.
+
 - [ ] **Rate limits behind Render's proxy:** `NUM_PROXIES` defaults to 0, so DRF
       throttles on the proxy's address and every user shares one bucket (login
       5/min, register 10/hour, reference 120/min, stats 60/min). Confirm Render's
       proxy hop count and set `NUM_PROXIES` (likely `1`) in Render's environment,
       then re-test that a throttle is per-client.
-- [ ] **Migrations run on deploy:** confirm Render's build or pre-deploy command
-      runs `python manage.py migrate` (nothing in the repo records it) and write
-      the actual command here: `TODO: <command>`.
-- [ ] **Existing production users:** production already has data (a superuser at
-      least). Before merging, count non-admin users per role in production
-      (read-only, by the developer). Any patient/psychologist/NGO user created
-      before Phase 2 has no profile and would get 404 on `/me/`; recreate or
-      delete them.
+- [x] **Migrations run on deploy** (confirmed from Render's dashboard,
+      2026-09-30). Render's build command:
+      `pip install -r requirements/prod.txt && python manage.py collectstatic --noinput && python manage.py migrate`.
+      The Phase 2 migrations (reference 0001–0003, accounts 0002, patients/
+      psychologists/ngo 0001) apply automatically on the deploy after the merge.
+- [x] **Existing production users** (checked 2026-09-30): only the admin account
+      remains. The one test account was deleted directly in Supabase. No
+      patient/psychologist/NGO user exists without a profile.
 - [ ] **Frontend merge order:** the register body is a breaking change
       (`is_adult_confirmed` + nested `profile`). Merge and deploy only after both
       MindCare Web and MindCare App send the new body; otherwise live sign-ups get
