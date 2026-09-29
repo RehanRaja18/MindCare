@@ -4,7 +4,6 @@ Views call into these functions instead of touching the ORM or enforcing
 business rules themselves. Anything that mutates state belongs here.
 """
 
-from django.contrib.auth.base_user import BaseUserManager
 from django.core.validators import URLValidator, validate_email
 from django.db import IntegrityError, transaction
 
@@ -15,6 +14,7 @@ from core.exceptions import DomainValidationError
 from core.validators import (
     E164_VALIDATOR,
     normalize_display_text,
+    normalize_email_address,
     normalize_identifier,
     run_validator,
     validate_iana_timezone,
@@ -79,12 +79,6 @@ def _normalize_credential(field, value):
     if field in ("organization_name", "registering_authority"):
         return normalize_display_text(value)
     return value  # registration_country: a Country instance
-
-
-def _normalize_email(value):
-    # Same normalization as User.email (accounts.models.UserManager._create_user):
-    # strip, normalize_email(), then lower-case the whole address.
-    return BaseUserManager.normalize_email((value or "").strip()).lower()
 
 
 def _validate_max_length(field, value):
@@ -180,7 +174,7 @@ def create_ngo_profile(
         raise ValueError("NGO profiles can only be created for NGO users.")
     run_validator(validate_iana_timezone, timezone, field="timezone")
     run_validator(E164_VALIDATOR, official_phone, field="official_phone")
-    official_email = _normalize_email(official_email)
+    official_email = normalize_email_address(official_email)
     _validate_email(official_email)
     website = _clean_website(website)
     description = description or ""
@@ -261,7 +255,7 @@ def update_ngo_profile(*, profile, **fields):
             E164_VALIDATOR, fields["official_phone"] or "", field="official_phone"
         )
     if "official_email" in fields:
-        fields["official_email"] = _normalize_email(fields["official_email"])
+        fields["official_email"] = normalize_email_address(fields["official_email"])
         _validate_email(fields["official_email"])
         _validate_max_length("official_email", fields["official_email"])
     if "website" in fields:

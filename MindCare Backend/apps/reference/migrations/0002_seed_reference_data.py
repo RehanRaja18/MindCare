@@ -31,13 +31,17 @@ def seed(apps, schema_editor):
 
 
 def unseed(apps, schema_editor):
+    """Reversing is only possible while no profile references these cities
+    (on_delete=PROTECT), i.e. effectively on an empty database."""
     Country = apps.get_model("reference", "Country")
     City = apps.get_model("reference", "City")
     Language = apps.get_model("reference", "Language")
     Specialization = apps.get_model("reference", "Specialization")
 
+    # Every city under a seeded country, not just the seeded Pakistani names:
+    # Country rows can't be deleted while any City still points at them.
     City.objects.filter(
-        country__code="PK", name__in=_load("pakistan_cities.json")
+        country__code__in=[r["code"] for r in _load("countries.json")]
     ).delete()
     Specialization.objects.filter(
         slug__in=[r["slug"] for r in _load("specializations.json")]

@@ -19,6 +19,24 @@ class CitySerializer(serializers.ModelSerializer):
         fields = ["id", "name", "country"]
 
 
+class CityQuerySerializer(serializers.Serializer):
+    """Query parameters of GET /reference/cities/."""
+
+    country = serializers.CharField(min_length=2, max_length=2)
+    search = serializers.CharField(max_length=120, required=False, allow_blank=True)
+
+    def _reject_null_byte(self, value):
+        if chr(0) in value:
+            raise serializers.ValidationError("Null characters are not allowed.")
+        return value
+
+    def validate_country(self, value):
+        return self._reject_null_byte(value)
+
+    def validate_search(self, value):
+        return self._reject_null_byte(value)
+
+
 class LanguageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Language

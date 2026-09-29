@@ -137,6 +137,10 @@ class RegisterWithProfileAPITests(APITestCase):
             r = self.client.post(REGISTER_URL, payload, format="json")
             self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
             self.assertIn("is_adult_confirmed", r.data)
+            self.assertEqual(
+                str(r.data["is_adult_confirmed"][0]),
+                "You must confirm you are 18 or older.",
+            )
 
     def test_is_adult_confirmed_only_accepts_json_boolean_true(self):
         """Truthy string values like "true", 1, "yes" must be rejected."""
@@ -159,6 +163,10 @@ class RegisterWithProfileAPITests(APITestCase):
         r = self.client.post(REGISTER_URL, payload, format="json")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("is_adult_confirmed", r.data)
+        self.assertEqual(
+            str(r.data["is_adult_confirmed"][0]),
+            "You must confirm you are 18 or older.",
+        )
         self.assertFalse(User.objects.filter(email=payload["email"]).exists())
 
     def test_missing_psychologist_credentials_rejected_nothing_created(self):

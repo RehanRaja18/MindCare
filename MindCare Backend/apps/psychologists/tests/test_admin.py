@@ -6,7 +6,14 @@ from django.test import RequestFactory, TestCase
 from apps.accounts.models import Role, User
 from apps.psychologists.models import PsychologistProfile
 from apps.psychologists.services import create_psychologist_profile
-from core.testing import admin_change_form_data, make_user, psychologist_profile_data
+from rest_framework.test import APIClient
+
+from core.testing import (
+    admin_change_form_data,
+    make_user,
+    psychologist_profile_data,
+    psychologist_profile_payload,
+)
 
 
 class PsychologistProfileAdminTests(TestCase):
@@ -39,3 +46,27 @@ class PsychologistProfileAdminTests(TestCase):
         self.assertEqual(response.status_code, 302, getattr(response, "context", None))
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.user_id, self.user.pk)
+
+    def test_credential_edits_are_normalized(self):
+        data = admin_change_form_data(self.client.get(self.url))
+        data["license_number"] = "pmdc-12345 "
+        data["license_issuing_authority"] = "  Pakistan   Medical  Commission "
+        response = self.client.post(self.url, data)
+        self.assertEqual(response.status_code, 302, getattr(response, "context", None))
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.license_number, "PMDC-12345")
+        self.assertEqual(
+            self.profile.license_issuing_authority, "Pakistan Medical Commission"
+        )
+        # A full-object PATCH echoing the stored credentials is not "changed".
+        api = APIClient()
+        api.force_authenticate(self.user)
+        r = api.patch(
+            "/api/v1/psychologists/me/",
+            psychologist_profile_payload(
+                license_number=self.profile.license_number,
+                license_issuing_authority=self.profile.license_issuing_authority,
+            ),
+            format="json",
+        )
+        self.assertEqual(r.status_code, 200, r.data)

@@ -9,6 +9,7 @@ wrap them with run_validator(), which re-raises as DomainValidationError.
 from functools import cache
 from zoneinfo import available_timezones
 
+from django.contrib.auth.base_user import BaseUserManager
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.utils import timezone as dj_timezone
@@ -51,6 +52,12 @@ def normalize_display_text(value):
 
 def normalize_identifier(value):
     return value.strip().upper()
+
+
+def normalize_email_address(value):
+    # Same normalization as User.email (accounts.models.UserManager._create_user):
+    # strip, normalize_email(), then lower-case the whole address.
+    return BaseUserManager.normalize_email((value or "").strip()).lower()
 
 
 def run_validator(validator, value, *, field):

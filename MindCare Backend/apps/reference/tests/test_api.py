@@ -23,6 +23,20 @@ class ReferenceAPITests(APITestCase):
             self.client.get(f"{BASE}/cities/").status_code, status.HTTP_400_BAD_REQUEST
         )
 
+    def test_cities_null_byte_is_400_not_500(self):
+        for params in (
+            {"country": "P\x00"},
+            {"country": "PK", "search": "a\x00b"},
+        ):
+            with self.subTest(params=params):
+                r = self.client.get(f"{BASE}/cities/", params)
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cities_country_must_be_two_letters(self):
+        r = self.client.get(f"{BASE}/cities/", {"country": "PAK"})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("country", r.data)
+
     def test_cities_search(self):
         r = self.client.get(f"{BASE}/cities/", {"country": "PK", "search": "lah"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)

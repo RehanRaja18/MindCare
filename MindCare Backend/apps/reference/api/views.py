@@ -7,7 +7,6 @@ authentication is disabled: an expired token must not turn a dropdown into a
 
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
@@ -15,6 +14,7 @@ from rest_framework.views import APIView
 
 from apps.reference import selectors
 from apps.reference.api.serializers import (
+    CityQuerySerializer,
     CitySerializer,
     CountrySerializer,
     LanguageSerializer,
@@ -57,11 +57,11 @@ class CityListView(_PublicReferenceView):
         responses=CitySerializer(many=True),
     )
     def get(self, request):
-        country = request.query_params.get("country")
-        if not country:
-            raise ValidationError({"country": ["This query parameter is required."]})
+        query = CityQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
         cities = selectors.search_cities(
-            country_code=country, search=request.query_params.get("search")
+            country_code=query.validated_data["country"],
+            search=query.validated_data.get("search"),
         )
         return Response(CitySerializer(cities, many=True).data)
 
