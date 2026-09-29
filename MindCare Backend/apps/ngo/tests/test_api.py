@@ -38,6 +38,15 @@ class NGOMeAPITests(APITestCase):
         r = self.client.patch(ME_URL, {"service_areas": []}, format="json")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_patch_malformed_service_areas_rejected_and_unchanged(self):
+        for areas in ([{}], [{"city": "Leeds"}]):
+            with self.subTest(areas=areas):
+                r = self.client.patch(ME_URL, {"service_areas": areas}, format="json")
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                stored = self.client.get(ME_URL).data["service_areas"]
+                self.assertEqual(len(stored), 1)
+                self.assertIsNone(stored[0]["city"])
+
     def test_changed_registration_number_locked(self):
         r = self.client.patch(ME_URL, {"registration_number": "NEW"}, format="json")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)

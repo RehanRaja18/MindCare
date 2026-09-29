@@ -14,7 +14,7 @@ from apps.ngo.services import (
     create_ngo_profile,
     update_ngo_profile,
 )
-from apps.reference.models import Country
+from apps.reference.models import City, Country
 from core.exceptions import DomainValidationError
 from core.testing import make_user, ngo_profile_data
 
@@ -106,6 +106,39 @@ class CreateNGOProfileTests(TestCase):
                 self.assertIn(field, ctx.exception.errors)
         self.assertEqual(NGOProfile.objects.count(), 0)
 
+    def test_over_long_email_and_website_rejected(self):
+        with self.assertRaises(DomainValidationError) as ctx:
+            _create(official_email="a" * 250 + "@x.org")
+        self.assertIn("official_email", ctx.exception.errors)
+        with self.assertRaises(DomainValidationError) as ctx:
+            _create(website="https://example.org/" + "a" * 200)
+        self.assertIn("website", ctx.exception.errors)
+        self.assertEqual(NGOProfile.objects.count(), 0)
+
+    def test_service_area_without_country_rejected(self):
+        with self.assertRaises(DomainValidationError) as ctx:
+            _create(service_areas=[{"city": "Leeds"}])
+        self.assertIn("service_areas", ctx.exception.errors)
+
+    def test_failed_create_leaves_no_orphan_city(self):
+        gb = Country.objects.get(code="GB")
+        with self.assertRaises(DomainValidationError):
+            _create(
+                official_email="bad",
+                service_areas=[{"country": gb, "city": "Brand New Town"}],
+            )
+        self.assertFalse(City.objects.filter(name__iexact="Brand New Town").exists())
+
+    def test_duplicate_registration_leaves_no_orphan_city(self):
+        _create(registration_number="SECP-7")
+        gb = Country.objects.get(code="GB")
+        with self.assertRaises(DuplicateNGORegistrationError):
+            _create(
+                registration_number="SECP-7",
+                service_areas=[{"country": gb, "city": "Brand New Town"}],
+            )
+        self.assertFalse(City.objects.filter(name__iexact="Brand New Town").exists())
+
 
 class UpdateNGOProfileTests(TestCase):
     def setUp(self):
@@ -134,11 +167,17 @@ class UpdateNGOProfileTests(TestCase):
         self.assertEqual(self.profile.description, "Updated")
 
     def test_normalized_equal_credentials_accepted(self):
-        update_ngo_profile(
+        profile = update_ngo_profile(
             profile=self.profile,
             registration_number=" secp-0001 ",
             organization_name="Helping   Hands Foundation",
+            description="Updated",
         )
+        self.assertEqual(profile.description, "Updated")
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.description, "Updated")
+        self.assertEqual(self.profile.registration_number, "SECP-0001")
+        self.assertEqual(self.profile.organization_name, "Helping Hands Foundation")
 
     def test_invalid_email_rejected_and_stored_value_unchanged(self):
         with self.assertRaises(DomainValidationError) as ctx:
@@ -180,3 +219,34 @@ class UpdateNGOProfileTests(TestCase):
                 ],
             )
         self.assertIsNone(self.profile.service_areas.get().city)
+
+    def test_over_long_email_and_website_rejected(self):
+        with self.assertRaises(DomainValidationError) as ctx:
+            update_ngo_profile(
+                profile=self.profile, official_email="a" * 250 + "@x.org"
+            )
+        self.assertIn("official_email", ctx.exception.errors)
+        with self.assertRaises(DomainValidationError) as ctx:
+            update_ngo_profile(
+                profile=self.profile, website="https://example.org/" + "a" * 200
+            )
+        self.assertIn("website", ctx.exception.errors)
+
+    def test_service_area_without_country_rejected(self):
+        with self.assertRaises(DomainValidationError):
+            update_ngo_profile(profile=self.profile, service_areas=[{"city": "Leeds"}])
+        self.assertIsNone(self.profile.service_areas.get().city)
+
+    def test_failed_update_leaves_no_orphan_city(self):
+        gb = Country.objects.get(code="GB")
+        with self.assertRaises(DomainValidationError):
+            update_ngo_profile(
+                profile=self.profile,
+                city="Another New Town",
+                service_areas=[
+                    {"country": gb, "city": "Brand New Town"},
+                    {"country": gb, "city": "brand new town"},
+                ],
+            )
+        self.assertFalse(City.objects.filter(name__iexact="Brand New Town").exists())
+        self.assertFalse(City.objects.filter(name__iexact="Another New Town").exists())

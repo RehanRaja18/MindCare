@@ -32,11 +32,17 @@ EDITABLE_FIELDS = {
 
 # Model max_length values; validated here because save() doesn't run full_clean().
 MAX_LENGTHS = {
-    "organization_name": 200,
-    "registering_authority": 200,
-    "registration_number": 64,
-    "description": 2000,
+    name: NGOProfile._meta.get_field(name).max_length
+    for name in (
+        "organization_name",
+        "registering_authority",
+        "registration_number",
+        "official_email",
+        "website",
+    )
 }
+# TextField's max_length only affects forms, but the API contract caps it here.
+MAX_LENGTHS["description"] = 2000
 
 
 class DuplicateNGORegistrationError(DomainValidationError):
@@ -97,11 +103,30 @@ def _clean_website(value):
     return value
 
 
-def _resolve_service_areas(service_areas):
+def _validate_service_area_shape(service_areas):
+    """Cheap checks on the raw input; creates nothing."""
     if not service_areas:
         raise DomainValidationError(
             {"service_areas": ["Add at least one service area."]}
         )
+    seen = set()
+    for area in service_areas:
+        country = area.get("country") if isinstance(area, dict) else None
+        if country is None:
+            raise DomainValidationError(
+                {"service_areas": ["Each service area needs a country."]}
+            )
+        name = normalize_display_text(area.get("city") or "")
+        key = (country.pk, name.lower() or None)
+        if key in seen:
+            raise DomainValidationError(
+                {"service_areas": ["Each service area can only be listed once."]}
+            )
+        seen.add(key)
+
+
+def _resolve_service_areas(service_areas):
+    """Resolves cities (may create City rows): call inside the write transaction."""
     resolved, seen = [], set()
     for area in service_areas:
         country = area["country"]
@@ -162,7 +187,10 @@ def create_ngo_profile(
     _validate_max_length("organization_name", organization_name)
     _validate_max_length("registering_authority", registering_authority)
     _validate_max_length("registration_number", normalized_number)
+    _validate_max_length("official_email", official_email)
+    _validate_max_length("website", website)
     _validate_max_length("description", description)
+    _validate_service_area_shape(service_areas)
 
     duplicate = NGOProfile.objects.filter(
         registration_country=registration_country, registration_number=normalized_number
@@ -170,10 +198,11 @@ def create_ngo_profile(
     if duplicate.exists():
         raise DuplicateNGORegistrationError()
 
-    resolved_areas = _resolve_service_areas(service_areas)
     try:
         # Savepoint, so an IntegrityError doesn't poison an outer transaction.
+        # City resolution happens inside so a failure rolls new City rows back.
         with transaction.atomic():
+            resolved_areas = _resolve_service_areas(service_areas)
             profile = NGOProfile.objects.create(
                 user=user,
                 organization_name=organization_name,
@@ -215,9 +244,8 @@ def update_ngo_profile(*, profile, **fields):
         )
 
     service_areas = fields.pop("service_areas", None)
-    resolved_areas = (
-        _resolve_service_areas(service_areas) if service_areas is not None else None
-    )
+    if service_areas is not None:
+        _validate_service_area_shape(service_areas)
     if fields.get("timezone") is not None:
         run_validator(validate_iana_timezone, fields["timezone"], field="timezone")
     if "official_phone" in fields:
@@ -226,20 +254,24 @@ def update_ngo_profile(*, profile, **fields):
         )
     if "official_email" in fields:
         _validate_email(fields["official_email"])
+        _validate_max_length("official_email", fields["official_email"])
     if "website" in fields:
         fields["website"] = _clean_website(fields["website"])
+        _validate_max_length("website", fields["website"])
     if "description" in fields:
         fields["description"] = fields["description"] or ""
         _validate_max_length("description", fields["description"])
 
-    resolve_location_fields(
-        current_country=profile.country,
-        current_city=profile.city,
-        fields=fields,
-        city_required=True,
-    )
-
     with transaction.atomic():
+        resolved_areas = (
+            _resolve_service_areas(service_areas) if service_areas is not None else None
+        )
+        resolve_location_fields(
+            current_country=profile.country,
+            current_city=profile.city,
+            fields=fields,
+            city_required=True,
+        )
         for name, value in fields.items():
             setattr(profile, name, value)
         profile.save()
