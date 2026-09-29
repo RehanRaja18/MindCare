@@ -544,3 +544,41 @@ Phase 2.5, so both phases should build on one `storage_client` rather than two.
 **Alternatives considered:** Storing files in Postgres (rejected: bloats the
 free-tier database and backups, and file serving belongs in object storage);
 unpaginated feeds (rejected: responses and queries grow without bound).
+
+## 2026-09-29 - Phase 11 forward-note: soft-delete for community messages and attachments
+**Decided (direction for Phase 11):**
+- **Deletion is soft-delete, not an immediate hard delete.** Deleting sets
+  `deleted_at`. The item disappears from the community feed, but the row and its
+  attachment reference stay.
+- **Why:** a message under an open moderation report (see the moderation
+  forward-note above) must still be visible to the reviewing admin even if its
+  author deletes it. Otherwise, deleting would destroy the evidence.
+- **Scheduled hard delete.** A scheduled job permanently removes soft-deleted items
+  after a fixed window (e.g. 30 days), **unless a report is open against them**.
+  Those are kept until the report is resolved and are hard-deleted at the next run
+  after that. This matches the data-minimisation position recorded for the FYP
+  defence (2026-09-26): deleted content isn't kept indefinitely.
+- **Attachment access is revoked at soft-delete time,** separately from the later
+  hard-delete cleanup. After soft-delete, no one can fetch the file through normal
+  community access. The only exception is an admin reviewing an open report, who
+  gets access through an admin-only, short-lived signed URL (consistent with the
+  private-storage question in the feed/attachments note above).
+- **Copying content** (screenshots, saving an image) happens on the client and
+  needs no backend support. The backend can't prevent it, and that limitation
+  applies to any messaging system.
+
+**Dependency:** the scheduled hard-delete job needs Celery beat (periodic tasks) on
+Redis, which the roadmap first introduces in **Phase 7**. Phase 11 builds on that
+and doesn't add its own scheduler.
+
+**Also deferred to Phase 11 design:**
+- the exact hard-delete window;
+- whether a user can undo a delete within a grace period;
+- whether edit history is kept alongside delete (if it is, edits to a reported
+  message must stay visible to the reviewing admin, for the same reason as above);
+- how a whole-account erasure request (e.g. a GDPR right-to-erasure request)
+  interacts with open reports.
+
+**Alternatives considered:** Immediate hard delete (rejected: authors could
+destroy reported content before review); soft-delete kept forever (rejected:
+conflicts with data minimisation).
