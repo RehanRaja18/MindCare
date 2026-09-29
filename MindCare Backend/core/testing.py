@@ -61,3 +61,40 @@ def psychologist_profile_payload(**overrides):
     }
     data.update(overrides)
     return data
+
+
+def ngo_profile_data(**overrides):
+    from apps.reference.models import Country
+
+    pakistan = Country.objects.get(code="PK")
+    data = {
+        "organization_name": "Helping Hands Foundation",
+        "registration_number": "SECP-0001",
+        "registration_country": pakistan,
+        "registering_authority": "SECP",
+        "country": pakistan,
+        "city": "Karachi",
+        "timezone": "Asia/Karachi",
+        "official_phone": "+922111234567",
+        "official_email": "contact@helpinghands.example",
+        "service_areas": [{"country": pakistan, "city": None}],
+    }
+    data.update(overrides)
+    return data
+
+
+def ngo_profile_payload(**overrides):
+    data = {
+        "organization_name": "Helping Hands Foundation",
+        "registration_number": "SECP-0001",
+        "registration_country": "PK",
+        "registering_authority": "SECP",
+        "country": "PK",
+        "city": "Karachi",
+        "timezone": "Asia/Karachi",
+        "official_phone": "+922111234567",
+        "official_email": "contact@helpinghands.example",
+        "service_areas": [{"country": "PK"}],
+    }
+    data.update(overrides)
+    return data
