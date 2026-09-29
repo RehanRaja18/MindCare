@@ -18,6 +18,7 @@ dependencies:
   share_plus: ^10.1.3
   url_launcher: ^6.3.1
   speech_to_text: ^7.0.0
+  audioplayers: ^6.8.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -27,3 +28,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/mindcare_logo.png
+    - assets/images/splash/
+    - assets/sounds/
