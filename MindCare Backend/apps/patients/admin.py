@@ -14,6 +14,10 @@ class PatientProfileAdmin(admin.ModelAdmin):
     list_display = ["pseudonym", "is_profile_public", "country", "created_at"]
     list_filter = ["is_profile_public", "country"]
     search_fields = ["pseudonym", "user__email"]
-    readonly_fields = ["pseudonym", "created_at", "updated_at"]
+    readonly_fields = ["user", "pseudonym", "created_at", "updated_at"]
+
+    def has_add_permission(self, request):
+        # Profiles are created only by register_user(), never in admin.
+        return False
+
     autocomplete_fields = ["country", "city", "preferred_language"]
-    raw_id_fields = ["user"]

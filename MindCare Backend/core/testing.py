@@ -117,3 +117,40 @@ def register_payload(*, role, **overrides):
     }
     data.update(overrides)
     return data
+
+
+def admin_change_form_data(response):
+    """POST data that resubmits an admin change form unchanged, built from the
+    GET response's context (form fields plus any inline formsets). Tests then
+    override the keys they want to change."""
+
+    def collect(form, data):
+        for name in form.fields:
+            value = form[name].value()
+            key = form.add_prefix(name)
+            if value is None or value == "":
+                continue
+            if value is True:
+                data[key] = "on"
+            elif value is False:
+                continue
+            elif isinstance(value, list | tuple | set):
+                data[key] = [str(v) for v in value]
+            else:
+                data[key] = str(value)
+
+    data = {}
+    collect(response.context["adminform"].form, data)
+    for inline in response.context.get("inline_admin_formsets", []):
+        formset = inline.formset
+        data.update(
+            {
+                f"{formset.prefix}-TOTAL_FORMS": str(len(formset.forms)),
+                f"{formset.prefix}-INITIAL_FORMS": str(formset.initial_form_count()),
+                f"{formset.prefix}-MIN_NUM_FORMS": "0",
+                f"{formset.prefix}-MAX_NUM_FORMS": "1000",
+            }
+        )
+        for form in formset.forms:
+            collect(form, data)
+    return data

@@ -19,5 +19,8 @@ class PsychologistProfileAdmin(admin.ModelAdmin):
     search_fields = ["user__email", "user__full_name", "license_number"]
     autocomplete_fields = ["license_issuing_country", "country", "city"]
     filter_horizontal = ["specializations", "languages"]
-    raw_id_fields = ["user"]
-    readonly_fields = ["created_at", "updated_at"]
+    readonly_fields = ["user", "created_at", "updated_at"]
+
+    def has_add_permission(self, request):
+        # Profiles are created only by register_user(), never in admin.
+        return False

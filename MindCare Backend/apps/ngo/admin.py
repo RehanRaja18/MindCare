@@ -23,6 +23,10 @@ class NGOProfileAdmin(admin.ModelAdmin):
     list_filter = ["registration_country", "country"]
     search_fields = ["organization_name", "registration_number", "user__email"]
     autocomplete_fields = ["registration_country", "country", "city"]
-    raw_id_fields = ["user"]
-    readonly_fields = ["created_at", "updated_at"]
+    readonly_fields = ["user", "created_at", "updated_at"]
+
+    def has_add_permission(self, request):
+        # Profiles are created only by register_user(), never in admin.
+        return False
+
     inlines = [NGOServiceAreaInline]
