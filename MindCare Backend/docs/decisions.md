@@ -500,3 +500,47 @@ choices are listed explicitly so they aren't mistaken for decisions.
 shouldn't be judged against a user's whole history, and it makes pile-on
 brigading easier); permanent bans by default (rejected: a fixed period that lifts
 automatically is the stated intent).
+
+## 2026-09-29 - Phase 11 forward-note: community feed performance and attachment storage
+**Decided (direction for Phase 11):**
+- **Paginated message lists.** A bounded page size, never the full history in one
+  response.
+- **No N+1 queries.** Fetching a page loads author, reactions and attachment
+  metadata in one or two round trips (`select_related` / `prefetch_related`), not
+  once per message.
+- **Short read cache for popular community lists,** the same pattern as
+  `GET /stats/public/` (cached for a few minutes, anonymous-safe).
+- **Attachments live in object storage (Supabase Storage)** behind
+  `integrations/storage_client/`, the same storage integration Phase 2.5 builds for
+  credential documents (see @roadmap.md). **The database stores only a reference**
+  (URL or file key), never the file bytes.
+
+**Open choice, not yet made** (left as a placeholder when this note was written):
+1. **Attachment scope:** *photos only, video deferred*, or *photos and video from
+   the start*. If video is deferred, video attachments are explicitly out of scope
+   for the FYP, revisited only if time remains after the core roadmap.
+
+**Privacy points Phase 11 must address** (these follow from existing decisions;
+they are not new rules):
+- **Access to files:** Phase 2.5 credential documents are private, with
+  short-lived signed URLs. Phase 11 must choose between the same, or public URLs,
+  for community attachments. Patients posting in mental-health communities are
+  pseudonymous by default, and a public, guessable file URL would bypass the
+  community's own access rules.
+- **Metadata in photos:** EXIF data, especially GPS location, can identify a
+  patient and would defeat the pseudonym system (see the 2026-09-26
+  display-identity and demographics entries). Phase 11 should strip EXIF from
+  uploaded images.
+
+**Also deferred to Phase 11 design:**
+- the exact page size;
+- attachment size and type limits;
+- whether attachments need admin moderation review before they become visible
+  (see the moderation forward-note above).
+
+**Why recorded now:** pagination, query shape and the storage split determine the
+community data model and API contract. The storage integration is shared with
+Phase 2.5, so both phases should build on one `storage_client` rather than two.
+**Alternatives considered:** Storing files in Postgres (rejected: bloats the
+free-tier database and backups, and file serving belongs in object storage);
+unpaginated feeds (rejected: responses and queries grow without bound).
