@@ -49,8 +49,8 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
 |------|-------------------|---------|--------------|--------------------|
 | `apps/ngo/models.py` | `NGOProfile`, `NGOServiceArea` | NGO organisation details (credentials locked; registration number and official contacts admin-only) and service areas (country + optional city; no city = nationwide) | — | MindCare Web |
-| `apps/ngo/services.py` | `create_ngo_profile()` | Creates the profile + service areas at registration; validates email, website, phone, timezone and field lengths at the service layer; generic duplicate-registration error | via `POST /api/v1/accounts/register/` | MindCare Web |
-| `apps/ngo/services.py` | `update_ngo_profile()` | Owner edits; credential lock; service-layer email/website/phone/timezone/length validation; a provided `service_areas` list replaces the set | `PATCH /api/v1/ngo/me/` | MindCare Web |
+| `apps/ngo/services.py` | `create_ngo_profile()` | Creates the profile + service areas at registration; validates email, website, phone, timezone and field lengths at the service layer; `official_email` stored normalized (lower-cased); generic duplicate-registration error | via `POST /api/v1/accounts/register/` | MindCare Web |
+| `apps/ngo/services.py` | `update_ngo_profile()` | Owner edits; credential lock; service-layer email/website/phone/timezone/length validation; `official_email` stored normalized (lower-cased); a provided `service_areas` list replaces the set | `PATCH /api/v1/ngo/me/` | MindCare Web |
 | `apps/ngo/selectors.py` | `get_ngo_profile_for_user()` | Loads the requesting NGO's own profile | `GET /api/v1/ngo/me/` | MindCare Web |
 | `apps/ngo/api/views.py` | `MyNGOProfileView` | Owner-only read/update of the NGO profile | `GET`/`PATCH /api/v1/ngo/me/` | MindCare Web |
 

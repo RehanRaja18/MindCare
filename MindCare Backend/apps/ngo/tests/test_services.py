@@ -129,6 +129,13 @@ class CreateNGOProfileTests(TestCase):
             )
         self.assertFalse(City.objects.filter(name__iexact="Brand New Town").exists())
 
+    def test_create_official_email_lowercased(self):
+        profile = _create(
+            registration_number="SECP-999",
+            official_email="  Contact@HelpingHands.Example ",
+        )
+        self.assertEqual(profile.official_email, "contact@helpinghands.example")
+
     def test_duplicate_registration_leaves_no_orphan_city(self):
         _create(registration_number="SECP-7")
         gb = Country.objects.get(code="GB")
@@ -250,3 +257,15 @@ class UpdateNGOProfileTests(TestCase):
             )
         self.assertFalse(City.objects.filter(name__iexact="Brand New Town").exists())
         self.assertFalse(City.objects.filter(name__iexact="Another New Town").exists())
+
+    def test_update_official_email_lowercased(self):
+        update_ngo_profile(profile=self.profile, official_email="NEW@Example.ORG")
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.official_email, "new@example.org")
+
+    def test_update_official_email_whitespace_only_rejected_unchanged(self):
+        with self.assertRaises(DomainValidationError) as ctx:
+            update_ngo_profile(profile=self.profile, official_email="   ")
+        self.assertIn("official_email", ctx.exception.errors)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.official_email, "contact@helpinghands.example")
