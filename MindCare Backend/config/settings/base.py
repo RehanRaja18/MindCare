@@ -25,6 +25,7 @@ AUTH_USER_MODEL = "accounts.User"
 LOCAL_APPS = [
     "apps.accounts",
     "apps.reference",
+    "apps.stats",
     "apps.patients",
     "apps.psychologists",
     "apps.appointments",
@@ -132,6 +133,7 @@ REST_FRAMEWORK = {
         "login": "5/min",
         "register": "10/hour",
         "reference": "120/min",
+        "public_stats": "60/min",
     },
     "NUM_PROXIES": env.int("NUM_PROXIES", default=0),
 }

@@ -14,6 +14,7 @@ from drf_spectacular.views import (
 API_V1_APPS = [
     "accounts",
     "reference",
+    "stats",
     "patients",
     "psychologists",
     "appointments",
