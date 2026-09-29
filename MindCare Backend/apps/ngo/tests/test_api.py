@@ -47,6 +47,18 @@ class NGOMeAPITests(APITestCase):
                 self.assertEqual(len(stored), 1)
                 self.assertIsNone(stored[0]["city"])
 
+    def test_patch_service_area_unknown_key_rejected_and_unchanged(self):
+        r = self.client.patch(
+            ME_URL,
+            {"service_areas": [{"country": "PK", "cty": "Lahore"}]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("cty", r.data["service_areas"][0])
+        stored = self.client.get(ME_URL).data["service_areas"]
+        self.assertEqual(len(stored), 1)
+        self.assertIsNone(stored[0]["city"])
+
     def test_patch_service_area_without_country_fails_in_serializer(self):
         for areas in ([{}], [{"city": "Leeds"}]):
             with self.subTest(areas=areas):

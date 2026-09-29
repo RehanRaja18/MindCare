@@ -174,6 +174,14 @@ class RegisterWithProfileAPITests(APITestCase):
         payload["profile"]["pseudonym"] = "Patient-000000"
         r = self.client.post(REGISTER_URL, payload, format="json")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("pseudonym", r.data["profile"])
+
+    def test_ngo_unknown_service_area_key_rejected(self):
+        payload = register_payload(role="ngo", email="typo@example.com")
+        payload["profile"]["service_areas"] = [{"country": "PK", "cty": "Lahore"}]
+        r = self.client.post(REGISTER_URL, payload, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(User.objects.filter(email="typo@example.com").exists())
 
     def test_duplicate_license_is_generic_400(self):
         self.client.post(

@@ -21,6 +21,27 @@ class RejectUnknownFieldsTests(SimpleTestCase):
         self.assertIn("pseudonym", s.errors)
 
 
+class _Child(RejectUnknownFieldsMixin, serializers.Serializer):
+    country = serializers.CharField()
+    city = serializers.CharField(required=False)
+
+
+class _Parent(RejectUnknownFieldsMixin, serializers.Serializer):
+    items = _Child(many=True)
+
+
+class RejectUnknownNestedFieldsTests(SimpleTestCase):
+    def test_unknown_key_in_nested_many_child_is_rejected(self):
+        s = _Parent(data={"items": [{"country": "PK"}, {"country": "PK", "cty": "x"}]})
+        self.assertFalse(s.is_valid())
+        self.assertNotIn(0, s.errors["items"])
+        self.assertIn("cty", s.errors["items"][1])
+
+    def test_valid_nested_items_pass(self):
+        s = _Parent(data={"items": [{"country": "PK", "city": "Lahore"}]})
+        self.assertTrue(s.is_valid(), s.errors)
+
+
 class _StrictTrueSample(serializers.Serializer):
     flag = StrictTrueField()
 
