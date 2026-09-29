@@ -6,14 +6,33 @@ business rules themselves. Anything that mutates state belongs here.
 
 from django.contrib.auth import authenticate
 from django.db import IntegrityError, transaction
+from django.utils.timezone import now
 
 from apps.accounts.models import ApprovalStatus, Role, User
+from apps.ngo.services import create_ngo_profile
+from apps.patients.services import create_patient_profile
+from apps.psychologists.services import create_psychologist_profile
 from core.audit import log_auth_event
+from core.exceptions import DomainValidationError
 
 ROLES_REQUIRING_APPROVAL = {Role.PSYCHOLOGIST, Role.NGO}
 
+# Direct calls, NOT signals: "every user has a profile, or neither exists" must
+# be visible and testable (docs/decisions.md, 2026-09-26).
+PROFILE_CREATORS = {
+    Role.PATIENT: create_patient_profile,
+    Role.PSYCHOLOGIST: create_psychologist_profile,
+    Role.NGO: create_ngo_profile,
+}
 
-def register_user(*, email, password, full_name, role):
+
+def register_user(
+    *, email, password, full_name, role, is_adult_confirmed, profile_data
+):
+    if is_adult_confirmed is not True:
+        raise DomainValidationError(
+            {"is_adult_confirmed": ["You must confirm you are 18 or older."]}
+        )
     email = email.lower()
     approval_status = (
         ApprovalStatus.PENDING
@@ -28,7 +47,9 @@ def register_user(*, email, password, full_name, role):
                 full_name=full_name,
                 role=role,
                 approval_status=approval_status,
+                adult_confirmed_at=now(),
             )
+            PROFILE_CREATORS[role](user=user, **profile_data)
     except IntegrityError as exc:
         if User.objects.filter(email__iexact=email).exists():
             raise DuplicateEmailError("A user with this email already exists.") from exc

@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import ApprovalStatus, Role, User
+from core.testing import register_payload
 
 REGISTER_URL = "/api/v1/accounts/register/"
 LOGIN_URL = "/api/v1/accounts/login/"
@@ -18,12 +19,10 @@ class RegisterAPITests(APITestCase):
     def test_patient_can_register_and_is_approved(self):
         response = self.client.post(
             REGISTER_URL,
-            {
-                "email": "newpatient@example.com",
-                "password": "strongpass123",
-                "full_name": "New Patient",
-                "role": "patient",
-            },
+            register_payload(
+                role="patient", email="newpatient@example.com", full_name="New Patient"
+            ),
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         user = User.objects.get(email="newpatient@example.com")
@@ -32,27 +31,19 @@ class RegisterAPITests(APITestCase):
     def test_psychologist_registration_is_pending(self):
         response = self.client.post(
             REGISTER_URL,
-            {
-                "email": "newdoc@example.com",
-                "password": "strongpass123",
-                "full_name": "New Doc",
-                "role": "psychologist",
-            },
+            register_payload(
+                role="psychologist", email="newdoc@example.com", full_name="New Doc"
+            ),
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         user = User.objects.get(email="newdoc@example.com")
         self.assertEqual(user.approval_status, ApprovalStatus.PENDING)
 
     def test_admin_role_is_rejected(self):
-        response = self.client.post(
-            REGISTER_URL,
-            {
-                "email": "wannabeadmin@example.com",
-                "password": "strongpass123",
-                "full_name": "Wannabe Admin",
-                "role": "admin",
-            },
-        )
+        payload = register_payload(role="patient", email="wannabeadmin@example.com")
+        payload["role"] = "admin"
+        response = self.client.post(REGISTER_URL, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(User.objects.filter(email="wannabeadmin@example.com").exists())
 
@@ -65,24 +56,23 @@ class RegisterAPITests(APITestCase):
         )
         response = self.client.post(
             REGISTER_URL,
-            {
-                "email": "dup@example.com",
-                "password": "strongpass123",
-                "full_name": "Dup Attempt",
-                "role": "patient",
-            },
+            register_payload(
+                role="patient", email="dup@example.com", full_name="Dup Attempt"
+            ),
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_weak_password_is_rejected(self):
         response = self.client.post(
             REGISTER_URL,
-            {
-                "email": "weakpass@example.com",
-                "password": "password",
-                "full_name": "Weak Password",
-                "role": "patient",
-            },
+            register_payload(
+                role="patient",
+                email="weakpass@example.com",
+                password="password",
+                full_name="Weak Password",
+            ),
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("password", response.data)
@@ -91,12 +81,13 @@ class RegisterAPITests(APITestCase):
     def test_purely_numeric_weak_password_is_rejected(self):
         response = self.client.post(
             REGISTER_URL,
-            {
-                "email": "numericpass@example.com",
-                "password": "12345678",
-                "full_name": "Numeric Password",
-                "role": "patient",
-            },
+            register_payload(
+                role="patient",
+                email="numericpass@example.com",
+                password="12345678",
+                full_name="Numeric Password",
+            ),
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("password", response.data)
@@ -105,24 +96,76 @@ class RegisterAPITests(APITestCase):
         for i in range(10):
             response = self.client.post(
                 REGISTER_URL,
-                {
-                    "email": f"throttleuser{i}@example.com",
-                    "password": "strongpass123",
-                    "full_name": "Throttle User",
-                    "role": "patient",
-                },
+                register_payload(role="patient", email=f"throttleuser{i}@example.com"),
+                format="json",
             )
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         response = self.client.post(
             REGISTER_URL,
-            {
-                "email": "throttleuser-over-limit@example.com",
-                "password": "strongpass123",
-                "full_name": "Throttle User",
-                "role": "patient",
-            },
+            register_payload(
+                role="patient", email="throttleuser-over-limit@example.com"
+            ),
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+class RegisterWithProfileAPITests(APITestCase):
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def test_psychologist_register_returns_profile(self):
+        r = self.client.post(
+            REGISTER_URL, register_payload(role="psychologist"), format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["approval_status"], "pending")
+        self.assertEqual(r.data["profile"]["license_number"], "PMDC-12345")
+
+    def test_patient_register_returns_pseudonym(self):
+        r = self.client.post(
+            REGISTER_URL, register_payload(role="patient"), format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertRegex(r.data["profile"]["pseudonym"], r"^Patient-[0-9a-f]{6}$")
+
+    def test_adult_declaration_required(self):
+        for value in (False, None):
+            payload = register_payload(role="patient", is_adult_confirmed=value)
+            r = self.client.post(REGISTER_URL, payload, format="json")
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn("is_adult_confirmed", r.data)
+
+    def test_missing_psychologist_credentials_rejected_nothing_created(self):
+        payload = register_payload(role="psychologist", email="nocreds@example.com")
+        del payload["profile"]["license_number"]
+        r = self.client.post(REGISTER_URL, payload, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("license_number", r.data["profile"])
+        self.assertFalse(User.objects.filter(email="nocreds@example.com").exists())
+
+    def test_unknown_profile_key_rejected(self):
+        payload = register_payload(role="patient")
+        payload["profile"]["pseudonym"] = "Patient-000000"
+        r = self.client.post(REGISTER_URL, payload, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_duplicate_license_is_generic_400(self):
+        self.client.post(
+            REGISTER_URL, register_payload(role="psychologist"), format="json"
+        )
+        r = self.client.post(
+            REGISTER_URL,
+            register_payload(role="psychologist", email="second@example.com"),
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            r.data["profile"]["license_number"], ["This license is already registered."]
+        )
+        self.assertFalse(User.objects.filter(email="second@example.com").exists())
 
 
 class LoginAPITests(APITestCase):

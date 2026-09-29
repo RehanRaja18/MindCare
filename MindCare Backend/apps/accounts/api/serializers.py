@@ -6,6 +6,37 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from apps.accounts import services
 from apps.accounts.models import Role, User
+from apps.ngo.api.serializers import (
+    NGOProfileOwnerSerializer,
+    NGORegistrationProfileSerializer,
+)
+from apps.patients.api.serializers import (
+    PatientProfileOwnerSerializer,
+    PatientRegistrationProfileSerializer,
+)
+from apps.psychologists.api.serializers import (
+    PsychologistProfileOwnerSerializer,
+    PsychologistRegistrationProfileSerializer,
+)
+
+# role -> (registration input serializer, owner output serializer, User reverse accessor)
+PROFILE_SERIALIZERS = {
+    Role.PATIENT: (
+        PatientRegistrationProfileSerializer,
+        PatientProfileOwnerSerializer,
+        "patient_profile",
+    ),
+    Role.PSYCHOLOGIST: (
+        PsychologistRegistrationProfileSerializer,
+        PsychologistProfileOwnerSerializer,
+        "psychologist_profile",
+    ),
+    Role.NGO: (
+        NGORegistrationProfileSerializer,
+        NGOProfileOwnerSerializer,
+        "ngo_profile",
+    ),
+}
 
 
 class RegisterSerializer(serializers.Serializer):
@@ -13,6 +44,25 @@ class RegisterSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True, min_length=8)
     full_name = serializers.CharField(max_length=255)
     role = serializers.ChoiceField(choices=[Role.PATIENT, Role.PSYCHOLOGIST, Role.NGO])
+    is_adult_confirmed = serializers.BooleanField(
+        help_text="Must be true: the user declares they are 18 or older."
+    )
+    profile = serializers.DictField(
+        help_text="Role-specific profile object; see API docs."
+    )
+
+    def validate_is_adult_confirmed(self, value):
+        if value is not True:
+            raise serializers.ValidationError("You must confirm you are 18 or older.")
+        return value
+
+    def validate(self, attrs):
+        input_serializer_class = PROFILE_SERIALIZERS[attrs["role"]][0]
+        profile = input_serializer_class(data=attrs["profile"])
+        if not profile.is_valid():
+            raise serializers.ValidationError({"profile": profile.errors})
+        attrs["profile"] = profile.validated_data
+        return attrs
 
     def validate_email(self, value):
         if User.objects.filter(email__iexact=value).exists():
@@ -36,6 +86,13 @@ class UserPublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "email", "full_name", "role", "approval_status"]
+
+
+def registration_response_data(user):
+    _, owner_serializer_class, accessor = PROFILE_SERIALIZERS[user.role]
+    data = dict(UserPublicSerializer(user).data)
+    data["profile"] = owner_serializer_class(getattr(user, accessor)).data
+    return data
 
 
 class MindCareTokenObtainPairSerializer(TokenObtainPairSerializer):

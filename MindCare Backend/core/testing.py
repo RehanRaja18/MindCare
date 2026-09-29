@@ -98,3 +98,22 @@ def ngo_profile_payload(**overrides):
     }
     data.update(overrides)
     return data
+
+
+def register_payload(*, role, **overrides):
+    profiles = {
+        Role.PATIENT: lambda: dict(PATIENT_PROFILE_DATA),
+        Role.PSYCHOLOGIST: psychologist_profile_payload,
+        Role.NGO: ngo_profile_payload,
+    }
+    tag = uuid.uuid4().hex[:8]
+    data = {
+        "email": f"{role}-{tag}@example.com",
+        "password": PASSWORD,
+        "full_name": f"New {role.title()}",
+        "role": str(role),
+        "is_adult_confirmed": True,
+        "profile": profiles[Role(role)](),
+    }
+    data.update(overrides)
+    return data

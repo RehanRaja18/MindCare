@@ -19,9 +19,10 @@ from apps.accounts import selectors, services
 from apps.accounts.api.serializers import (
     MindCareTokenObtainPairSerializer,
     RegisterSerializer,
-    UserPublicSerializer,
+    registration_response_data,
 )
 from apps.accounts.models import ApprovalStatus
+from core.exceptions import DomainValidationError
 
 
 class RegisterRateThrottle(AnonRateThrottle):
@@ -36,11 +37,28 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
         try:
-            user = services.register_user(**serializer.validated_data)
+            user = services.register_user(
+                email=data["email"],
+                password=data["password"],
+                full_name=data["full_name"],
+                role=data["role"],
+                is_adult_confirmed=data["is_adult_confirmed"],
+                profile_data=data["profile"],
+            )
         except services.DuplicateEmailError as exc:
             raise ValidationError({"email": str(exc)}) from exc
-        return Response(UserPublicSerializer(user).data, status=status.HTTP_201_CREATED)
+        except DomainValidationError as exc:
+            errors = (
+                exc.errors
+                if "is_adult_confirmed" in exc.errors
+                else {"profile": exc.errors}
+            )
+            raise ValidationError(errors, code=exc.code) from exc
+        return Response(
+            registration_response_data(user), status=status.HTTP_201_CREATED
+        )
 
 
 class LoginRateThrottle(AnonRateThrottle):

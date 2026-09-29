@@ -9,6 +9,11 @@ from django.test import TestCase
 from apps.accounts.models import ApprovalStatus, Role, User
 from apps.accounts.services import register_user
 from core.audit import log_auth_event
+from core.testing import (
+    PATIENT_PROFILE_DATA,
+    ngo_profile_data,
+    psychologist_profile_data,
+)
 
 
 class UserManagerTests(TestCase):
@@ -92,6 +97,8 @@ class RegisterUserTests(TestCase):
             password="strongpass123",
             full_name="New Patient",
             role=Role.PATIENT,
+            is_adult_confirmed=True,
+            profile_data=dict(PATIENT_PROFILE_DATA),
         )
         self.assertEqual(user.approval_status, ApprovalStatus.APPROVED)
 
@@ -101,6 +108,8 @@ class RegisterUserTests(TestCase):
             password="strongpass123",
             full_name="New Doc",
             role=Role.PSYCHOLOGIST,
+            is_adult_confirmed=True,
+            profile_data=psychologist_profile_data(),
         )
         self.assertEqual(user.approval_status, ApprovalStatus.PENDING)
 
@@ -110,6 +119,8 @@ class RegisterUserTests(TestCase):
             password="strongpass123",
             full_name="New NGO",
             role=Role.NGO,
+            is_adult_confirmed=True,
+            profile_data=ngo_profile_data(),
         )
         self.assertEqual(user.approval_status, ApprovalStatus.PENDING)
 
@@ -121,6 +132,8 @@ class RegisterUserTests(TestCase):
             password="strongpass123",
             full_name="First",
             role=Role.PATIENT,
+            is_adult_confirmed=True,
+            profile_data=dict(PATIENT_PROFILE_DATA),
         )
         with self.assertRaises(DuplicateEmailError):
             register_user(
@@ -128,6 +141,8 @@ class RegisterUserTests(TestCase):
                 password="strongpass123",
                 full_name="Second",
                 role=Role.PATIENT,
+                is_adult_confirmed=True,
+                profile_data=dict(PATIENT_PROFILE_DATA),
             )
 
     def test_unrelated_integrity_error_is_reraised_unmodified(self):
@@ -145,6 +160,8 @@ class RegisterUserTests(TestCase):
                     password="strongpass123",
                     full_name="Nobody",
                     role=Role.PATIENT,
+                    is_adult_confirmed=True,
+                    profile_data=dict(PATIENT_PROFILE_DATA),
                 )
 
     def test_registration_lowercases_email(self):
@@ -153,6 +170,8 @@ class RegisterUserTests(TestCase):
             password="strongpass123",
             full_name="Bob",
             role=Role.PATIENT,
+            is_adult_confirmed=True,
+            profile_data=dict(PATIENT_PROFILE_DATA),
         )
         self.assertEqual(user.email, "bob@example.com")
 
@@ -163,6 +182,8 @@ class RegisterUserTests(TestCase):
                 password="strongpass123",
                 full_name="Audited User",
                 role=Role.PATIENT,
+                is_adult_confirmed=True,
+                profile_data=dict(PATIENT_PROFILE_DATA),
             )
         payload = __import__("json").loads(captured.records[0].getMessage())
         self.assertEqual(payload["event_type"], "register")
@@ -210,6 +231,8 @@ class AuthenticateAndCheckApprovalTests(TestCase):
             password=self.password,
             full_name="Bob",
             role=Role.PATIENT,
+            is_adult_confirmed=True,
+            profile_data=dict(PATIENT_PROFILE_DATA),
         )
         self.assertEqual(registered.email, "bob@example.com")
 
@@ -303,3 +326,104 @@ class AuditHelperSmokeTests(TestCase):
         payload = __import__("json").loads(captured.records[0].getMessage())
         self.assertEqual(payload["event_type"], "logout")
         self.assertEqual(payload["user_id"], self.user.id)
+
+
+class RegisterUserProfileOrchestrationTests(TestCase):
+    def test_each_role_gets_its_profile_and_adult_timestamp(self):
+        patient = register_user(
+            email="p@example.com",
+            password="strongpass123",
+            full_name="P",
+            role=Role.PATIENT,
+            is_adult_confirmed=True,
+            profile_data=dict(PATIENT_PROFILE_DATA),
+        )
+        psych = register_user(
+            email="d@example.com",
+            password="strongpass123",
+            full_name="D",
+            role=Role.PSYCHOLOGIST,
+            is_adult_confirmed=True,
+            profile_data=psychologist_profile_data(),
+        )
+        ngo = register_user(
+            email="n@example.com",
+            password="strongpass123",
+            full_name="N",
+            role=Role.NGO,
+            is_adult_confirmed=True,
+            profile_data=ngo_profile_data(),
+        )
+        self.assertTrue(hasattr(patient, "patient_profile"))
+        self.assertTrue(hasattr(psych, "psychologist_profile"))
+        self.assertTrue(hasattr(ngo, "ngo_profile"))
+        for user in (patient, psych, ngo):
+            self.assertIsNotNone(user.adult_confirmed_at)
+
+    def test_missing_adult_declaration_rejected_and_nothing_created(self):
+        from core.exceptions import DomainValidationError
+
+        with self.assertRaises(DomainValidationError):
+            register_user(
+                email="kid@example.com",
+                password="strongpass123",
+                full_name="K",
+                role=Role.PATIENT,
+                is_adult_confirmed=False,
+                profile_data=dict(PATIENT_PROFILE_DATA),
+            )
+        self.assertFalse(User.objects.filter(email="kid@example.com").exists())
+
+    def test_profile_failure_rolls_back_user(self):
+        from unittest.mock import patch
+
+        with patch.dict(
+            "apps.accounts.services.PROFILE_CREATORS",
+            {Role.PATIENT: lambda **kw: (_ for _ in ()).throw(RuntimeError("boom"))},
+        ):
+            with self.assertRaises(RuntimeError):
+                register_user(
+                    email="rollback@example.com",
+                    password="strongpass123",
+                    full_name="R",
+                    role=Role.PATIENT,
+                    is_adult_confirmed=True,
+                    profile_data=dict(PATIENT_PROFILE_DATA),
+                )
+        self.assertFalse(User.objects.filter(email="rollback@example.com").exists())
+
+    def test_duplicate_license_rolls_back_second_user(self):
+        from apps.psychologists.services import DuplicateLicenseError
+
+        register_user(
+            email="d1@example.com",
+            password="strongpass123",
+            full_name="D1",
+            role=Role.PSYCHOLOGIST,
+            is_adult_confirmed=True,
+            profile_data=psychologist_profile_data(),
+        )
+        with self.assertRaises(DuplicateLicenseError):
+            register_user(
+                email="d2@example.com",
+                password="strongpass123",
+                full_name="D2",
+                role=Role.PSYCHOLOGIST,
+                is_adult_confirmed=True,
+                profile_data=psychologist_profile_data(),
+            )
+        self.assertFalse(User.objects.filter(email="d2@example.com").exists())
+
+    def test_no_audit_event_when_registration_fails(self):
+        from core.exceptions import DomainValidationError
+
+        with self.assertNoLogs("mindcare.audit", level="INFO"):
+            with self.assertRaises(DomainValidationError):
+                register_user(
+                    email="x@example.com",
+                    password="strongpass123",
+                    full_name="X",
+                    role=Role.PATIENT,
+                    is_adult_confirmed=True,
+                    profile_data={"timezone": "Nope/Nope"},
+                )
