@@ -17,6 +17,13 @@ class ServiceAreaInputSerializer(RejectUnknownFieldsMixin, serializers.Serialize
         max_length=120, required=False, allow_blank=True, allow_null=True
     )
 
+    def run_validation(self, data=serializers.empty):
+        # Nested serializers inherit the root's partial flag, which would make
+        # `country` optional on PATCH; a service area always needs one.
+        if isinstance(data, dict) and "country" not in data:
+            raise serializers.ValidationError({"country": ["This field is required."]})
+        return super().run_validation(data)
+
 
 class NGORegistrationProfileSerializer(
     RejectUnknownFieldsMixin, serializers.Serializer
