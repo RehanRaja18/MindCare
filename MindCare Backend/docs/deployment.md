@@ -23,6 +23,11 @@ Production backend runs on **Render**, with **Supabase** (Postgres) and
 | `DJANGO_SETTINGS_MODULE` | `config.settings.prod` |
 | `ALLOWED_HOSTS` | `.onrender.com` |
 
+**Local development:** the developer's local `.env` `DATABASE_URL` should point at
+the local docker Postgres, with production credentials only in Render. (Tests are
+already guarded against remote databases, see @decisions.md, 2026-09-28, but
+`runserver`, `migrate` and `dbshell` use `DATABASE_URL` as-is.)
+
 `JWT_SIGNING_KEY` is not set, so JWTs are signed with `SECRET_KEY` (see
 `config/settings/base.py`).
 
@@ -45,6 +50,28 @@ Render redeploys.
 - **Supabase inactivity pause:** Supabase free-tier projects are paused after
   **7 days** without activity, which takes the production database offline until
   someone manually restores it.
+
+## Pre-deploy checklist for the Phase 2 merge
+
+- [ ] **Rate limits behind Render's proxy:** `NUM_PROXIES` defaults to 0, so DRF
+      throttles on the proxy's address and every user shares one bucket (login
+      5/min, register 10/hour, reference 120/min, stats 60/min). Confirm Render's
+      proxy hop count and set `NUM_PROXIES` (likely `1`) in Render's environment,
+      then re-test that a throttle is per-client.
+- [ ] **Migrations run on deploy:** confirm Render's build or pre-deploy command
+      runs `python manage.py migrate` (nothing in the repo records it) and write
+      the actual command here: `TODO: <command>`.
+- [ ] **Existing production users:** production already has data (a superuser at
+      least). Before merging, count non-admin users per role in production
+      (read-only, by the developer). Any patient/psychologist/NGO user created
+      before Phase 2 has no profile and would get 404 on `/me/`; recreate or
+      delete them.
+- [ ] **Frontend merge order:** the register body is a breaking change
+      (`is_adult_confirmed` + nested `profile`). Merge and deploy only after both
+      MindCare Web and MindCare App send the new body; otherwise live sign-ups get
+      400s.
+- [ ] **After deploy:** re-run the CORS preflight check (see CORS section) and
+      check `/api/docs/` shows the register and `/me/` contracts.
 
 ## TODO
 

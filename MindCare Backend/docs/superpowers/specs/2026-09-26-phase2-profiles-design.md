@@ -394,7 +394,9 @@ Per CLAUDE.md, service-layer tests come first.
 
 ## 14. Deployment / data notes
 
-- Not deployed; no production data. Local dev accounts created before this phase
+- The backend is deployed on Render with a production database that already has at
+  least a superuser; see `docs/deployment.md`'s pre-deploy checklist for existing
+  users without profiles. Accounts created before this phase (local or production)
   have no profile and should be recreated (no backfill migration — psychologist/NGO
   credentials can't be invented).
 - No new packages. `zoneinfo` is stdlib (Django already pulls `tzdata` on Windows).

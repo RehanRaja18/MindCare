@@ -594,3 +594,22 @@ must stay visible and testable.
 **Alternatives considered:** Reference tables in `accounts` (unrelated to auth);
 stats in `reports` (wrong URL); `post_save` signals (the rollback guarantee would
 depend on a handler that's easy to break without anyone noticing).
+
+## 2026-09-29 - Cities typed at registration are unverified until an admin verifies them; `/stats/public/` counts only vetted profiles' cities
+**Decision:** `City` gets `is_verified` (default `False`). Seeded cities (the major
+Pakistani ones) are verified by migration 0003. A city typed at registration is
+created unverified: it works on the profile that created it (the owner still sees it
+in `/me/`, and a second profile typing the same name reuses it), but it is left out
+of the public `GET /reference/cities/` dropdown until an admin verifies it in Django
+admin (list-editable flag or the "Mark selected cities as verified" action).
+`/stats/public/`'s `cities` count now includes only active patients' cities and the
+cities of psychologists and NGOs that are active **and** approved; pending, rejected
+and deactivated ones don't count.
+**Why:** Registration is anonymous, so without this an attacker could publish
+arbitrary text into a patient-facing dropdown and inflate a public number with
+throwaway registrations. Admin verification and the approval gate put a human
+between anonymous input and public output.
+**Alternatives considered:** Showing only cities used by approved profiles (an
+unapproved profile's city would then never appear, and a city's visibility would
+change silently when profiles are approved or deactivated); a character allow-list
+only (blocks markup but not spam or false places).
