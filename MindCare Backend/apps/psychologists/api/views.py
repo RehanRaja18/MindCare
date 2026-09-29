@@ -4,6 +4,7 @@ Views stay thin: parse the request, delegate to services.py (writes) or
 selectors.py (reads), then serialize the result. No business logic here.
 """
 
+from drf_spectacular.utils import extend_schema
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -27,9 +28,14 @@ class MyPsychologistProfileView(APIView):
             raise NotFound("Profile not found.")
         return profile
 
+    @extend_schema(responses=PsychologistProfileOwnerSerializer)
     def get(self, request):
         return Response(PsychologistProfileOwnerSerializer(self._profile(request)).data)
 
+    @extend_schema(
+        request=PsychologistRegistrationProfileSerializer,
+        responses=PsychologistProfileOwnerSerializer,
+    )
     def patch(self, request):
         profile = self._profile(request)
         serializer = PsychologistRegistrationProfileSerializer(

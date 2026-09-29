@@ -4,7 +4,8 @@ Views stay thin: parse the request, delegate to services.py (writes) or
 selectors.py (reads), then serialize the result. No business logic here.
 """
 
-from rest_framework import status
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers, status
 from rest_framework.exceptions import ParseError, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -18,6 +19,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from apps.accounts import selectors, services
 from apps.accounts.api.serializers import (
     MindCareTokenObtainPairSerializer,
+    RegisterRequestDoc,
+    RegisterResponseDoc,
     RegisterSerializer,
     registration_response_data,
 )
@@ -34,6 +37,7 @@ class RegisterView(APIView):
     authentication_classes = []
     throttle_classes = [RegisterRateThrottle]
 
+    @extend_schema(request=RegisterRequestDoc, responses={201: RegisterResponseDoc})
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -102,6 +106,12 @@ class RefreshView(TokenRefreshView):
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=inline_serializer(
+            "LogoutRequest", {"refresh": serializers.CharField()}
+        ),
+        responses={205: None},
+    )
     def post(self, request):
         refresh_token = request.data.get("refresh")
         if not refresh_token:

@@ -1,8 +1,11 @@
 """Shared DRF serializer helpers."""
 
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 
+@extend_schema_field(OpenApiTypes.BOOL)
 class StrictTrueField(serializers.Field):
     """Accepts only the JSON boolean `true` — no coercion of "true", 1, "yes", etc.
     For legal declarations (e.g. the 18+ confirmation) that must be explicit."""

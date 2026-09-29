@@ -1,5 +1,6 @@
 """DRF serializers for the accounts API."""
 
+from drf_spectacular.utils import PolymorphicProxySerializer
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -82,6 +83,55 @@ class UserPublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "email", "full_name", "role", "approval_status"]
+
+
+# --- Documentation-only serializers (OpenAPI). The view validates with
+# RegisterSerializer; these only describe the per-role request/response shapes.
+def _register_request_serializer(role, profile_serializer_class):
+    fields = {
+        "email": serializers.EmailField(),
+        "password": serializers.CharField(min_length=8),
+        "full_name": serializers.CharField(max_length=255),
+        "role": serializers.CharField(help_text=f"Always '{role}'."),
+        "is_adult_confirmed": serializers.BooleanField(
+            help_text="Must be the JSON boolean true."
+        ),
+        "profile": profile_serializer_class(),
+    }
+    return type(f"{role.title()}RegisterRequest", (serializers.Serializer,), fields)
+
+
+def _register_response_serializer(role, owner_serializer_class):
+    meta = type(
+        "Meta",
+        (UserPublicSerializer.Meta,),
+        {"fields": [*UserPublicSerializer.Meta.fields, "profile"]},
+    )
+    fields = {
+        "role": serializers.CharField(help_text=f"Always '{role}'."),
+        "profile": owner_serializer_class(),
+        "Meta": meta,
+    }
+    return type(f"{role.title()}RegisterResponse", (UserPublicSerializer,), fields)
+
+
+RegisterRequestDoc = PolymorphicProxySerializer(
+    component_name="RegisterRequest",
+    serializers={
+        role.value: _register_request_serializer(role.value, input_cls)
+        for role, (input_cls, _, _) in PROFILE_SERIALIZERS.items()
+    },
+    resource_type_field_name="role",
+)
+
+RegisterResponseDoc = PolymorphicProxySerializer(
+    component_name="RegisterResponse",
+    serializers={
+        role.value: _register_response_serializer(role.value, owner_cls)
+        for role, (_, owner_cls, _) in PROFILE_SERIALIZERS.items()
+    },
+    resource_type_field_name="role",
+)
 
 
 def registration_response_data(user):

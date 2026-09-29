@@ -5,6 +5,8 @@ authentication is disabled: an expired token must not turn a dropdown into a
 401. Rate-limited per IP.
 """
 
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -31,11 +33,29 @@ class _PublicReferenceView(APIView):
 
 
 class CountryListView(_PublicReferenceView):
+    @extend_schema(responses=CountrySerializer(many=True))
     def get(self, request):
         return Response(CountrySerializer(selectors.list_countries(), many=True).data)
 
 
 class CityListView(_PublicReferenceView):
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "country",
+                OpenApiTypes.STR,
+                required=True,
+                description="ISO 3166-1 alpha-2 country code, e.g. PK.",
+            ),
+            OpenApiParameter(
+                "search",
+                OpenApiTypes.STR,
+                required=False,
+                description="Case-insensitive name filter.",
+            ),
+        ],
+        responses=CitySerializer(many=True),
+    )
     def get(self, request):
         country = request.query_params.get("country")
         if not country:
@@ -47,11 +67,13 @@ class CityListView(_PublicReferenceView):
 
 
 class LanguageListView(_PublicReferenceView):
+    @extend_schema(responses=LanguageSerializer(many=True))
     def get(self, request):
         return Response(LanguageSerializer(selectors.list_languages(), many=True).data)
 
 
 class SpecializationListView(_PublicReferenceView):
+    @extend_schema(responses=SpecializationSerializer(many=True))
     def get(self, request):
         return Response(
             SpecializationSerializer(selectors.list_specializations(), many=True).data
