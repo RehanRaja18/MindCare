@@ -102,7 +102,7 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 
 | File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
 |------|-------------------|---------|--------------|--------------------|
-| `apps/stats/selectors.py` | `get_public_platform_stats()` | Cached (5 min) aggregate counts: active patients (TEMPORARY until Phase 3), approved psychologists, distinct profile cities (not NGO service areas) | `GET /api/v1/stats/public/` | MindCare Web |
+| `apps/stats/selectors.py` | `get_public_platform_stats()` | Cached (5 min) aggregate counts: active patients (TEMPORARY until Phase 3), approved psychologists, distinct cities of vetted profiles only (active patients; active AND approved psychologists and NGOs; not NGO service areas) | `GET /api/v1/stats/public/` | MindCare Web |
 | `apps/stats/api/views.py` | `PublicStatsView` | Unauthenticated, rate-limited (`public_stats`, 60/min) public counts; exact contract `{people_in_care, verified_therapists, cities}` | `GET /api/v1/stats/public/` | MindCare Web |
 
 ---

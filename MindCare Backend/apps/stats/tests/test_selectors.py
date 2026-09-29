@@ -33,6 +33,16 @@ class PublicStatsTests(TestCase):
             ),
             **psychologist_profile_data(license_number="OTHER-1", city="Islamabad"),
         )
+        # Deactivated approved psychologist in Faisalabad: doesn't count.
+        create_psychologist_profile(
+            user=make_user(role=Role.PSYCHOLOGIST, is_active=False),
+            **psychologist_profile_data(license_number="OTHER-2", city="Faisalabad"),
+        )
+        # Pending NGO in Multan: doesn't count.
+        create_ngo_profile(
+            user=make_user(role=Role.NGO, approval_status=ApprovalStatus.PENDING),
+            **ngo_profile_data(registration_number="SECP-0002", city="Multan"),
+        )
         # NGO HQ in Karachi, nationwide + Quetta service areas (not counted).
         create_ngo_profile(
             user=make_user(role=Role.NGO),
@@ -44,8 +54,10 @@ class PublicStatsTests(TestCase):
         # TEMPORARY definition: active patients (Phase 3 switches to accepted patients).
         self.assertEqual(stats["people_in_care"], 2)
         self.assertEqual(stats["verified_therapists"], 1)
-        # Lahore (patient + psychologist, counted once), Islamabad, Karachi. Not Quetta.
-        self.assertEqual(stats["cities"], 3)
+        # Lahore (patient + approved psychologist, counted once) and Karachi (approved
+        # NGO). Not Islamabad (pending psychologist), Faisalabad (deactivated
+        # psychologist), Multan (pending NGO) or Quetta (service area).
+        self.assertEqual(stats["cities"], 2)
 
     def test_result_is_cached(self):
         get_public_platform_stats()

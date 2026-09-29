@@ -23,15 +23,21 @@ def _compute():
     verified_therapists = User.objects.filter(
         role=Role.PSYCHOLOGIST, is_active=True, approval_status=ApprovalStatus.APPROVED
     ).count()
-    # Each profile's own city (NGO = headquarters). NGO service areas describe
-    # reach, not presence, and are not counted. Early undercount of patient
-    # cities is expected (patients fill in their city later).
+    # Each vetted profile's own city (NGO = headquarters): active patients
+    # (auto-approved), and psychologists / NGOs that are active AND approved, so
+    # an unreviewed registration can't inflate this public number. NGO service
+    # areas describe reach, not presence, and are not counted. Early undercount
+    # of patient cities is expected (patients fill in their city later).
     city_ids = (
         PatientProfile.objects.filter(city__isnull=False, user__is_active=True)
         .values("city_id")
         .union(
-            PsychologistProfile.objects.filter(user__is_active=True).values("city_id"),
-            NGOProfile.objects.filter(user__is_active=True).values("city_id"),
+            PsychologistProfile.objects.filter(
+                user__is_active=True, user__approval_status=ApprovalStatus.APPROVED
+            ).values("city_id"),
+            NGOProfile.objects.filter(
+                user__is_active=True, user__approval_status=ApprovalStatus.APPROVED
+            ).values("city_id"),
         )
     )
     return {
