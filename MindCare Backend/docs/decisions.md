@@ -582,3 +582,15 @@ and doesn't add its own scheduler.
 **Alternatives considered:** Immediate hard delete (rejected: authors could
 destroy reported content before review); soft-delete kept forever (rejected:
 conflicts with data minimisation).
+
+## 2026-09-28 - Two new apps (`reference`, `stats`) and direct-call profile orchestration
+**Why:** Country/City/Language/Specialization are shared by three profile apps and
+`core/` can't own models, so they get one owner, `apps/reference`. `GET
+/stats/public/` must live at `/api/v1/stats/` to match the URL contract MindCare
+Web already calls, so it gets `apps/stats`, which has no models. `register_user()`
+creates each profile by calling that app's service directly inside one
+transaction, not through a signal: "every user has a profile, or neither exists"
+must stay visible and testable.
+**Alternatives considered:** Reference tables in `accounts` (unrelated to auth);
+stats in `reports` (wrong URL); `post_save` signals (the rollback guarantee would
+depend on a handler that's easy to break without anyone noticing).

@@ -11,7 +11,7 @@ current phase status.
 ```
 config/            Django project: settings (base/dev/prod/test), urls.py, celery.py
 apps/               One Django app per domain (see "Modules" below)
-core/               Shared, non-app code: exceptions, permissions, audit, encryption, pagination
+core/               Shared, non-app code: exceptions, permissions, audit, encryption, pagination, validators, choices, serializers, testing (test factories)
 integrations/       Outbound clients for third-party services
 requirements/       base / dev / prod pip requirement sets
 docs/               This file, decisions.md, roadmap.md, deployment.md
@@ -20,6 +20,8 @@ docs/               This file, decisions.md, roadmap.md, deployment.md
 ## Modules (apps/)
 
 - **accounts** — user accounts, authentication, roles (patient / psychologist / admin).
+- **reference** — shared, admin-editable reference data (countries, cities, languages,
+  specializations) used by every profile app.
 - **patients** — patient profiles and patient-specific data.
 - **psychologists** — psychologist profiles, credentials, and their assigned patients.
 - **appointments** — scheduling and managing therapy sessions (incl. Zoom integration).
@@ -36,11 +38,13 @@ docs/               This file, decisions.md, roadmap.md, deployment.md
 - **ngo** — NGO partner accounts and related workflows.
 - **rewards** — gamification/rewards for patient engagement.
 - **emergency** — crisis/emergency escalation flows.
+- **stats** — public aggregate platform counts for the marketing site (no models).
 
 ## Shared modules
 
 - **core/** — not a Django app; cross-cutting code every app may import:
-  `exceptions.py`, `permissions.py`, `audit.py`, `encryption.py`, `pagination.py`.
+  `exceptions.py`, `permissions.py`, `audit.py`, `encryption.py`, `pagination.py`,
+  `validators.py`, `choices.py`, `serializers.py`, `testing.py` (test factories only).
 - **integrations/** — outbound API clients, one subpackage per third-party service:
   `ai_service/` (the separate FastAPI inference service), `stripe_client/`,
   `zoom_client/`, `fcm_client/`, `storage_client/`.
