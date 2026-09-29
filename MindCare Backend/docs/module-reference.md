@@ -37,7 +37,7 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | `apps/accounts/services.py` | `record_token_refresh()` | Logs a `token_refresh` audit event | `POST /api/v1/accounts/refresh/` | MindCare Web, MindCare App |
 | `apps/accounts/services.py` | `record_logout()` | Logs a `logout` audit event | `POST /api/v1/accounts/logout/` | MindCare Web, MindCare App |
 | `apps/accounts/selectors.py` | `get_user_from_refresh_token()` | Decodes a refresh token and looks up its owning user | — | MindCare Web, MindCare App |
-| `apps/accounts/api/views.py` | `RegisterView` | Public registration for patient/psychologist/NGO (never admin); nested role-specific `profile` + `is_adult_confirmed`; returns the user and their profile | `POST /api/v1/accounts/register/` | MindCare Web, MindCare App |
+| `apps/accounts/api/views.py` | `RegisterView` | Public registration for patient/psychologist/NGO (never admin); nested role-specific `profile`; `is_adult_confirmed` must be the JSON boolean `true` (strict, no coercion); returns the user and their profile | `POST /api/v1/accounts/register/` | MindCare Web, MindCare App |
 | `apps/accounts/api/views.py` | `LoginView` | JWT login; embeds `role` claim; blocks pending/rejected accounts; throttled | `POST /api/v1/accounts/login/` | MindCare Web, MindCare App |
 | `apps/accounts/api/views.py` | `RefreshView` | Rotates JWT refresh tokens, blacklists the token just used | `POST /api/v1/accounts/refresh/` | MindCare Web, MindCare App |
 | `apps/accounts/api/views.py` | `LogoutView` | Blacklists the presented refresh token | `POST /api/v1/accounts/logout/` | MindCare Web, MindCare App |
@@ -108,6 +108,7 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | `core/validators.py` | `validate_iana_timezone`, `E164_VALIDATOR`, `validate_adult_date_of_birth`, `normalize_display_text`, `normalize_identifier`, `run_validator` | Shared validators/normalizers for profile fields (timezone, phone, 18+ DOB, city names, license/registration numbers) | — | neither (internal) |
 | `core/choices.py` | `Gender` | Shared gender choices for patient/psychologist profiles | — | MindCare Web, MindCare App |
 | `core/serializers.py` | `RejectUnknownFieldsMixin` | Makes serializers reject undeclared keys (e.g. `pseudonym`) with a 400 | — | neither (internal) |
+| `core/serializers.py` | `StrictTrueField` | Custom DRF field that accepts **only** the JSON boolean `true`, rejecting coerced truthy values like `"true"`, `1`, `"yes"` (used for legal declarations like the 18+ confirmation) | — | neither (internal) |
 | `core/audit.py` | `log_identity_reveal()` | Logs `identity_reveal` (viewer id, patient id only) when an admin resolves a private patient's real name | — | neither (internal) |
 
 ---

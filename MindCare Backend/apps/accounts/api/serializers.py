@@ -18,6 +18,7 @@ from apps.psychologists.api.serializers import (
     PsychologistProfileOwnerSerializer,
     PsychologistRegistrationProfileSerializer,
 )
+from core.serializers import StrictTrueField
 
 # role -> (registration input serializer, owner output serializer, User reverse accessor)
 PROFILE_SERIALIZERS = {
@@ -44,17 +45,12 @@ class RegisterSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True, min_length=8)
     full_name = serializers.CharField(max_length=255)
     role = serializers.ChoiceField(choices=[Role.PATIENT, Role.PSYCHOLOGIST, Role.NGO])
-    is_adult_confirmed = serializers.BooleanField(
-        help_text="Must be true: the user declares they are 18 or older."
+    is_adult_confirmed = StrictTrueField(
+        help_text="Must be the JSON boolean true: the user declares they are 18 or older."
     )
     profile = serializers.DictField(
         help_text="Role-specific profile object; see API docs."
     )
-
-    def validate_is_adult_confirmed(self, value):
-        if value is not True:
-            raise serializers.ValidationError("You must confirm you are 18 or older.")
-        return value
 
     def validate(self, attrs):
         input_serializer_class = PROFILE_SERIALIZERS[attrs["role"]][0]

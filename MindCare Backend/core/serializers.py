@@ -3,6 +3,23 @@
 from rest_framework import serializers
 
 
+class StrictTrueField(serializers.Field):
+    """Accepts only the JSON boolean `true` — no coercion of "true", 1, "yes", etc.
+    For legal declarations (e.g. the 18+ confirmation) that must be explicit."""
+
+    default_error_messages = {
+        "invalid": "Must be the JSON boolean true.",
+    }
+
+    def to_internal_value(self, data):
+        if data is not True:
+            self.fail("invalid")
+        return True
+
+    def to_representation(self, value):
+        return bool(value)
+
+
 class RejectUnknownFieldsMixin:
     """Reject request keys the serializer doesn't declare, instead of silently
     ignoring them. Used where a client sending e.g. `pseudonym` must get a 400,

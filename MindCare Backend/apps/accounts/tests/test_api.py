@@ -138,6 +138,29 @@ class RegisterWithProfileAPITests(APITestCase):
             self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
             self.assertIn("is_adult_confirmed", r.data)
 
+    def test_is_adult_confirmed_only_accepts_json_boolean_true(self):
+        """Truthy string values like "true", 1, "yes" must be rejected."""
+        for value in ("true", 1, "yes"):
+            with self.subTest(value=value):
+                payload = register_payload(
+                    role="patient",
+                    email=f"truthy-{value}@example.com",
+                    is_adult_confirmed=value,
+                )
+                r = self.client.post(REGISTER_URL, payload, format="json")
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("is_adult_confirmed", r.data)
+                self.assertFalse(User.objects.filter(email=payload["email"]).exists())
+
+    def test_is_adult_confirmed_missing_key_rejected(self):
+        """The is_adult_confirmed key must be present in the payload."""
+        payload = register_payload(role="patient", email="nomissing@example.com")
+        del payload["is_adult_confirmed"]
+        r = self.client.post(REGISTER_URL, payload, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("is_adult_confirmed", r.data)
+        self.assertFalse(User.objects.filter(email=payload["email"]).exists())
+
     def test_missing_psychologist_credentials_rejected_nothing_created(self):
         payload = register_payload(role="psychologist", email="nocreds@example.com")
         del payload["profile"]["license_number"]
