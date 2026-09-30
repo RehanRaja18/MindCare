@@ -4,8 +4,8 @@
 // ============================================================
 
 import { API_BASE_URL } from '../constants';
+import { getAccessToken, getRefreshToken, isExpired, saveTokens } from './tokens';
 import type {
-  SignInPayload,
   SignUpPayload,
   ApiResponse,
   StoryEntry,
@@ -14,62 +14,111 @@ import type {
   PlatformStats,
 } from '../types';
 
-// ——— Generic fetch wrapper (CSRF + auth headers ready) ———
+// ——— Generic fetch wrapper ———
+// Auth is a Bearer JWT (no cookies), so requests go without credentials —
+// the backend's CORS config (CORS_ALLOW_CREDENTIALS = False) requires that.
+
+/** Turn a DRF error body into one readable message, shown to the user as-is. */
+function errorMessage(body: unknown, status: number): string {
+  if (body && typeof body === 'object') {
+    const b = body as Record<string, unknown>;
+    const first = (v: unknown) => (Array.isArray(v) ? String(v[0]) : typeof v === 'string' ? v : null);
+    const detail = first(b.detail) ?? first(b.non_field_errors) ?? first(b.message);
+    if (detail) return detail;
+    const [field, value] = Object.entries(b)[0] ?? [];
+    const fieldMsg = first(value);
+    if (field && fieldMsg) return `${field}: ${fieldMsg}`;
+  }
+  return `Request failed (${status}).`;
+}
+
+// One refresh at a time, shared by concurrent requests.
+let refreshing: Promise<boolean> | null = null;
+
+/** Swap the refresh token for a new pair (POST /accounts/refresh/). */
+export function refreshTokens(): Promise<boolean> {
+  refreshing ??= (async () => {
+    const refresh = getRefreshToken();
+    if (!refresh || isExpired(refresh, 0)) return false;
+    try {
+      const res = await fetch(`${API_BASE_URL}/accounts/refresh/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh }),
+      });
+      if (!res.ok) return false;
+      const data = (await res.json()) as { access?: string; refresh?: string };
+      if (!data.access) return false;
+      saveTokens(data.access, data.refresh ?? refresh); // refresh tokens rotate
+      return true;
+    } catch {
+      return false;
+    }
+  })().finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+}
+
 async function apiFetch<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit & { skipAuth?: boolean } = {}
 ): Promise<ApiResponse<T>> {
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('mc_access_token') : null;
-
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...options.headers,
-  };
-
   if (!API_BASE_URL) {
     return { data: null, error: 'API base URL is not configured (VITE_API_BASE_URL).', loading: false };
   }
+  const { skipAuth, ...init } = options;
+
+  const send = async () => {
+    const token = skipAuth ? null : getAccessToken();
+    return fetch(`${API_BASE_URL}${endpoint}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init.headers,
+      },
+    });
+  };
 
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-      credentials: 'include', // send cookies for CSRF protection
-    });
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({ message: 'Unknown error' }));
-      return { data: null, error: err.message ?? 'Request failed', loading: false };
+    if (!skipAuth && getRefreshToken() && isExpired(getAccessToken())) await refreshTokens();
+    let response = await send();
+    // Access token rejected (expired early / rotated) — refresh once and retry.
+    if (response.status === 401 && !skipAuth && getRefreshToken() && (await refreshTokens())) {
+      response = await send();
     }
 
-    const data: T = await response.json();
-    return { data, error: null, loading: false };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Network error';
-    return { data: null, error: message, loading: false };
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      return { data: null, error: errorMessage(body, response.status), status: response.status, loading: false };
+    }
+    return { data: body as T, error: null, status: response.status, loading: false };
+  } catch {
+    return {
+      data: null,
+      error: 'Couldn’t reach MindCare’s servers. Check your connection and try again.',
+      status: 0,
+      loading: false,
+    };
   }
 }
 
-// ——— Auth endpoints (placeholder — wire up when backend ready) ———
+// ——— Auth ———
 
-export async function signIn(
-  payload: SignInPayload
-): Promise<ApiResponse<{ token: string; user: { id: string; name: string; role: string } }>> {
-  // TODO: replace with real call → return apiFetch('/accounts/login/', { method: 'POST', body: JSON.stringify(payload) });
-  console.info('[MindCare] signIn called with', payload);
+/** POST /accounts/login/ → { access, refresh }. The access token carries a "role" claim. */
+export function login(email: string, password: string) {
+  return apiFetch<{ access: string; refresh: string }>('/accounts/login/', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+    skipAuth: true,
+  });
+}
 
-  // Dummy response for UI testing
-  return new Promise((resolve) =>
-    setTimeout(() => {
-      resolve({
-        data: { token: 'dummy-jwt-token', user: { id: '1', name: 'Layla Ahmed', role: 'client' } },
-        error: null,
-        loading: false,
-      });
-    }, 800)
-  );
+/** POST /accounts/logout/ — blacklists the refresh token server-side. Best effort. */
+export async function logoutRequest(): Promise<void> {
+  const refresh = getRefreshToken();
+  if (refresh) await apiFetch('/accounts/logout/', { method: 'POST', body: JSON.stringify({ refresh }) });
 }
 
 export async function signUp(
@@ -167,6 +216,16 @@ export async function getPlatformStats(): Promise<PlatformStats> {
     verified_therapists: toCount(res.data.verified_therapists),
     cities: toCount(res.data.cities),
   };
+}
+
+// ——— App download link (Get started page) ———
+
+export async function requestAppLink(email: string): Promise<ApiResponse<{ sent: true }>> {
+  // TODO: needs a backend endpoint that emails the download link; until then nothing is sent.
+  void email;
+  return new Promise((resolve) =>
+    setTimeout(() => resolve({ data: { sent: true }, error: null, loading: false }), 600)
+  );
 }
 
 // ——— Contact ———

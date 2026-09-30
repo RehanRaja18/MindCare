@@ -136,4 +136,12 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | `manage.py` | `main()` | `manage.py test` forces `config.settings.test` (guarded, local-only DB) so the Django test runner can never run against the `.env` production `DATABASE_URL` | — | neither (tooling) |
 | `apps/*/api/views.py` | `extend_schema` annotations | OpenAPI request/response schema for every Phase 2 endpoint (register documents the per-role `profile` shape) | `/api/schema/`, `/api/docs/` | MindCare Web, MindCare App |
 
+---
+
+### config/ (project settings)
+
+| File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
+|------|-------------------|---------|--------------|--------------------|
+| `config/settings/base.py`, `dev.py`, `prod.py` | `CORS_ALLOWED_ORIGINS`, `CORS_ALLOW_CREDENTIALS`, `corsheaders.middleware.CorsMiddleware` | CORS configured via `django-cors-headers` (`requirements/base.txt`, 4.9.0). `base.py`/`prod.py` allow only the deployed MindCare Web origin (`https://mind-care-web-seven.vercel.app`; pinned explicitly in `prod.py`); `dev.py` adds the Vite dev server (`http://localhost:5173`). `CORS_ALLOW_CREDENTIALS=False` because auth is JWT bearer tokens in the `Authorization` header, not cookies. Middleware sits above `CommonMiddleware` | all `/api/v1/` endpoints | MindCare Web |
+
 <!-- Add new `### apps/<app_name>` sections below as modules are implemented. -->

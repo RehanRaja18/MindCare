@@ -8,36 +8,30 @@ import { Eye, EyeOff, ArrowRight, ShieldCheck } from 'lucide-react';
 import Logo from '../components/common/Logo';
 import Button from '../components/common/Button';
 import { ROUTES } from '../constants';
-import { ADMIN_ROUTES } from '../constants/adminConsole';
 import { validateEmail, validatePasswordForSignIn, MAX_LENGTHS } from '../utils/validation';
-import { useAdminAuth } from '../utils/adminAuthGuard';
+import { useAuth, homeForRole } from '../utils/auth';
 
 const AdminLoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login } = useAdminAuth();
+  const { signIn } = useAuth();
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [attempts, setAttempts] = useState(0);
+  // Render's free tier can take ~50s to wake up — say so instead of looking stuck.
+  const [slow, setSlow] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
 
-    // Basic client-side UX guard only — real rate limiting, MFA
-    // enforcement, and lockout MUST happen server-side. See the
-    // security notes in src/utils/adminAuthGuard.tsx.
-    if (attempts >= 5) {
-      setError('Too many attempts. Please wait a moment and try again.');
-      return;
-    }
-
-    const emailError = validateEmail(form.email);
+    const email = form.email.trim().toLowerCase();
+    const emailError = validateEmail(email);
     if (emailError) {
       setError(emailError);
       return;
@@ -49,18 +43,19 @@ const AdminLoginPage: React.FC = () => {
     }
 
     setLoading(true);
-    setAttempts((prev) => prev + 1);
-    // TODO: wire to real admin auth service — MFA challenge, httpOnly
-    // session cookie, audit-log the login attempt (success or failure).
-    window.setTimeout(() => {
-      setLoading(false);
-      const success = login(form.email, form.password);
-      if (success) {
-        navigate(ADMIN_ROUTES.OVERVIEW, { replace: true });
-      } else {
-        setError('Sign-in failed. Please check your details and try again.');
-      }
-    }, 800);
+    setError(null);
+    const slowTimer = window.setTimeout(() => setSlow(true), 6000);
+    // Admin sessions are never persisted beyond this tab (see utils/auth.tsx).
+    const result = await signIn(email, form.password);
+    window.clearTimeout(slowTimer);
+    setSlow(false);
+    setLoading(false);
+
+    if (result.ok) {
+      navigate(homeForRole(result.session.role), { replace: true });
+    } else {
+      setError(result.error); // backend message as-is
+    }
   };
 
   return (
@@ -136,6 +131,11 @@ const AdminLoginPage: React.FC = () => {
             <Button type="submit" variant="primary" size="lg" fullWidth loading={loading}>
               Sign in <ArrowRight size={16} aria-hidden="true" />
             </Button>
+            {slow && (
+              <p className="text-xs text-gray-500 text-center -mt-2" aria-live="polite">
+                Waking up the server, this can take up to a minute…
+              </p>
+            )}
 
             <p className="text-center text-xs text-gray-400 flex items-center justify-center gap-1.5 pt-2">
               <ShieldCheck size={12} aria-hidden="true" />

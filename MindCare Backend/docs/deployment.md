@@ -43,10 +43,11 @@ code). It was fixed by updating the variable on Render.
 frontend: `https://mind-care-web-seven.vercel.app`. `CORS_ALLOW_CREDENTIALS=False`
 (JWT bearer auth, no cookies). The local Vite origin is allowed only in `dev.py`.
 
-**Status (2026-09-27): not yet live.** The CORS commits are on `backend-work` and
-not merged to `main`. A preflight against the live service returned `200` with no
-`Access-Control-*` headers. CORS takes effect once `backend-work` is merged and
-Render redeploys.
+**Status:** shipped to `main` in PR #17 (`backend-cors-and-prod-pins`). Before it
+merged, a preflight against the live service (2026-09-27) returned `200` with no
+`Access-Control-*` headers. Re-check after each deploy that
+`OPTIONS /api/v1/accounts/login/` with `Origin: https://mind-care-web-seven.vercel.app`
+returns `Access-Control-Allow-Origin` for that origin.
 
 ### Known tradeoffs (free tier)
 
@@ -59,9 +60,8 @@ Render redeploys.
 
 ## Pre-deploy checklist for the Phase 2 merge
 
-Status 2026-09-30: migrations-on-deploy and existing users are done. **Still open
-before merging:** `NUM_PROXIES` on Render, and both frontends confirming they send
-the new register body.
+Status 2026-09-30: migrations-on-deploy, existing users and frontend readiness are
+done. **Still open before merging:** `NUM_PROXIES` on Render.
 
 - [ ] **Rate limits behind Render's proxy:** `NUM_PROXIES` defaults to 0, so DRF
       throttles on the proxy's address and every user shares one bucket (login
@@ -76,10 +76,12 @@ the new register body.
 - [x] **Existing production users** (checked 2026-09-30): only the admin account
       remains. The one test account was deleted directly in Supabase. No
       patient/psychologist/NGO user exists without a profile.
-- [ ] **Frontend merge order:** the register body is a breaking change
-      (`is_adult_confirmed` + nested `profile`). Merge and deploy only after both
-      MindCare Web and MindCare App send the new body; otherwise live sign-ups get
-      400s.
+- [x] **Frontend readiness** (2026-09-30): the register body is a breaking change
+      (`is_adult_confirmed` + nested `profile`). Both the Web and App teams have
+      reviewed the new contract. MindCare Web's signup is built on its own branch
+      and ships after this backend is live, so it is tested against the real
+      backend. Until each frontend ships its signup, any old-format register
+      request gets a 400.
 - [ ] **After deploy:** re-run the CORS preflight check (see CORS section) and
       check `/api/docs/` shows the register and `/me/` contracts.
 
@@ -89,5 +91,4 @@ the new register body.
       lightweight query at least every few days, so the free-tier project is never
       paused. Not implemented yet. Until it is, a 7-day quiet period (e.g. between
       demos or over a break) takes the database offline.
-- [ ] Merge `backend-work` so CORS (and Phase 2) reach production.
 - [ ] Celery worker as a separate Render service (first needed in Phase 7).
