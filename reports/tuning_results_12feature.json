@@ -1,0 +1,52 @@
+{
+  "seed": 42,
+  "cv_folds": 5,
+  "budget_per_model": 40,
+  "cv_scoring": "balanced_accuracy",
+  "search_training_split": "train (12-feature)",
+  "validation_use": "reporting the winners only - never used to choose a configuration",
+  "models": {
+    "random_forest": {
+      "best_cv_score": 0.8123683084654203,
+      "best_cv_std": 0.0038661843674690803,
+      "best_params": {
+        "n_estimators": 500,
+        "min_samples_split": 10,
+        "min_samples_leaf": 4,
+        "max_features": "sqrt",
+        "max_depth": 30,
+        "class_weight": "balanced"
+      },
+      "validation": {
+        "accuracy": 0.7757575757575758,
+        "balanced_accuracy": 0.8073576839872749,
+        "macro_f1": 0.8194963068792219,
+        "high_class_recall": 0.896969696969697
+      }
+    },
+    "xgboost": {
+      "best_cv_score": 0.8089356327619536,
+      "best_cv_std": 0.005954335029298749,
+      "best_params": {
+        "subsample": 0.8,
+        "n_estimators": 300,
+        "min_child_weight": 3,
+        "max_depth": 3,
+        "learning_rate": 0.03,
+        "gamma": 0,
+        "colsample_bytree": 1.0
+      },
+      "sample_weighting": "none",
+      "cv_score_by_weighting": {
+        "none": 0.8089356327619536,
+        "balanced": 0.8076529363966258
+      },
+      "validation": {
+        "accuracy": 0.7793939393939394,
+        "balanced_accuracy": 0.808981790577148,
+        "macro_f1": 0.8191206295041193,
+        "high_class_recall": 0.896969696969697
+      }
+    }
+  }
+}
