@@ -613,3 +613,40 @@ between anonymous input and public output.
 unapproved profile's city would then never appear, and a city's visibility would
 change silently when profiles are approved or deactivated); a character allow-list
 only (blocks markup but not spam or false places).
+
+## 2026-09-30 - Phase 13 forward-note: NGOs have no dashboard, by product design
+**Decided:** NGOs have **no dashboard**. This is deliberate, not an oversight. An NGO
+registers once through the public signup (profile sent at registration, see the
+2026-09-26 NGO-profile entry), is approved by an admin, and otherwise does not log in
+to operate anything on the platform. Its registered profile (service areas,
+headquarters location) exists specifically to be **surfaced to patients during
+Phase 13's emergency flow, matched by region** (@project-vision.md §27; service-area
+design in the 2026-09-26 entry). **Until Phase 13 exists, an approved NGO account has
+no visible effect anywhere in the product. That is expected, not a bug.**
+
+**Consistency notes for Phase 12/13** (existing facts that sit next to this decision,
+recorded so they're resolved deliberately rather than by accident):
+- **NGO login still exists and is used for one thing.** Approved NGOs can log in, and
+  Phase 2 ships owner-only `GET`/`PATCH /api/v1/ngo/me/` so an NGO can keep its
+  service areas, contact details and description current (credentials stay locked).
+  "No dashboard" therefore means no operational features, not no login. If NGOs
+  should never log in, profile upkeep has to move to admins instead; decide in
+  Phase 12.
+- **Vision §27 also mentions NGOs being *alerted*** ("relevant NGOs … may potentially
+  be alerted according to the region"). That is a different flow from surfacing
+  NGOs to a patient: alerting needs an outbound channel (e.g. the official phone or
+  email, or a Phase 10 notification) and possibly an acknowledgement. Phase 13 must
+  decide whether it surfaces NGOs to patients, alerts NGOs, or both. Either way it
+  must not invent the thresholds (§27).
+- **Contact details are admin-only today.** `official_phone` / `official_email` are
+  visible only to the NGO itself and admins ("Phase 13 decides who else sees them",
+  2026-09-26). Surfacing an NGO to a patient requires Phase 13 to decide exactly which
+  fields a patient sees.
+- **Roadmap Phase 12 ("NGO onboarding")** should be re-scoped with this in mind. With
+  signup, approval (Phase 2.5) and the profile already in place, what's left for
+  Phase 12 is mainly credential documents / re-review (already Phase 2.5) and any
+  admin-side NGO management.
+
+**Alternatives considered:** An NGO dashboard (case management, incident inbox) —
+not part of the product; an NGO's role is to be found and contacted in an emergency,
+not to operate in the app.
