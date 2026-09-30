@@ -1,22 +1,25 @@
 // ============================================================
 // MindCare — Therapist Registration Wizard ("Let's get you verified.")
+// Submits POST /accounts/register/ with role "psychologist" and the
+// nested profile the backend expects. The account starts "pending"
+// until an admin approves it; only then can the therapist sign in.
 // ============================================================
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, Upload, X, ArrowRight, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { Check, ArrowRight, ArrowLeft, Eye, EyeOff, CheckCircle2, Pencil } from 'lucide-react';
 import Button from '../components/common/Button';
 import PasswordStrengthMeter from '../components/common/PasswordStrengthMeter';
+import { AdultConfirm, ChipGroup, SelectField, TextAreaField, TextField } from '../components/forms/Fields';
 import {
   ROUTES,
   THERAPIST_ONBOARDING_STEPS,
   THERAPIST_WHAT_HAPPENS_NEXT,
-  THERAPIST_SPECIALTIES,
   THERAPIST_FOCUS_AREAS,
   THERAPIST_STATS,
 } from '../constants';
+import { register, flattenFieldErrors } from '../services/api.service';
 import {
-  validatePmdcLicense,
   validateRequiredText,
   validateEmail,
   validatePassword,
@@ -24,146 +27,250 @@ import {
   sanitizeText,
   MAX_LENGTHS,
 } from '../utils/validation';
-import type { TherapistCredentials, TherapistRegisterStep } from '../types';
+import { COUNTRY_OPTIONS, DEFAULT_TIMEZONE, LANGUAGE_OPTIONS, TIMEZONE_OPTIONS, type Option } from '../utils/locale';
+import type { PsychologistProfile, RegisterPayload, TherapistRegisterStep } from '../types';
 
-const MIN_FOCUS_AREAS = 3;
-const MAX_FOCUS_AREAS = 6;
+const MIN_SPECIALIZATIONS = 1;
+const MAX_SPECIALIZATIONS = 6;
 
-const initialCredentials: TherapistCredentials = {
-  pmdcLicenseNumber: '102-CP-44871',
-  pmdcVerified: true,
-  specialty: THERAPIST_SPECIALTIES[0],
-  degree: '',
-  university: '',
-  graduationYear: '',
-  focusAreas: ['Anxiety', 'Burnout', 'Trauma', 'EMDR'],
-  consentBackgroundCheck: true,
-};
+// Specializations are sent as lowercase slugs, e.g. "anxiety", "depression".
+const SPECIALIZATION_OPTIONS: Option[] = Array.from(new Set(['Anxiety', 'Depression', ...THERAPIST_FOCUS_AREAS])).map((a) => ({
+  value: a.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+  label: a,
+}));
 
-interface IdentityForm {
-  fullName: string;
+const GENDER_OPTIONS: Option[] = [
+  { value: 'female', label: 'Female' },
+  { value: 'male', label: 'Male' },
+  { value: 'other', label: 'Other' },
+];
+
+interface FormState {
+  full_name: string;
   email: string;
-  phone: string;
   password: string;
-  confirmPassword: string;
+  confirm: string;
+  adult: boolean;
+  license_number: string;
+  license_issuing_country: string;
+  license_issuing_authority: string;
+  degree: string;
+  university: string;
+  graduation_year: string;
+  specializations: string[];
+  consent: boolean;
+  years_of_experience: string;
+  languages: string[];
+  country: string;
+  city: string;
+  timezone: string;
+  gender: string;
+  bio: string;
 }
 
-const initialIdentity: IdentityForm = {
-  fullName: '',
+const initialForm: FormState = {
+  full_name: '',
   email: '',
-  phone: '',
   password: '',
-  confirmPassword: '',
+  confirm: '',
+  adult: false,
+  license_number: '',
+  license_issuing_country: 'PK',
+  license_issuing_authority: 'Pakistan Medical and Dental Council',
+  degree: '',
+  university: '',
+  graduation_year: '',
+  specializations: [],
+  consent: false,
+  years_of_experience: '',
+  languages: [],
+  country: 'PK',
+  city: '',
+  timezone: DEFAULT_TIMEZONE,
+  gender: '',
+  bio: '',
 };
+
+type Errors = Record<string, string | undefined>;
+
+// Which step each error key belongs to (contract paths + client-only keys),
+// so a 400 from the backend takes the user straight to the right step.
+const STEP_OF: Record<string, TherapistRegisterStep> = {
+  full_name: 'identity',
+  email: 'identity',
+  password: 'identity',
+  confirm: 'identity',
+  is_adult_confirmed: 'identity',
+  role: 'identity',
+  'profile.license_number': 'credentials',
+  'profile.license_issuing_country': 'credentials',
+  'profile.license_issuing_authority': 'credentials',
+  'profile.qualifications': 'credentials',
+  degree: 'credentials',
+  'profile.specializations': 'credentials',
+  consent: 'credentials',
+  'profile.years_of_experience': 'practice',
+  'profile.languages': 'practice',
+  'profile.country': 'practice',
+  'profile.city': 'practice',
+  'profile.timezone': 'practice',
+  'profile.gender': 'practice',
+  'profile.bio': 'practice',
+};
+
+const STEP_ORDER: TherapistRegisterStep[] = ['identity', 'credentials', 'practice', 'review'];
+
+const qualificationsOf = (f: FormState) =>
+  [sanitizeText(f.degree), sanitizeText(f.university), f.graduation_year.trim()].filter(Boolean).join(', ');
 
 const TherapistRegisterPage: React.FC = () => {
   const [activeStep, setActiveStep] = useState<TherapistRegisterStep>('identity');
-  const [form, setForm] = useState<TherapistCredentials>(initialCredentials);
-  const [fieldErrors, setFieldErrors] = useState<{ pmdcLicenseNumber?: string; degree?: string }>({});
-
-  const [identity, setIdentity] = useState<IdentityForm>(initialIdentity);
-  const [identityErrors, setIdentityErrors] = useState<Partial<Record<keyof IdentityForm, string>>>({});
+  const [form, setForm] = useState<FormState>(initialForm);
+  const [errors, setErrors] = useState<Errors>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState<{ pending: boolean } | null>(null);
 
-  const [documents, setDocuments] = useState({
-    pmdcLicense: { name: 'pmdc-44871.pdf', size: '482 KB' } as { name: string; size: string } | null,
-    degreeCertificate: { name: 'msc-clinical-fjwu.pdf', size: '1.2 MB' } as { name: string; size: string } | null,
-    cnic: null as { name: string; size: string } | null,
-    liabilityInsurance: null as { name: string; size: string } | null,
+  const stepIndex = STEP_ORDER.indexOf(activeStep);
+
+  const set = <K extends keyof FormState>(key: K, value: FormState[K], errorKey: string = key) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    if (errors[errorKey]) setErrors((prev) => ({ ...prev, [errorKey]: undefined }));
+  };
+  const setProfile = <K extends keyof FormState>(key: K) => (value: FormState[K]) => set(key, value, `profile.${key}`);
+
+  // Functional update, so quick successive taps never overwrite each other.
+  const toggle = (key: 'specializations' | 'languages', value: string, max = Infinity) => {
+    setForm((prev) => {
+      const list = prev[key];
+      const next = list.includes(value) ? list.filter((v) => v !== value) : list.length >= max ? list : [...list, value];
+      return { ...prev, [key]: next };
+    });
+    if (errors[`profile.${key}`]) setErrors((prev) => ({ ...prev, [`profile.${key}`]: undefined }));
+  };
+
+  const goToStep = (step: TherapistRegisterStep) => {
+    setActiveStep(step);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // ——— Client-side checks per step (the backend re-validates everything) ———
+  const checkIdentity = (): Errors => ({
+    full_name: validateRequiredText(form.full_name, 'Full name') ?? undefined,
+    email: validateEmail(form.email) ?? undefined,
+    password: validatePassword(form.password) ?? undefined,
+    confirm: validatePasswordConfirmation(form.password, form.confirm) ?? undefined,
+    is_adult_confirmed: form.adult ? undefined : 'You must be 18 or older to join MindCare.',
   });
 
-  const stepIndex = THERAPIST_ONBOARDING_STEPS.findIndex((s) => s.id === activeStep);
+  const checkCredentials = (): Errors => ({
+    'profile.license_number': validateRequiredText(form.license_number, 'Licence number') ?? undefined,
+    'profile.license_issuing_country': form.license_issuing_country ? undefined : 'Choose the issuing country.',
+    'profile.license_issuing_authority':
+      validateRequiredText(form.license_issuing_authority, 'Issuing authority') ?? undefined,
+    degree: validateRequiredText(form.degree, 'Degree') ?? undefined,
+    'profile.specializations':
+      form.specializations.length >= MIN_SPECIALIZATIONS ? undefined : 'Pick at least one area you work with.',
+    consent: form.consent ? undefined : 'Please consent to verification to continue.',
+  });
 
-  // ——— Identity step ———
-  const handleIdentityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setIdentity((prev) => ({ ...prev, [name]: value }));
-    if (name in identityErrors) {
-      setIdentityErrors((prev) => ({ ...prev, [name]: undefined }));
+  const checkPractice = (): Errors => {
+    const years = Number(form.years_of_experience);
+    return {
+      'profile.years_of_experience':
+        form.years_of_experience.trim() === '' || !Number.isInteger(years) || years < 0 || years > 70
+          ? 'Enter your years of experience as a whole number.'
+          : undefined,
+      'profile.languages': form.languages.length ? undefined : 'Pick at least one language.',
+      'profile.country': form.country ? undefined : 'Choose your country.',
+      'profile.city': validateRequiredText(form.city, 'City') ?? undefined,
+      'profile.timezone': form.timezone ? undefined : 'Choose your time zone.',
+      'profile.gender': form.gender ? undefined : 'Choose an option.',
+      'profile.bio': validateRequiredText(form.bio, 'Bio', MAX_LENGTHS.longText) ?? undefined,
+    };
+  };
+
+  const proceed = (check: () => Errors, next: TherapistRegisterStep) => {
+    const found = Object.fromEntries(Object.entries(check()).filter(([, v]) => v)) as Errors;
+    setErrors((prev) => ({ ...prev, ...check(), ...found }));
+    if (Object.keys(found).length === 0) goToStep(next);
+  };
+
+  // ——— Submit ———
+  const buildPayload = (): RegisterPayload => {
+    const profile: PsychologistProfile = {
+      license_number: form.license_number.trim(),
+      license_issuing_country: form.license_issuing_country,
+      license_issuing_authority: sanitizeText(form.license_issuing_authority),
+      qualifications: qualificationsOf(form),
+      specializations: form.specializations,
+      years_of_experience: Number(form.years_of_experience),
+      languages: form.languages,
+      country: form.country,
+      city: sanitizeText(form.city),
+      timezone: form.timezone,
+      gender: form.gender,
+      bio: sanitizeText(form.bio),
+    };
+    return {
+      email: form.email.trim().toLowerCase(),
+      password: form.password,
+      full_name: sanitizeText(form.full_name),
+      role: 'psychologist',
+      is_adult_confirmed: true,
+      profile,
+    };
+  };
+
+  const handleSubmit = async () => {
+    const all = { ...checkIdentity(), ...checkCredentials(), ...checkPractice() };
+    const firstBad = STEP_ORDER.find((s) => Object.entries(all).some(([k, v]) => v && STEP_OF[k] === s));
+    if (firstBad) {
+      setErrors(all);
+      goToStep(firstBad);
+      return;
     }
-  };
 
-  const validateIdentityStep = (): boolean => {
-    const errors: typeof identityErrors = {};
-    const nameError = validateRequiredText(identity.fullName, 'Full name');
-    if (nameError) errors.fullName = nameError;
+    setSubmitting(true);
+    setFormError(null);
+    const res = await register(buildPayload());
+    setSubmitting(false);
 
-    const emailError = validateEmail(identity.email);
-    if (emailError) errors.email = emailError;
-
-    const passwordError = validatePassword(identity.password);
-    if (passwordError) errors.password = passwordError;
-
-    const confirmError = validatePasswordConfirmation(identity.password, identity.confirmPassword);
-    if (confirmError) errors.confirmPassword = confirmError;
-
-    setIdentityErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleContinueToCredentials = () => {
-    if (!validateIdentityStep()) return;
-    setIdentity((prev) => ({ ...prev, fullName: sanitizeText(prev.fullName) }));
-    goToStep('credentials');
-  };
-
-  // ——— Credentials step ———
-  const validateCredentialsStep = (): boolean => {
-    const errors: typeof fieldErrors = {};
-    const licenseError = validatePmdcLicense(form.pmdcLicenseNumber);
-    if (licenseError) errors.pmdcLicenseNumber = licenseError;
-    const degreeError = validateRequiredText(form.degree, 'Degree');
-    if (degreeError) errors.degree = degreeError;
-    setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleContinueToPractice = () => {
-    if (!validateCredentialsStep()) return;
-    setForm((prev) => ({ ...prev, degree: sanitizeText(prev.degree), university: sanitizeText(prev.university) }));
-    goToStep('practice');
-  };
-
-  const toggleFocusArea = (area: string) => {
-    setForm((prev) => {
-      const already = prev.focusAreas.includes(area);
-      if (already) {
-        return { ...prev, focusAreas: prev.focusAreas.filter((a) => a !== area) };
-      }
-      if (prev.focusAreas.length >= MAX_FOCUS_AREAS) return prev;
-      return { ...prev, focusAreas: [...prev.focusAreas, area] };
-    });
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    if (name in fieldErrors) {
-      setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
+    if (res.data) {
+      setSubmitted({ pending: res.data.approval_status !== 'approved' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
     }
+
+    if (res.status === 400 && res.errorBody) {
+      const fieldErrors = flattenFieldErrors(res.errorBody);
+      // "qualifications" is built from degree/university/year
+      if (fieldErrors['profile.qualifications']) fieldErrors.degree = fieldErrors['profile.qualifications'];
+      setErrors(fieldErrors);
+      const unplaced = Object.entries(fieldErrors).filter(([k]) => !STEP_OF[k]);
+      setFormError(
+        unplaced.length
+          ? unplaced.map(([k, v]) => (k === '_' ? v : `${k.replace(/^profile\./, '')}: ${v}`)).join(' ')
+          : 'Please fix the highlighted fields.'
+      );
+      const step = STEP_ORDER.find((s) => Object.keys(fieldErrors).some((k) => STEP_OF[k] === s));
+      if (step) goToStep(step);
+      return;
+    }
+    setFormError(res.error ?? 'Something went wrong. Please try again.'); // e.g. rate limit, offline
   };
 
-  const removeDocument = (key: keyof typeof documents) => {
-    setDocuments((prev) => ({ ...prev, [key]: null }));
-  };
-
-  const attachDocument = (key: keyof typeof documents) => {
-    setDocuments((prev) => ({ ...prev, [key]: { name: 'uploaded-file.pdf', size: '—' } }));
-  };
-
-  const goToStep = (step: TherapistRegisterStep) => setActiveStep(step);
-
-  const canContinue = form.focusAreas.length >= MIN_FOCUS_AREAS && documents.pmdcLicense && documents.degreeCertificate;
+  const e = (key: string) => errors[key];
 
   return (
     <div className="min-h-screen bg-[#F5F0E8]">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 sm:px-10 py-6">
-        <Link to={ROUTES.HOME} className="text-xl font-bold tracking-tight text-gray-900">
+      <header className="flex items-center justify-between gap-4 px-4 sm:px-10 py-6">
+        <Link to={ROUTES.HOME} className="text-xl font-bold tracking-tight text-gray-900 shrink-0">
           MindCare<span className="text-orange-500">.</span>
         </Link>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-500 text-right">
           Already a therapist here?{' '}
           <Link to={ROUTES.THERAPIST_LOGIN} className="font-semibold text-gray-900 underline underline-offset-2">
             Sign in
@@ -172,7 +279,6 @@ const TherapistRegisterPage: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 grid grid-cols-1 lg:grid-cols-3 gap-10">
-        {/* Left / center column */}
         <div className="lg:col-span-2">
           <p className="text-xs font-semibold tracking-widest text-gray-500 uppercase mb-4">
             Therapist · Apply to practice
@@ -181,438 +287,360 @@ const TherapistRegisterPage: React.FC = () => {
             Let&apos;s get you <span className="italic font-serif font-normal">verified.</span>
           </h1>
           <p className="text-gray-600 max-w-xl mb-8">
-            MindCare only accepts PMDC-licensed clinicians. Verification takes 2–3 working days —
-            we&apos;ll auto-check what we can and a human reviews the rest.
+            MindCare only accepts licensed clinicians. After you apply, an admin reviews your details
+            before your account is activated.
           </p>
 
-          {/* Step tracker */}
-          <div className="flex items-center gap-2 mb-8">
-            {THERAPIST_ONBOARDING_STEPS.map((step, i) => {
-              const isDone = i < stepIndex;
-              const isActive = i === stepIndex;
-              return (
-                <React.Fragment key={step.id}>
-                  <button
-                    type="button"
-                    onClick={() => (isDone ? goToStep(step.id as TherapistRegisterStep) : undefined)}
-                    className={`flex items-center gap-2 shrink-0 ${isDone ? 'cursor-pointer' : 'cursor-default'}`}
-                  >
-                    <span
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                        isDone
-                          ? 'bg-emerald-600 text-white'
-                          : isActive
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-white border border-gray-300 text-gray-400'
-                      }`}
-                    >
-                      {isDone ? <Check size={14} /> : i + 1}
-                    </span>
-                    <span
-                      className={`text-sm font-semibold ${isActive ? '' : 'hidden sm:inline'} ${
-                        isActive || isDone ? 'text-gray-900' : 'text-gray-400'
-                      }`}
-                    >
-                      {step.label}
-                    </span>
-                  </button>
-                  {i < THERAPIST_ONBOARDING_STEPS.length - 1 && (
-                    <span className={`flex-1 h-0.5 ${isDone ? 'bg-emerald-600' : 'bg-gray-200'}`} />
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
-
-          {/* Card */}
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-            {activeStep === 'identity' && (
-              <>
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-2xl font-black text-gray-900">Identity</h2>
-                  <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                    Step 1 of 4
-                  </span>
-                </div>
-                <p className="text-sm text-gray-500 mb-8">
-                  Confirm your name and contact details, then set a password for your account.
+          {submitted ? (
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 sm:p-10 text-center">
+              <CheckCircle2 size={48} className="mx-auto text-emerald-500 mb-5" aria-hidden="true" />
+              <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mb-3">Application received.</h2>
+              {submitted.pending ? (
+                <p className="text-gray-600 max-w-md mx-auto mb-8">
+                  Your account is <strong>pending admin approval</strong>. You&apos;ll be able to sign in
+                  with <strong>{form.email.trim().toLowerCase()}</strong> once an admin has approved it.
                 </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
-                      Full name *
-                    </label>
-                    <input
-                      name="fullName"
-                      value={identity.fullName}
-                      onChange={handleIdentityChange}
-                      autoComplete="name"
-                      maxLength={MAX_LENGTHS.shortText}
-                      placeholder="Dr. Saima Hashmi"
-                      aria-invalid={!!identityErrors.fullName}
-                      className={`w-full px-4 py-3 text-sm border rounded-xl focus:outline-none focus:ring-2 bg-gray-50 ${
-                        identityErrors.fullName ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-gray-900'
-                      }`}
-                    />
-                    {identityErrors.fullName && (
-                      <p role="alert" className="text-xs text-red-600 mt-1.5">
-                        {identityErrors.fullName}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
-                      Email *
-                    </label>
-                    <input
-                      name="email"
-                      type="email"
-                      value={identity.email}
-                      onChange={handleIdentityChange}
-                      autoComplete="email"
-                      maxLength={MAX_LENGTHS.email}
-                      placeholder="saima.hashmi@gmail.com"
-                      aria-invalid={!!identityErrors.email}
-                      className={`w-full px-4 py-3 text-sm border rounded-xl focus:outline-none focus:ring-2 bg-gray-50 ${
-                        identityErrors.email ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-gray-900'
-                      }`}
-                    />
-                    {identityErrors.email && (
-                      <p role="alert" className="text-xs text-red-600 mt-1.5">
-                        {identityErrors.email}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
-                      Phone <span className="font-normal normal-case text-gray-400">(optional)</span>
-                    </label>
-                    <input
-                      name="phone"
-                      type="tel"
-                      value={identity.phone}
-                      onChange={handleIdentityChange}
-                      autoComplete="tel"
-                      maxLength={20}
-                      placeholder="+92 3XX XXXXXXX"
-                      className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 bg-gray-50"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
-                      Password *
-                    </label>
-                    <div className="relative">
-                      <input
-                        name="password"
-                        type={showPassword ? 'text' : 'password'}
-                        value={identity.password}
-                        onChange={handleIdentityChange}
-                        autoComplete="new-password"
-                        maxLength={MAX_LENGTHS.password}
-                        placeholder="At least 12 characters"
-                        aria-invalid={!!identityErrors.password}
-                        className={`w-full px-4 py-3 pr-11 text-sm border rounded-xl focus:outline-none focus:ring-2 bg-gray-50 ${
-                          identityErrors.password ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-gray-900'
-                        }`}
-                      />
+              ) : (
+                <p className="text-gray-600 max-w-md mx-auto mb-8">Your account is ready. You can sign in now.</p>
+              )}
+              <Link to={ROUTES.THERAPIST_LOGIN}>
+                <Button variant="primary" size="md" className="rounded-full">
+                  Go to sign in <ArrowRight size={14} />
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <>
+              {/* Step tracker */}
+              <div className="flex items-center gap-2 mb-8">
+                {THERAPIST_ONBOARDING_STEPS.map((step, i) => {
+                  const isDone = i < stepIndex;
+                  const isActive = i === stepIndex;
+                  return (
+                    <React.Fragment key={step.id}>
                       <button
                         type="button"
-                        onClick={() => setShowPassword((v) => !v)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        onClick={() => (isDone ? goToStep(step.id as TherapistRegisterStep) : undefined)}
+                        className={`flex items-center gap-2 shrink-0 ${isDone ? 'cursor-pointer' : 'cursor-default'}`}
                       >
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                    <PasswordStrengthMeter password={identity.password} />
-                    {identityErrors.password && (
-                      <p role="alert" className="text-xs text-red-600 mt-1.5">
-                        {identityErrors.password}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
-                      Confirm password *
-                    </label>
-                    <div className="relative">
-                      <input
-                        name="confirmPassword"
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        value={identity.confirmPassword}
-                        onChange={handleIdentityChange}
-                        autoComplete="new-password"
-                        maxLength={MAX_LENGTHS.password}
-                        placeholder="Re-enter your password"
-                        aria-invalid={!!identityErrors.confirmPassword}
-                        className={`w-full px-4 py-3 pr-11 text-sm border rounded-xl focus:outline-none focus:ring-2 bg-gray-50 ${
-                          identityErrors.confirmPassword ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-gray-900'
-                        }`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword((v) => !v)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
-                        aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                    {identityErrors.confirmPassword && (
-                      <p role="alert" className="text-xs text-red-600 mt-1.5">
-                        {identityErrors.confirmPassword}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <p className="text-xs text-gray-400 mb-8">
-                  Use at least 12 characters with a mix of upper/lowercase letters and a number. A real
-                  backend must also reject passwords found in known data breaches.
-                </p>
-
-                <div className="flex items-center justify-end pt-4 border-t border-gray-100">
-                  <Button variant="primary" size="md" onClick={handleContinueToCredentials}>
-                    Continue · Credentials <ArrowRight size={14} />
-                  </Button>
-                </div>
-              </>
-            )}
-
-            {activeStep === 'credentials' && (
-              <>
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-2xl font-black text-gray-900">Credentials</h2>
-                  <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                    Step 2 of 4
-                  </span>
-                </div>
-                <p className="text-sm text-gray-500 mb-8">
-                  We auto-verify PMDC and HEC. The rest you upload — we&apos;ll handle the eye-checking.
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
-                      PMDC license number *
-                    </label>
-                    <div className="relative">
-                      <input
-                        name="pmdcLicenseNumber"
-                        value={form.pmdcLicenseNumber}
-                        onChange={handleChange}
-                        aria-invalid={!!fieldErrors.pmdcLicenseNumber}
-                        className={`w-full pl-4 pr-24 py-3 text-sm border rounded-xl focus:outline-none focus:ring-2 bg-gray-50 ${
-                          fieldErrors.pmdcLicenseNumber
-                            ? 'border-red-300 focus:ring-red-500'
-                            : 'border-gray-200 focus:ring-gray-900'
-                        }`}
-                      />
-                      {form.pmdcVerified && !fieldErrors.pmdcLicenseNumber && (
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs font-semibold text-emerald-700">
-                          <Check size={14} /> Verified
-                        </span>
-                      )}
-                    </div>
-                    {fieldErrors.pmdcLicenseNumber ? (
-                      <p role="alert" className="text-xs text-red-600 mt-1.5">
-                        {fieldErrors.pmdcLicenseNumber}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-emerald-700 mt-1.5">Valid through Aug 2027 · pulled from PMDC.gov.pk</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
-                      Specialty *
-                    </label>
-                    <select
-                      name="specialty"
-                      value={form.specialty}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 bg-gray-50"
-                    >
-                      {THERAPIST_SPECIALTIES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">Degree *</label>
-                    <input
-                      name="degree"
-                      value={form.degree}
-                      onChange={handleChange}
-                      placeholder="MS Clinical Psychology"
-                      aria-invalid={!!fieldErrors.degree}
-                      className={`w-full px-4 py-3 text-sm border rounded-xl focus:outline-none focus:ring-2 bg-gray-50 ${
-                        fieldErrors.degree ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-gray-900'
-                      }`}
-                    />
-                    {fieldErrors.degree && (
-                      <p role="alert" className="text-xs text-red-600 mt-1.5">
-                        {fieldErrors.degree}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">University</label>
-                    <input
-                      name="university"
-                      value={form.university}
-                      onChange={handleChange}
-                      placeholder="FJWU, Rawalpindi"
-                      className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 bg-gray-50"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">Year</label>
-                    <input
-                      name="graduationYear"
-                      value={form.graduationYear}
-                      onChange={handleChange}
-                      placeholder="2014"
-                      className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 bg-gray-50"
-                    />
-                  </div>
-                </div>
-
-                <div className="mb-8">
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
-                    I work with · pick {MIN_FOCUS_AREAS}–{MAX_FOCUS_AREAS} *
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {THERAPIST_FOCUS_AREAS.map((area) => {
-                      const selected = form.focusAreas.includes(area);
-                      return (
-                        <button
-                          type="button"
-                          key={area}
-                          onClick={() => toggleFocusArea(area)}
-                          className={`px-4 py-2 rounded-full text-sm font-semibold border transition-colors ${
-                            selected
-                              ? 'bg-gray-900 text-white border-gray-900'
-                              : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'
+                        <span
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                            isDone
+                              ? 'bg-emerald-600 text-white'
+                              : isActive
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-white border border-gray-300 text-gray-400'
                           }`}
                         >
-                          {area} {selected && '✓'}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                          {isDone ? <Check size={14} /> : i + 1}
+                        </span>
+                        <span
+                          className={`text-sm font-semibold ${isActive ? '' : 'hidden sm:inline'} ${
+                            isActive || isDone ? 'text-gray-900' : 'text-gray-400'
+                          }`}
+                        >
+                          {step.label}
+                        </span>
+                      </button>
+                      {i < THERAPIST_ONBOARDING_STEPS.length - 1 && (
+                        <span className={`flex-1 min-w-3 h-0.5 ${isDone ? 'bg-emerald-600' : 'bg-gray-200'}`} />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
 
-                <div className="mb-6">
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
-                    Supporting documents *
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <DocSlot
-                      label="PMDC license · scan"
-                      file={documents.pmdcLicense}
-                      onRemove={() => removeDocument('pmdcLicense')}
-                      onAttach={() => attachDocument('pmdcLicense')}
-                    />
-                    <DocSlot
-                      label="Degree certificate"
-                      file={documents.degreeCertificate}
-                      onRemove={() => removeDocument('degreeCertificate')}
-                      onAttach={() => attachDocument('degreeCertificate')}
-                    />
-                    <DocSlot
-                      label="CNIC (both sides)"
-                      file={documents.cnic}
-                      onRemove={() => removeDocument('cnic')}
-                      onAttach={() => attachDocument('cnic')}
-                    />
-                    <DocSlot
-                      label="Liability insurance · optional"
-                      hint="PDF, max 5 MB · optional"
-                      file={documents.liabilityInsurance}
-                      onRemove={() => removeDocument('liabilityInsurance')}
-                      onAttach={() => attachDocument('liabilityInsurance')}
-                    />
-                  </div>
-                </div>
+              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                {formError && (
+                  <p role="alert" className="mb-6 text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                    {formError}
+                  </p>
+                )}
 
-                <label className="flex items-start gap-3 bg-[#EFE9DF] rounded-xl px-4 py-4 mb-8 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.consentBackgroundCheck}
-                    onChange={(e) => setForm((prev) => ({ ...prev, consentBackgroundCheck: e.target.checked }))}
-                    className="w-4 h-4 mt-0.5 rounded border-gray-300 accent-gray-900"
-                  />
-                  <span className="text-sm text-gray-700">
-                    I consent to a <span className="font-bold">background check</span> by Verisys on
-                    behalf of MindCare. I understand that flagged results will pause my application
-                    until reviewed by a senior admin.
-                  </span>
-                </label>
-
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-100">
-                  <button
-                    type="button"
-                    onClick={() => goToStep('identity')}
-                    className="text-sm font-semibold text-gray-600 hover:text-gray-900 flex items-center gap-1.5"
-                  >
-                    <ArrowLeft size={14} /> Back to Identity
-                  </button>
-                  <div className="flex gap-3 w-full sm:w-auto">
-                    <Button variant="secondary" size="md" className="flex-1 sm:flex-none">
-                      Save &amp; continue later
-                    </Button>
-                    <Button
-                      variant="primary"
-                      size="md"
-                      className="flex-1 sm:flex-none"
-                      disabled={!canContinue}
-                      onClick={handleContinueToPractice}
+                {activeStep === 'identity' && (
+                  <>
+                    <StepHeader title="Identity" n={1} note="Your name, sign-in email and a password for your account." />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+                      <TextField
+                        fieldClassName="sm:col-span-2"
+                        label="Full name"
+                        required
+                        value={form.full_name}
+                        onValue={(v) => set('full_name', v)}
+                        error={e('full_name')}
+                        autoComplete="name"
+                        maxLength={MAX_LENGTHS.shortText}
+                        placeholder="Dr. Saima Hashmi"
+                      />
+                      <TextField
+                        fieldClassName="sm:col-span-2"
+                        label="Email"
+                        required
+                        type="email"
+                        inputMode="email"
+                        value={form.email}
+                        onValue={(v) => set('email', v)}
+                        error={e('email')}
+                        autoComplete="email"
+                        maxLength={MAX_LENGTHS.email}
+                        placeholder="saima.hashmi@example.com"
+                        hint="You'll sign in with this email once approved."
+                      />
+                      <div>
+                        <TextField
+                          label="Password"
+                          required
+                          type={showPassword ? 'text' : 'password'}
+                          value={form.password}
+                          onValue={(v) => set('password', v)}
+                          error={e('password')}
+                          autoComplete="new-password"
+                          maxLength={MAX_LENGTHS.password}
+                        />
+                        <PasswordStrengthMeter password={form.password} />
+                      </div>
+                      <TextField
+                        label="Confirm password"
+                        required
+                        type={showPassword ? 'text' : 'password'}
+                        value={form.confirm}
+                        onValue={(v) => set('confirm', v)}
+                        error={e('confirm')}
+                        autoComplete="new-password"
+                        maxLength={MAX_LENGTHS.password}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="mb-6 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900"
                     >
-                      Continue · Practice <ArrowRight size={14} />
-                    </Button>
-                  </div>
-                </div>
-              </>
-            )}
+                      {showPassword ? <EyeOff size={14} /> : <Eye size={14} />} {showPassword ? 'Hide' : 'Show'} passwords
+                    </button>
+                    <div className="mb-8">
+                      <AdultConfirm checked={form.adult} onChange={(v) => set('adult', v, 'is_adult_confirmed')} error={e('is_adult_confirmed')} />
+                    </div>
+                    <StepNav onContinue={() => proceed(checkIdentity, 'credentials')} continueLabel="Continue · Credentials" />
+                  </>
+                )}
 
-            {activeStep === 'practice' && (
-              <PlaceholderStep
-                title="Practice"
-                description="Set your session pricing, weekly availability, and languages you practice in."
-                onBack={() => goToStep('credentials')}
-                onContinue={() => goToStep('review')}
-              />
-            )}
+                {activeStep === 'credentials' && (
+                  <>
+                    <StepHeader title="Credentials" n={2} note="Your licence and training. An admin checks these before approving you." />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+                      <TextField
+                        label="Licence number"
+                        required
+                        value={form.license_number}
+                        onValue={setProfile('license_number')}
+                        error={e('profile.license_number')}
+                        maxLength={MAX_LENGTHS.shortText}
+                        placeholder="PMDC-12345"
+                      />
+                      <SelectField
+                        label="Issuing country"
+                        required
+                        value={form.license_issuing_country}
+                        onValue={setProfile('license_issuing_country')}
+                        options={COUNTRY_OPTIONS}
+                        error={e('profile.license_issuing_country')}
+                      />
+                      <TextField
+                        fieldClassName="sm:col-span-2"
+                        label="Issuing authority"
+                        required
+                        value={form.license_issuing_authority}
+                        onValue={setProfile('license_issuing_authority')}
+                        error={e('profile.license_issuing_authority')}
+                        maxLength={MAX_LENGTHS.shortText}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
+                      <TextField
+                        label="Degree"
+                        required
+                        value={form.degree}
+                        onValue={(v) => set('degree', v)}
+                        error={e('degree')}
+                        maxLength={MAX_LENGTHS.shortText}
+                        placeholder="MS Clinical Psychology"
+                      />
+                      <TextField
+                        label="University"
+                        value={form.university}
+                        onValue={(v) => set('university', v)}
+                        maxLength={MAX_LENGTHS.shortText}
+                        placeholder="University of the Punjab"
+                      />
+                      <TextField
+                        label="Year"
+                        inputMode="numeric"
+                        value={form.graduation_year}
+                        onValue={(v) => set('graduation_year', v.replace(/\D/g, '').slice(0, 4))}
+                        placeholder="2014"
+                      />
+                    </div>
+                    <div className="mb-8">
+                      <ChipGroup
+                        label={`I work with · pick ${MIN_SPECIALIZATIONS}–${MAX_SPECIALIZATIONS}`}
+                        required
+                        options={SPECIALIZATION_OPTIONS}
+                        selected={form.specializations}
+                        onToggle={(v) => toggle('specializations', v, MAX_SPECIALIZATIONS)}
+                        error={e('profile.specializations')}
+                      />
+                    </div>
+                    <div className="mb-8">
+                      <label className="flex items-start gap-3 bg-[#EFE9DF] rounded-xl px-4 py-4 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={form.consent}
+                          onChange={(ev) => set('consent', ev.target.checked)}
+                          aria-invalid={!!e('consent')}
+                          className="w-4 h-4 mt-0.5 rounded border-gray-300 accent-gray-900 shrink-0"
+                        />
+                        <span className="text-sm text-gray-700">
+                          I consent to MindCare verifying my licence and qualifications, and understand an
+                          admin may contact me for supporting documents before approving my account.
+                        </span>
+                      </label>
+                      {e('consent') && (
+                        <p role="alert" className="text-xs text-red-600 mt-1.5">
+                          {e('consent')}
+                        </p>
+                      )}
+                    </div>
+                    <StepNav
+                      onBack={() => goToStep('identity')}
+                      backLabel="Back to Identity"
+                      onContinue={() => proceed(checkCredentials, 'practice')}
+                      continueLabel="Continue · Practice"
+                    />
+                  </>
+                )}
 
-            {activeStep === 'review' && (
-              <PlaceholderStep
-                title="Review"
-                description="Double-check everything below, then submit your application for verification."
-                onBack={() => goToStep('practice')}
-                continueLabel="Submit application"
-              />
-            )}
-          </div>
+                {activeStep === 'practice' && (
+                  <>
+                    <StepHeader title="Practice" n={3} note="How and where you practise, and a short bio patients will see." />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
+                      <TextField
+                        label="Years of experience"
+                        required
+                        inputMode="numeric"
+                        value={form.years_of_experience}
+                        onValue={(v) => setProfile('years_of_experience')(v.replace(/\D/g, '').slice(0, 2))}
+                        error={e('profile.years_of_experience')}
+                        placeholder="5"
+                      />
+                      <SelectField
+                        label="Gender"
+                        required
+                        value={form.gender}
+                        onValue={setProfile('gender')}
+                        options={GENDER_OPTIONS}
+                        placeholder="Select…"
+                        error={e('profile.gender')}
+                      />
+                      <SelectField
+                        label="Country"
+                        required
+                        value={form.country}
+                        onValue={setProfile('country')}
+                        options={COUNTRY_OPTIONS}
+                        error={e('profile.country')}
+                      />
+                      <TextField
+                        label="City"
+                        required
+                        value={form.city}
+                        onValue={setProfile('city')}
+                        error={e('profile.city')}
+                        autoComplete="address-level2"
+                        maxLength={MAX_LENGTHS.shortText}
+                        placeholder="Lahore"
+                      />
+                      <SelectField
+                        fieldClassName="sm:col-span-2"
+                        label="Time zone"
+                        required
+                        value={form.timezone}
+                        onValue={setProfile('timezone')}
+                        options={TIMEZONE_OPTIONS}
+                        error={e('profile.timezone')}
+                        hint="Used to show session times correctly."
+                      />
+                    </div>
+                    <div className="mb-6">
+                      <ChipGroup
+                        label="Languages you practise in"
+                        required
+                        options={LANGUAGE_OPTIONS}
+                        selected={form.languages}
+                        onToggle={(v) => toggle('languages', v)}
+                        error={e('profile.languages')}
+                      />
+                    </div>
+                    <div className="mb-8">
+                      <TextAreaField
+                        label="Short bio"
+                        required
+                        rows={4}
+                        value={form.bio}
+                        onValue={setProfile('bio')}
+                        error={e('profile.bio')}
+                        maxLength={MAX_LENGTHS.longText}
+                        placeholder="e.g. CBT-focused therapist working with anxiety and burnout."
+                      />
+                    </div>
+                    <StepNav
+                      onBack={() => goToStep('credentials')}
+                      backLabel="Back to Credentials"
+                      onContinue={() => proceed(checkPractice, 'review')}
+                      continueLabel="Continue · Review"
+                    />
+                  </>
+                )}
+
+                {activeStep === 'review' && (
+                  <>
+                    <StepHeader title="Review" n={4} note="Check your details, then submit your application for approval." />
+                    <ReviewSection title="Identity" onEdit={() => goToStep('identity')} rows={[
+                      ['Full name', form.full_name],
+                      ['Email', form.email.trim().toLowerCase()],
+                      ['18 or older', form.adult ? 'Confirmed' : '—'],
+                    ]} />
+                    <ReviewSection title="Credentials" onEdit={() => goToStep('credentials')} rows={[
+                      ['Licence', `${form.license_number} · ${labelOf(COUNTRY_OPTIONS, form.license_issuing_country)}`],
+                      ['Issued by', form.license_issuing_authority],
+                      ['Qualifications', qualificationsOf(form)],
+                      ['Works with', form.specializations.map((s) => labelOf(SPECIALIZATION_OPTIONS, s)).join(', ')],
+                    ]} />
+                    <ReviewSection title="Practice" onEdit={() => goToStep('practice')} rows={[
+                      ['Experience', form.years_of_experience ? `${form.years_of_experience} years` : '—'],
+                      ['Languages', form.languages.map((l) => labelOf(LANGUAGE_OPTIONS, l)).join(', ')],
+                      ['Location', [form.city, labelOf(COUNTRY_OPTIONS, form.country)].filter(Boolean).join(', ')],
+                      ['Time zone', form.timezone],
+                      ['Gender', labelOf(GENDER_OPTIONS, form.gender)],
+                      ['Bio', form.bio],
+                    ]} />
+                    <StepNav
+                      onBack={() => goToStep('practice')}
+                      backLabel="Back to Practice"
+                      onContinue={handleSubmit}
+                      continueLabel="Submit application"
+                      loading={submitting}
+                    />
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Right sidebar */}
         <aside className="space-y-6">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-xs font-bold tracking-widest text-gray-500 uppercase mb-5">
-              What happens next
-            </h3>
+            <h3 className="text-xs font-bold tracking-widest text-gray-500 uppercase mb-5">What happens next</h3>
             <ol className="space-y-5">
               {THERAPIST_WHAT_HAPPENS_NEXT.map((item, i) => (
                 <li key={item.id} className="flex gap-4">
@@ -633,26 +661,12 @@ const TherapistRegisterPage: React.FC = () => {
           </div>
 
           <div className="bg-gray-900 rounded-2xl p-6">
-            <p className="text-xs font-semibold tracking-widest text-orange-400 uppercase mb-4">
-              Why therapists join
-            </p>
+            <p className="text-xs font-semibold tracking-widest text-orange-400 uppercase mb-4">Why therapists join</p>
             <p className="text-3xl font-black text-white mb-3">{THERAPIST_STATS[0].value} take-home</p>
-            <p className="text-sm text-gray-400 leading-relaxed mb-4">
-              One of the most generous splits anywhere. You set your own price between sessions Rs
-              3,000–8,000.
-            </p>
-            <p className="text-sm text-gray-300">
-              Avg therapist take-home · <span className="font-bold text-white">{THERAPIST_STATS[1].value}/month</span>
+            <p className="text-sm text-gray-400 leading-relaxed">
+              One of the most generous splits anywhere. You set your own session price.
             </p>
           </div>
-
-          <p className="text-sm text-gray-500 px-1">
-            Need help? Email{' '}
-            <a href="mailto:therapists@mindcare.pk" className="underline underline-offset-2 text-gray-700">
-              therapists@mindcare.pk
-            </a>{' '}
-            or call <span className="font-semibold text-gray-700">0800-MINDCARE</span>.
-          </p>
         </aside>
       </main>
     </div>
@@ -661,86 +675,56 @@ const TherapistRegisterPage: React.FC = () => {
 
 // ——— Sub-components ———
 
-interface DocSlotProps {
-  label: string;
-  hint?: string;
-  file: { name: string; size: string } | null;
-  onRemove: () => void;
-  onAttach: () => void;
-}
+const labelOf = (options: Option[], value: string) => options.find((o) => o.value === value)?.label ?? value;
 
-const DocSlot: React.FC<DocSlotProps> = ({ label, hint, file, onRemove, onAttach }) => {
-  if (file) {
-    return (
-      <div className="flex items-center justify-between gap-3 border border-emerald-200 bg-emerald-50/60 rounded-xl px-4 py-3.5">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
-            <Check size={13} />
-          </span>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">{label}</p>
-            <p className="text-xs text-gray-500 truncate">
-              {file.name} · {file.size}
-            </p>
-          </div>
-        </div>
-        <button type="button" onClick={onRemove} className="text-gray-400 hover:text-gray-700 shrink-0" aria-label={`Remove ${label}`}>
-          <X size={16} />
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onAttach}
-      className="flex items-center gap-3 border border-dashed border-gray-300 rounded-xl px-4 py-3.5 text-left hover:border-gray-400 transition-colors"
-    >
-      <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center shrink-0">
-        <Upload size={13} />
-      </span>
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-gray-900">{label}</p>
-        <p className="text-xs text-gray-500">{hint ?? 'Drag or click to upload'}</p>
-      </div>
-    </button>
-  );
-};
-
-interface PlaceholderStepProps {
-  title: string;
-  description: string;
-  onBack?: () => void;
-  onContinue?: () => void;
-  continueLabel?: string;
-}
-
-const PlaceholderStep: React.FC<PlaceholderStepProps> = ({
-  title,
-  description,
-  onBack,
-  onContinue,
-  continueLabel = 'Continue',
-}) => (
-  <div>
-    <h2 className="text-2xl font-black text-gray-900 mb-2">{title}</h2>
-    <p className="text-sm text-gray-500 mb-10">{description}</p>
-    <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-      {onBack ? (
-        <button type="button" onClick={onBack} className="text-sm font-semibold text-gray-600 hover:text-gray-900 flex items-center gap-1.5">
-          <ArrowLeft size={14} /> Back
-        </button>
-      ) : (
-        <span />
-      )}
-      {onContinue && (
-        <Button variant="primary" size="md" onClick={onContinue}>
-          {continueLabel} <ArrowRight size={14} />
-        </Button>
-      )}
+const StepHeader: React.FC<{ title: string; n: number; note: string }> = ({ title, n, note }) => (
+  <>
+    <div className="flex items-center justify-between gap-3 mb-2">
+      <h2 className="text-2xl font-black text-gray-900">{title}</h2>
+      <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full shrink-0">Step {n} of 4</span>
     </div>
+    <p className="text-sm text-gray-500 mb-8">{note}</p>
+  </>
+);
+
+const StepNav: React.FC<{
+  onBack?: () => void;
+  backLabel?: string;
+  onContinue: () => void;
+  continueLabel: string;
+  loading?: boolean;
+}> = ({ onBack, backLabel = 'Back', onContinue, continueLabel, loading }) => (
+  <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4 border-t border-gray-100">
+    {onBack ? (
+      <button type="button" onClick={onBack} className="text-sm font-semibold text-gray-600 hover:text-gray-900 flex items-center justify-center gap-1.5">
+        <ArrowLeft size={14} /> {backLabel}
+      </button>
+    ) : (
+      <span />
+    )}
+    <Button variant="primary" size="md" onClick={onContinue} loading={loading}>
+      {continueLabel} <ArrowRight size={14} />
+    </Button>
   </div>
+);
+
+const ReviewSection: React.FC<{ title: string; rows: [string, string][]; onEdit: () => void }> = ({ title, rows, onEdit }) => (
+  <section className="mb-6 rounded-2xl border border-gray-100 bg-[#FBF8F3] p-5">
+    <div className="flex items-center justify-between mb-3">
+      <h3 className="text-sm font-bold text-gray-900">{title}</h3>
+      <button type="button" onClick={onEdit} className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-900">
+        <Pencil size={12} /> Edit
+      </button>
+    </div>
+    <dl className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-x-4 gap-y-2 text-sm">
+      {rows.map(([k, v]) => (
+        <React.Fragment key={k}>
+          <dt className="text-gray-500">{k}</dt>
+          <dd className="text-gray-900 break-words">{v || '—'}</dd>
+        </React.Fragment>
+      ))}
+    </dl>
+  </section>
 );
 
 export default TherapistRegisterPage;
