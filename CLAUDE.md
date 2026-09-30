@@ -69,7 +69,8 @@ report balanced accuracy, macro-F1, and per-class recall (especially High) for t
   bucket (primary, see "Target change" above).
 - **As of 2026-09-22, the feature set DIFFERS between the two targets** — it is no longer
   identical. The 5-class Severity model still uses the original 17 features. The 3-class
-  Anxiety Level model (primary, canonical, deployed via `src/api/main.py`) went through two
+  Anxiety Level model (primary, canonical, deployed via `src/api/main.py`; XGBoost since
+  2026-09-28, see below) went through two
   changes the same day: first reduced from 17 to 11 features, then Age was restored, bringing
   it to **12**. The 11-feature configuration is superseded and kept only for history (see
   Pipeline Status below); it is not the current canonical model.
@@ -163,6 +164,68 @@ report balanced accuracy, macro-F1, and per-class recall (especially High) for t
   - **Pitfall to remember:** because of the reverse-scored items, all-0 and all-4 answers both
     map to 6 (total 8), not to the extremes; the extremes are `0,4,4,0` → 1 and `4,0,0,4` → 10.
     Covered in `tests/test_api.py` (`test_estimate_stress_level_arithmetic`).
+- **Model switched from Random Forest to XGBoost, 2026-09-28:** same 12 features and preprocessor;
+  the canonical model is now `data/processed/mindcare_final_model_12feature_xgb.pkl`, built by
+  `src/models/adopt_xgboost_12feature_model.py`. The 12-feature Random Forest is kept for history.
+  - **How:** both models were re-tuned on the 12 features under one identical procedure
+    (`src/models/tune_models_12feature.py` → `reports/tuning_results_12feature.json`):
+    - 40 configurations each, 5-fold CV on train, balanced-accuracy scoring.
+    - XGBoost got the class-balancing freedom Random Forest always had (balanced sample
+      weights); unweighted won (CV 0.8089 vs 0.8077).
+    - XGBoost settings: 300 trees, max_depth 3, learning_rate 0.03, subsample 0.8,
+      min_child_weight 3.
+    - The full analysis suite then ran on the current RF, a re-tuned RF and XGBoost side by
+      side (`src/evaluation/compare_models_12feature.py` → `reports/model_comparison_12feature.md`).
+    - Validation and train only — the test set was not used and remains spent.
+  - **Decision log — why:** performance is a statistical tie (5-fold CV balanced accuracy 0.8085
+    vs 0.8093, a gap about 20 times smaller than the fold-to-fold std of ~0.015; both miss the
+    same 17 High cases). XGBoost wins on everything else that matters:
+    - **Calibration:** ECE Low/Medium/High 0.016/0.020/0.007, against 0.061/0.060/0.033.
+    - **Noise:** balanced accuracy 0.615 against 0.556 at 1× std.
+    - **No caffeine shortcut:** the RF learned "High needs high caffeine". With a true-High
+      patient's caffeine at or below 200 mg a day, it predicted High for 0 of 165, against
+      127-129 for XGBoost. That matters because the API only estimates caffeine from serving
+      counts.
+    - **Age artifact:** mean P(High) 0.885 → 0.863 from age 49 to 55, against 0.903 → 0.628
+      for the RF.
+    - **Practical:** about 30 times faster (1 ms vs 37 ms) and 9 times smaller.
+    - Trade-offs accepted: lower High precision (0.967 vs 0.993 — 5 Medium rows labelled High,
+      against 1), and more sensitivity to a missing Sleep Hours value (0.715 vs 0.786).
+    - The re-tuned RF (500 trees, depth 30) was no better and 5 times larger, so it was not
+      adopted.
+  - **Review threshold changed from 0.10 to 0.025** (`HIGH_PROBA_THRESHOLD` in `src/api/main.py`
+    and `src/inference/predict_single.py`). At 0.10, XGBoost's better-calibrated probabilities
+    caught only 152/165 true-High rows and 4/17 of the true-High rows predicted Medium. 0.025
+    matches the RF's validation coverage exactly (158/165, 10/17), for 410 flagged rows instead
+    of 363. The 0.10 "base rate" rationale in `src/models/uncertainty_flagging.py` is RF
+    history.
+  - **Verification:** the adoption script reproduces the comparison's numbers exactly, or deletes
+    its output. `test_serves_xgboost_with_its_review_threshold` pins the model file, type and
+    threshold. `xgboost` is pinned in `requirements.txt` (==3.4.1) for pickle compatibility.
+  - **Performance estimate — nested CV (2026-09-30, `src/evaluation/nested_cv_12feature_xgb.py` →
+    `reports/nested_cv_12feature_xgb.md`/`.json`). This is the primary figure; quote it rather than
+    the validation split.** 5 outer folds, stratified, on the 9,350 train + validation rows (test
+    never loaded). The preprocessor, the tuning (same both-ways search as
+    `tune_models_12feature.py`) and the threshold (highest one flagging >= 158/165 of High cases in
+    the inner out-of-fold predictions) are all redone inside each fold. Mean ± std across folds:
+    - **All ages:** accuracy 0.7904 ± 0.0094, balanced accuracy 0.8119 ± 0.0057, macro-F1
+      0.8244 ± 0.0064, High recall 0.8771 ± 0.0111, High precision 0.9759 ± 0.0065, flag catch
+      rate 0.9587 ± 0.0153.
+    - **Ages 18-49:** accuracy 0.7996 ± 0.0100, balanced accuracy 0.8230 ± 0.0059, macro-F1
+      0.8318 ± 0.0062, High recall 0.9087 ± 0.0122, High precision 0.9837 ± 0.0044, flag catch
+      rate 0.9700 ± 0.0159.
+    - **The validation split (single split, used partly to choose the model)** was slightly
+      *pessimistic* on accuracy (0.7776), balanced accuracy (0.8078) and macro-F1 (0.8171). Its
+      High recall of 0.897 sits about 2 points above the nested 0.877, which is within the sampling
+      noise of 165 High cases (standard error about 0.026; the gap is about 0.8 SE). Quote about
+      0.88 for High recall.
+    - **Threshold support:** each fold's own threshold came out at 0.0268 ± 0.0026 (range
+      0.023-0.030), bracketing the deployed 0.025. Every fold's tuning picked the deployed
+      settings (300 trees, depth 3, lr 0.03, unweighted).
+    - **Not covered:** the 17 → 12 feature reduction, XGBoost over Random Forest, the 158/165
+      coverage target, the label boundaries and the 18-49 age limit were all decided on this same
+      data, outside the nested loop. The figures describe re-running this pipeline, not the whole
+      chain of decisions. No test-set number exists for the current model.
 - **Supported age range restricted to 18-49, 2026-09-27:** the model makes predictions only for
   ages 18-49 inclusive. Any other age gets HTTP 422, with a different message per side (see the
   platform rules below). Enforced in `validate_patient()` (`ELIGIBLE_AGE_MIN`/`ELIGIBLE_AGE_MAX` in
@@ -173,14 +236,18 @@ report balanced accuracy, macro-F1, and per-class recall (especially High) for t
     physiological norms (heart and breathing rate) and consent rules differ for minors.
   - **Decision log — why 49 as the ceiling (not 40, not 55):** in the dataset the High rate is
     12-15% at every age up to 49, then drops to about 1% from 50 on (49: 15.5%, 50: 1.4%). This is
-    almost certainly a synthetic-data artifact, and the model has learned it. Evidence, all on
-    validation data:
+    almost certainly a synthetic-data artifact, and the model at the time (the 12-feature RF)
+    had learned it. Evidence, all on validation data for that RF:
     - For the 161 true-High validation rows under 50, changing only Age drops mean P(High) from
       0.903 at 49 to 0.773 at 50 and 0.628 at 55.
     - Across all 1169 validation rows under 50, moving them to age 55 turns off the
       priority-review flag (P(High) >= 0.10) for 17 of 282 flagged rows. No High predictions
       flipped.
     - The 53-64 band had 3 true-High validation cases, and all 3 were missed.
+    - **Update 2026-09-28:** XGBoost, the model since then, barely shows the effect (0.885 →
+      0.863). The limit stands anyway: the reason is the data gap, since almost no High cases
+      at 50+ means no evidence either model recognises High anxiety there. The API's rejection
+      message was reworded to say that, rather than claiming the model lowers P(High).
 
     Under-calling High is the most dangerous error for this system. 40 was rejected because
     30-40 and 41-52 perform alike (balanced acc. 0.807 vs 0.815), so a lower cap would exclude
@@ -461,7 +528,18 @@ preprocessing (Phase 10) is shared between the two targets.
   of `reports/final_test_evaluation_11feature.md`; not used by `predict_single.py` or
   `src/api/main.py` anymore.
 
-### Saved final model artifact (3-class target) — CURRENT canonical, 12 features
+### Saved final model artifact (3-class target) — CURRENT canonical, 12-feature XGBoost
+- `data/processed/mindcare_final_model_12feature_xgb.pkl` — XGBoost on the same 12 features and
+  preprocessor (`mindcare_preprocessor_12feature.pkl`), fit on the 12-feature `X_train` by
+  `src/models/adopt_xgboost_12feature_model.py`, with hyperparameters read from
+  `reports/tuning_results_12feature.json`.
+  - The script checks it against `reports/model_comparison_12feature.md` and stops, deleting
+    the file, on any mismatch: accuracy 0.7776, balanced accuracy 0.8078, macro-F1 0.8171, High
+    recall 0.8970, and 410 flagged / 158 true-High / 10 of 17 hard misses at the 0.025 threshold.
+  - This is what `src/api/main.py` and `src/inference/predict_single.py` load. Validation-only
+    evidence; no test-set number exists or is planned.
+
+### Saved final model artifact (3-class target) — SUPERSEDED 2026-09-28, kept for history, 12-feature Random Forest
 - `data/processed/mindcare_final_model_12feature.pkl` — the tuned Random Forest on the
   11-feature set plus Age restored, fit on the 12-feature `X_train`, persisted via
   `src/models/adopt_12feature_model.py`. Unlike the two artifacts above, this one's validation
@@ -472,9 +550,9 @@ preprocessing (Phase 10) is shared between the two targets.
   is planned for this configuration** — see "FEATURE SET CHANGE — 2026-09-22 (THIRD change)"
   above. Paired with `data/processed/mindcare_preprocessor_12feature.pkl` and
   `data/processed/mindcare_processed_splits_12feature.npz` (the latter has no
-  `X_test`/`y_test`/`test_original_idx` keys — the test set was never loaded). This is what
-  `src/inference/predict_single.py` and `src/api/main.py` actually load and use — the deployed
-  model.
+  `X_test`/`y_test`/`test_original_idx` keys — the test set was never loaded). It was the
+  deployed model from 2026-09-22 to 2026-09-28; the preprocessor and splits are still in use by
+  the XGBoost model above.
 
 ### Phase 16 — Uncertainty / abstention mechanism (3-class target)
 - [x] Phase 16 — done for 3-class Anxiety Level target (`src/models/uncertainty_flagging.py`,
@@ -482,6 +560,8 @@ preprocessing (Phase 10) is shared between the two targets.
       the tuned Random Forest's P(High) >= 0.10 (the ~10% marginal base rate of High), chosen
       because every prediction is already reviewed by a psychologist, so this reprioritizes
       review attention rather than gatekeeping access to review. Not yet done for 5-class Severity.
+      **Superseded 2026-09-28:** the production threshold is now 0.025 on XGBoost; see "Model
+      switched from Random Forest to XGBoost" above.
 
 ### Phase 21/22 — Clinical validation comparison tool (built, no data yet)
 - [x] Clinical scoring scales and agreement metrics built in `src/evaluation/clinical_scales.py` and `src/evaluation/clinical_agreement.py`

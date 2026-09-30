@@ -1,11 +1,11 @@
-"""Single-patient inference for the tuned Random Forest, 3-class Anxiety
+"""Single-patient inference for the canonical XGBoost model, 3-class Anxiety
 Level target. Takes raw feature values (a dict using the exact 12 column
 names from CLAUDE.md's current feature set - the 11-feature reduced set
 (reports/feature_reduction_3class.md) plus Age, re-added as a clinical/UX
 decision (reports/feature_addition_age_3class.md)), runs them through the
 saved preprocessor, predicts with the saved final model
-(data/processed/mindcare_final_model_12feature.pkl, built by
-src/models/adopt_12feature_model.py), and reports the uncertainty-flagging
+(data/processed/mindcare_final_model_12feature_xgb.pkl, built by
+src/models/adopt_xgboost_12feature_model.py - XGBoost since 2026-09-28), and reports the uncertainty-flagging
 status.
 
 Note on caffeine: this internal script speaks "Caffeine Intake (mg/day)"
@@ -41,11 +41,14 @@ from src.inference.stress_scale import PSS_FIELDS, estimate_stress_level
 ROOT = Path(__file__).resolve().parents[2]
 PREPROCESSOR_PATH = ROOT / "data" / "processed" / "mindcare_preprocessor_12feature.pkl"
 LABEL_ENCODER_PATH = ROOT / "data" / "processed" / "mindcare_label_encoder_3class.pkl"
-MODEL_PATH = ROOT / "data" / "processed" / "mindcare_final_model_12feature.pkl"
+MODEL_PATH = ROOT / "data" / "processed" / "mindcare_final_model_12feature_xgb.pkl"
 
 CLASS_NAMES = ["Low", "Medium", "High"]
 HIGH_INDEX = CLASS_NAMES.index("High")
-HIGH_PROBA_THRESHOLD = 0.10  # production uncertainty-flagging rule (src/models/uncertainty_flagging.py)
+# Priority-review flag on P(High). 0.025 for XGBoost (was 0.10 for the Random Forest): the level at
+# which XGBoost matches the Random Forest's validation coverage - 158/165 true-High rows and 10/17
+# true-High rows predicted Medium (src/models/adopt_xgboost_12feature_model.py).
+HIGH_PROBA_THRESHOLD = 0.025
 
 NUMERIC_FEATURES = [
     "Sleep Hours",

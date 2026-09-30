@@ -1,4 +1,4 @@
-"""FastAPI service exposing the tuned Random Forest (3-class Anxiety Level
+"""FastAPI service exposing the canonical XGBoost model (3-class Anxiety Level
 target) for single-patient inference.
 
 Decision-support only — per CLAUDE.md's critical workflow constraint, no
@@ -30,14 +30,17 @@ from src.inference.stress_scale import PSS_FIELDS, PSS_ITEM_MAX, PSS_ITEM_MIN, e
 
 ROOT = Path(__file__).resolve().parents[2]
 MANUAL_TEST_FORM_PATH = Path(__file__).resolve().parent / "static" / "manual_test_form.html"
-# 12-feature canonical model (Age re-added, reports/feature_addition_age_3class.md) - built on top
-# of the 11-feature model (reports/feature_reduction_3class.md), which itself replaced the
-# original 17-feature model; see src/models/adopt_12feature_model.py for the build + evaluation.
+# 12-feature canonical model: XGBoost since 2026-09-28 (reports/model_comparison_12feature.md,
+# built by src/models/adopt_xgboost_12feature_model.py). The 12-feature Random Forest it replaced
+# (mindcare_final_model_12feature.pkl) is kept for history. Preprocessor unchanged.
 PREPROCESSOR_PATH = ROOT / "data" / "processed" / "mindcare_preprocessor_12feature.pkl"
-MODEL_PATH = ROOT / "data" / "processed" / "mindcare_final_model_12feature.pkl"
+MODEL_PATH = ROOT / "data" / "processed" / "mindcare_final_model_12feature_xgb.pkl"
 LABEL_ENCODER_PATH = ROOT / "data" / "processed" / "mindcare_label_encoder_3class.pkl"
 
-HIGH_PROBA_THRESHOLD = 0.10  # production uncertainty-flagging rule (src/models/uncertainty_flagging.py)
+# Priority-review flag on P(High). 0.025 for XGBoost (was 0.10 for the Random Forest): the level at
+# which XGBoost matches the Random Forest's validation coverage - 158/165 true-High rows and 10/17
+# true-High rows predicted Medium (src/models/adopt_xgboost_12feature_model.py).
+HIGH_PROBA_THRESHOLD = 0.025
 
 # Average caffeine content per serving (mg) - commonly-cited USDA/Mayo-Clinic-style figures.
 # These are population averages, not measurements: actual caffeine content varies substantially
@@ -84,7 +87,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="MindCare Anxiety Level API",
-    description="Decision-support inference for the tuned Random Forest (3-class Anxiety Level "
+    description="Decision-support inference for the XGBoost model (3-class Anxiety Level "
     "target). All predictions require psychologist review before reaching a patient.",
     version="1.0.0",
     lifespan=lifespan,

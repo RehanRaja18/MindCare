@@ -1,6 +1,9 @@
 # Model Card — MindCare Anxiety Level Classifier (3-Class)
 
-**Model:** Tuned Random Forest (scikit-learn `RandomForestClassifier`)
+**Model:** XGBoost (`xgboost.XGBClassifier`), canonical since 2026-09-28. It replaced a tuned
+Random Forest; see "Performance — 12-Feature XGBoost" and `reports/model_comparison_12feature.md`.
+Sections covering Phases 14-19 below describe the earlier Random Forest models unless they say
+otherwise.
 **Target:** 3-class Anxiety Level — Low / Medium / High (primary target as of 2026-09-14)
 **Status:** Prototype / research model. Not clinically validated.
 
@@ -29,8 +32,8 @@ for any other age. Platform rules (decided 2026-09-28):
   for minors. If a minor ever reaches this model, the API rejects them as "not eligible", with
   no referral.
 - **50 and over: can register, and are redirected straight to a psychologist**, with no AI
-  pre-assessment. The training data has almost no High-anxiety cases from age 50 on, and the
-  model has learned to lower P(High) for older users.
+  pre-assessment. The training data has almost no High-anxiety cases from age 50 on, so there
+  is almost no evidence the model can recognise High anxiety at these ages.
 
 See Known Limitations #12.
 
@@ -152,6 +155,11 @@ see "Known Limitations" #2 below.
 ---
 
 ## Model Selection Rationale
+
+> **Superseded 2026-09-28.** This section records why the Random Forest was chosen originally,
+> on the 17-feature data. The limitation it ends with (XGBoost never got the same depth of
+> analysis) was closed by running the full suite on both 12-feature models. That comparison
+> led to adopting XGBoost; see "Performance — 12-Feature XGBoost".
 
 Both a tuned Random Forest and a tuned XGBoost were evaluated via `RandomizedSearchCV`
 (`reports/tuning_results_3class.json`). On the validation set:
@@ -331,9 +339,114 @@ Evaluation" below.
 
 ---
 
-## Performance — 12-Feature Model (Current Canonical, `reports/feature_addition_age_3class.md`)
+## Performance — 12-Feature XGBoost (Current Canonical, since 2026-09-28 — `reports/model_comparison_12feature.md`)
 
-**This is the model actually deployed via `src/api/main.py` as of 2026-09-22.** Same tuned
+**This is the model deployed via `src/api/main.py`** (`mindcare_final_model_12feature_xgb.pkl`,
+built by `src/models/adopt_xgboost_12feature_model.py`). Same 12 features and preprocessor as the
+Random Forest below.
+
+### Primary performance estimate: nested cross-validation (`reports/nested_cv_12feature_xgb.md`)
+
+The whole pipeline was rebuilt from scratch inside each of 5 outer folds, on the 9,350 train +
+validation rows: preprocessor, XGBoost tuning (the same search as the real pipeline) and the review
+threshold. Each fold was then scored on rows it had never seen. The test set was not used. Figures
+are mean ± standard deviation across the 5 outer folds.
+
+| | Nested CV, all ages | Nested CV, ages 18-49 | Validation split, all ages | Validation split, ages 18-49 |
+|---|---:|---:|---:|---:|
+| Accuracy | **0.7904 ± 0.0094** | 0.7996 ± 0.0100 | 0.7776 | 0.7861 |
+| Balanced accuracy | **0.8119 ± 0.0057** | 0.8230 ± 0.0059 | 0.8078 | 0.8152 |
+| Macro-F1 | **0.8244 ± 0.0064** | 0.8318 ± 0.0062 | 0.8171 | 0.8226 |
+| High recall | **0.8771 ± 0.0111** | 0.9087 ± 0.0122 | 0.8970 | 0.9193 |
+| High precision | **0.9759 ± 0.0065** | 0.9837 ± 0.0044 | 0.9673 | 0.9801 |
+| Flag catch rate (share of High cases flagged) | **0.9587 ± 0.0153** | 0.9700 ± 0.0159 | 0.9576 | 0.9627 |
+| Flag volume (share of all rows flagged) | 0.2448 ± 0.0217 | 0.2783 ± 0.0259 | 0.2485 | 0.2789 |
+
+- **The nested figures are the primary estimate.** The validation columns come from one split of
+  1,650 rows, and that split was also used, in part, to choose the model and its threshold.
+- **Validation was slightly pessimistic** on the headline metrics: accuracy 1.3 points, balanced
+  accuracy 0.4 points and macro-F1 0.7 points *below* the nested means.
+- **Validation's High recall of 0.897 sits about 2 points above the nested 0.877.** That is within
+  the sampling noise of 165 High cases: the standard error of a recall measured on 165 cases is
+  about 0.026, and the gap is about 0.8 of that. (The nested report calls the same gap "1.8 fold
+  standard deviations"; that compares it with the spread between the 5 fold means, a different
+  yardstick.) The figure to quote for the model's own High predictions is about **0.88**.
+- **Ages 18-49**, the population the API serves, score higher on every performance metric above
+  (balanced accuracy 0.8230, High recall 0.9087). A larger share of rows is flagged, though:
+  27.8% against 24.5%.
+- **The deployed 0.025 threshold is supported.** Each outer fold chose its own threshold with the
+  same rule (the highest threshold still flagging at least 158/165 of High cases in the inner
+  out-of-fold predictions). They came out at **0.0268 ± 0.0026 (range 0.023–0.030)**, which brackets
+  0.025. On the unseen outer folds, those thresholds flagged 95.9% of High cases against a 95.8%
+  target. Every fold's tuning also picked the deployed settings (300 trees, depth 3, learning
+  rate 0.03, unweighted).
+- **What this does not cover** is in Known Limitations #13: several decisions were made on this
+  same data, outside the nested loop.
+
+**How it was chosen:**
+- Both models were re-tuned on the 12 features under one identical procedure: 40 configurations
+  each, 5-fold cross-validation on the training data, balanced-accuracy scoring
+  (`src/models/tune_models_12feature.py`).
+- XGBoost's search included balanced sample weights; unweighted won in cross-validation (0.8089
+  vs 0.8077).
+- Final settings: 300 trees, max_depth 3, learning_rate 0.03, subsample 0.8, min_child_weight 3.
+- The full analysis suite was then run on the current Random Forest, a re-tuned Random Forest and
+  XGBoost side by side (`src/evaluation/compare_models_12feature.py`).
+- **Validation and training data only.** No candidate has a test-set number.
+
+The comparison below uses the **single validation split** (1,650 rows), the same split used partly to
+choose between the models. For XGBoost's primary performance estimate, see the nested
+cross-validation above.
+
+| | RF (previous canonical) | XGBoost (current) |
+|---|---:|---:|
+| Validation accuracy | 0.7739 | 0.7776 |
+| Validation balanced accuracy | 0.8062 | 0.8078 |
+| Validation macro-F1 | 0.8182 | 0.8171 |
+| High recall / High precision | 0.8970 / 0.9933 | 0.8970 / 0.9673 |
+| 5-fold CV balanced accuracy (train) | 0.8093 ± 0.0154 | 0.8085 ± 0.0144 |
+| Macro AUROC / AUPRC | 0.9044 / 0.8576 | 0.9083 / 0.8658 |
+| Calibration error (ECE) Low / Medium / High | 0.061 / 0.060 / 0.033 | 0.016 / 0.020 / 0.007 |
+| Balanced accuracy under 1× std noise | 0.5558 | 0.6151 |
+| Balanced accuracy with Caffeine replaced by its mean | 0.5232 | 0.7879 |
+| Single prediction / model size | 37 ms / 9.2 MB | 1.1 ms / 1.0 MB |
+
+**Why XGBoost:**
+- **Performance is a tie.** The cross-validation gap (0.0008) is about 20 times smaller than the
+  variation between folds. Both models predict High for the same 148 of 165 High cases and miss
+  the same 17.
+- **Calibration:** XGBoost's probabilities are 3–5 times better calibrated.
+- **Robustness:** it holds up better under input noise.
+- **No caffeine shortcut.** The Random Forest learned "High needs high caffeine". With a truly
+  High patient's caffeine at or below 200 mg a day, it predicted High for 0 of 165, against
+  127–129 for XGBoost. That matters because the API only *estimates* caffeine from serving counts.
+- **Age:** it is barely affected by the dataset's age-50 artifact (mean P(High) 0.885 → 0.863
+  from age 49 to 55, against 0.903 → 0.628 for the Random Forest).
+- **Practical:** about 30 times faster and 9 times smaller.
+
+**Trade-offs accepted:**
+- **High precision is lower** (0.967 vs 0.993): XGBoost labels 5 true-Medium rows High,
+  against 1 for the Random Forest.
+- **More sensitive to a missing Sleep Hours value** (0.715 vs 0.786).
+- **Needed a lower review threshold** (see "Uncertainty / Abstention Mechanism").
+
+The re-tuned Random Forest (500 trees, depth 30) was also compared. It was no better than the
+previous one, and five times larger and slower, so it was not adopted.
+
+**SHAP:** Stress Level is still #1, and more dominant (44.3% of mean |SHAP|, against 37.6% for
+the Random Forest). It's followed by Sleep Hours (16.2%), Therapy Sessions (14.7%) and Caffeine
+(10.2%).
+
+**Fairness:** the gaps across occupation, age band and gender are similar to the Random Forest's.
+Balanced accuracy varies by 0.120 across occupations (0.108 for the Random Forest) and by 0.029
+across genders (0.036).
+
+---
+
+## Performance — 12-Feature Random Forest (Superseded 2026-09-28, `reports/feature_addition_age_3class.md`)
+
+**This model was deployed via `src/api/main.py` from 2026-09-22 to 2026-09-28**, when XGBoost
+replaced it (above). The file `mindcare_final_model_12feature.pkl` is kept for history. Same tuned
 Random Forest hyperparameters as above, retrained from scratch on the 11-feature set plus Age
 restored (10 numeric + 2 categorical — see "Features" above). New `ColumnTransformer` fit on
 train rows only.
@@ -546,6 +659,15 @@ Not yet done for the 5-class Severity target (`CLAUDE.md`, Pipeline Status).
 
 ## Uncertainty / Abstention Mechanism (Phase 16 — `src/models/uncertainty_flagging.py`, `reports/uncertainty_flagging.md`)
 
+> **Current rule (since 2026-09-28): P(High) ≥ 0.025 on the XGBoost model.** The 0.10 rule
+> described below was set for the Random Forest, as the ~10% base rate of High cases. XGBoost's
+> better-calibrated probabilities put most borderline High cases below 0.10. At 0.10 it would
+> catch 152 of 165 High cases and 4 of the 17 hardest misses (true High predicted Medium).
+> At **0.025** it matches the Random Forest's validation coverage exactly: **158 of 165 High
+> cases and 10 of 17 hard misses**. That costs 410 flagged rows instead of 363 (about 13% more
+> review work), with a false-flag rate of 0.615. This is validation-only evidence, like the
+> rest of this section. The analysis below is kept as the Random Forest history.
+
 **Production rule:** flag a validation row **"borderline — recommend review"** if
 **P(High) ≥ 0.10**, unconditional on the predicted class.
 
@@ -716,29 +838,46 @@ Not yet done for the 5-class Severity target beyond what's already in `reports/f
 10. **This is a prototype/research model** (`CLAUDE.md` Engineering Rule 7) — it must never be
     represented as having clinical diagnostic validity, and its output must never bypass
     psychologist review per the project's critical workflow constraint.
-11. **The current canonical model (12 features, Age restored) has validation-only evidence, and
-    always will unless a future decision explicitly justifies a third test-set use.** Unlike the
-    17-feature and 11-feature configurations above, no test-set number exists for the 12-feature
-    model, by design — `src/models/adopt_12feature_model.py` never loads, transforms, or
+11. **The current canonical model (12-feature XGBoost) has validation-only evidence, and
+    always will unless a future decision explicitly justifies a third test-set use.** This is
+    true of both 12-feature models. Unlike the 17-feature and 11-feature configurations above, no
+    test-set number exists for either, by design — `src/models/adopt_12feature_model.py` never loads, transforms, or
     references `X_test`/`y_test`/`test_original_idx` (`reports/feature_addition_age_3class.md`,
     `CLAUDE.md` "FEATURE SET CHANGE — 2026-09-22 (THIRD change)"). This is not an oversight to
     close later: restoring Age was a clinical/UX decision, not a performance claim, so a
     validation-only check (confirming it isn't harmful) was judged sufficient and a third
-    one-way-door test-set use was not. Also unlike the 17-feature and 11-feature models, the
-    12-feature model has **no** calibration, uncertainty-flagging, SHAP, fairness, or
-    robustness analysis run against it specifically — see "Performance — 12-Feature Model"
-    above. It does have a full validation-set evaluation (classification report, confusion
-    matrix, per-class and macro AUROC/AUPRC): `reports/full_evaluation_12feature.md`.
+    one-way-door test-set use was not. Switching from Random Forest to XGBoost was likewise
+    decided on validation and cross-validation evidence only. Both 12-feature models have the
+    full analysis suite on validation data: calibration, the review flag, SHAP, fairness and
+    robustness (`reports/model_comparison_12feature.md`). The Random Forest also has
+    `reports/full_evaluation_12feature.md`.
 12. **Supported age range is 18–49 (decided 2026-09-27).** The API rejects any other age. Under
     18 is rejected as not eligible (minors can't register), and 50+ is rejected with a
     psychologist referral; see "Intended Use".
     Evidence behind the upper bound, all on validation data:
     - The dataset's High rate falls from 12–15% below age 50 to about 1% from 50 on.
-    - For identical people, mean P(High) drops from 0.90 at 49 to 0.63 at 55.
-    - The 53–64 band had only 3 true-High cases, and all were missed.
-    - Moving under-50 validation rows to age 55 turns off the review flag for 17 of 282.
+    - Random Forest (the model at the time): for identical people, mean P(High) dropped from
+      0.90 at 49 to 0.63 at 55. The 53–64 band had only 3 true-High cases, and it missed all 3.
+      Moving under-50 validation rows to age 55 turned off its review flag for 17 of 282.
+    - XGBoost (current) barely shows the effect (0.885 → 0.863). The limit stands anyway,
+      because the data gap does: with almost no High cases at 50+, nothing shows either model
+      can recognise High anxiety at those ages.
 
     This is a data-coverage limit, not a clinical judgement about older adults.
+13. **Nested cross-validation doesn't cover the decisions made outside it**
+    (`reports/nested_cv_12feature_xgb.md`). It makes the preprocessing, tuning and threshold steps
+    honest, because they are redone inside every fold. But these were all decided on the same
+    train + validation data, before or outside the nested loop:
+    - the 17 → 11 → 12 feature reduction;
+    - choosing XGBoost over Random Forest;
+    - the 158/165 flag-coverage target (copied from the Random Forest's validation result);
+    - the Low/Medium/High label boundaries;
+    - the 18–49 age limit.
+
+    So the nested figures estimate how **re-running this pipeline** performs, not how the whole
+    chain of decisions that produced it would perform on new data. They can still be optimistic
+    about that chain. **No test-set number exists for the current model** (the 3-class test set was
+    used twice, on earlier models, and is treated as spent), so only fresh data can check it.
 
 ---
 

@@ -213,7 +213,7 @@ document.getElementById('predict-form').addEventListener('submit', async (event)
     body.innerHTML =
       '<p><span class="predicted-class ' + data.predicted_class + '">' + data.predicted_class + '</span></p>' +
       bars +
-      '<p>Uncertainty flag (P(High) ≥ 0.10): <span class="flag ' + (data.uncertainty_flag ? 'yes">YES — recommend review' : 'no">no') + '</span></p>' +
+      '<p>Priority-review flag (P(High) ≥ 0.025): <span class="flag ' + (data.uncertainty_flag ? 'yes">YES — recommend review' : 'no">no') + '</span></p>' +
       '<p>Estimated caffeine intake: ' + data.estimated_caffeine_mg + ' mg/day</p>' +
       '<p>Stress Level (from PSS-4): ' + data.estimated_stress_level + ' / 10</p>' +
       warnings;

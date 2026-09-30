@@ -142,7 +142,8 @@ UNDER_AGE_RATIONALE = (
 )
 OVER_AGE_RATIONALE = (
     "in the training data the High-anxiety rate drops from 12-15% below age 50 to about 1% from "
-    "50 on (a dataset artifact), so the model systematically lowers P(High) for older users"
+    "50 on (a dataset artifact), so there is almost no evidence the model can recognise High "
+    "anxiety at these ages"
 )
 
 

@@ -5,6 +5,36 @@ Answers to the 25 Phase 35 questions, pulled only from
 report file(s) those documents cite. Where something has not actually been done, this report says
 so explicitly rather than skipping the question or implying otherwise.
 
+> **Update 2026-09-28 — the canonical model is now XGBoost.** Both 12-feature models were
+> re-tuned under one identical procedure, then put through the full analysis suite side by side
+> on validation and training data (`reports/model_comparison_12feature.md`). The analyses were
+> calibration, the review flag, SHAP, fairness by occupation, age band and gender, and robustness.
+> - **Performance was a tie:** 5-fold CV balanced accuracy 0.8085 (XGBoost) vs 0.8093 (Random
+>   Forest).
+> - **XGBoost was adopted** because it is 3–5 times better calibrated, more robust to noise,
+>   free of a "High needs high caffeine" shortcut the Random Forest had learned, barely affected
+>   by the age-50 data artifact, and about 30 times faster.
+> - **The review threshold changed from 0.10 to 0.025**, so the flag keeps the Random Forest's
+>   validation coverage: 158 of 165 High cases, and 10 of the 17 hardest misses.
+> - **Nothing touched the test set.**
+>
+> Answers below that describe "the tuned Random Forest" are the history up to this change. Q9,
+> Q22 items 10–12, Q23 and Q25 items 6–7 carry update notes.
+>
+> **Update 2026-09-30 — nested cross-validation is now the primary performance estimate**
+> (`reports/nested_cv_12feature_xgb.md`). The full XGBoost pipeline was rebuilt inside each of 5
+> outer folds on the 9,350 train + validation rows: preprocessor, tuning and review threshold.
+> The test set was not used.
+> - **All ages:** balanced accuracy 0.8119 ± 0.0057, High recall 0.8771 ± 0.0111, flag catch
+>   rate 0.9587 ± 0.0153.
+> - **Validation vs nested:** the validation split was slightly pessimistic on the headline
+>   metrics. Its High recall (0.897) is about 2 points above the nested figure, which is within
+>   the sampling noise of 165 High cases.
+> - **Threshold:** each fold's own threshold, 0.0268 ± 0.0026, supports the deployed 0.025.
+> - **Not covered:** decisions made on the same data outside the nested loop (Q22 item 13).
+>
+> Q12, Q22, Q23 and Q24 carry update notes.
+
 ---
 
 ### 1. What clinical problem does the model solve?
@@ -101,7 +131,13 @@ in `model_card.md`'s baseline table; see Q10 for the tuned XGBoost figures that 
 
 ### 9. What model was selected?
 
-The **tuned Random Forest** — hyperparameters `n_estimators=200, max_depth=10,
+**Current (since 2026-09-28): XGBoost**, with 300 trees, max_depth 3, learning_rate 0.03,
+subsample 0.8, colsample_bytree 1.0, min_child_weight 3, gamma 0, unweighted. It was re-tuned on
+the 12 features (`reports/tuning_results_12feature.json`) and chosen after the side-by-side
+comparison in `reports/model_comparison_12feature.md` (see the update note at the top). The
+original selection follows.
+
+**Original selection:** the **tuned Random Forest** — hyperparameters `n_estimators=200, max_depth=10,
 min_samples_split=10, min_samples_leaf=4, max_features='sqrt', class_weight='balanced',
 random_state=42` (`model_card.md`, "Performance", citing `reports/tuning_results_3class.json`).
 This is the model used for every subsequent analysis in the model card: full evaluation,
@@ -226,6 +262,23 @@ why this evidentiary gap is a deliberate, disclosed scope decision rather than a
 **Sensitivity (= recall) is documented for all three model configurations on validation;
 test-set recall exists only for the 17-feature and 11-feature (superseded) models, by design.
 Specificity is not documented at all, for any configuration.**
+
+> **Update 2026-09-30 — current model (12-feature XGBoost), nested cross-validation**
+> (`reports/nested_cv_12feature_xgb.md`, mean ± std over 5 outer folds; primary estimate):
+>
+> | Class | Recall, all ages | Recall, ages 18-49 | Recall, validation split |
+> |---|---:|---:|---:|
+> | Low | 0.7978 ± 0.0150 | 0.8071 ± 0.0199 | 0.7866 |
+> | Medium | 0.7609 ± 0.0098 | 0.7532 ± 0.0153 | 0.7397 |
+> | High | 0.8771 ± 0.0111 | 0.9087 ± 0.0122 | 0.8970 |
+>
+> - **High precision:** 0.9759 ± 0.0065.
+> - **The priority-review flag** (each fold's own threshold) catches 0.9587 ± 0.0153 of High cases.
+> - **Validation's High recall (0.897)** is about 2 points above the nested estimate. That's within
+>   the sampling noise of 165 High cases (standard error about 0.026), but the figure to quote is
+>   about 0.88.
+>
+> Specificity is still not computed. The tables below are the Random Forest history.
 
 17-feature model, per-class recall (`model_card.md`, "Performance — 17-Feature Model" and "Final
 Test-Set Evaluation" classification reports):
@@ -490,20 +543,39 @@ current, deployed 12-feature 3-class model (Age restored, as of 2026-09-22) — 
 10. *(Surfaced here.)* Subgroup fairness has only been checked along one dimension (Occupation),
     and only for the 17-feature model; no age, gender, or other demographic fairness evaluation
     of model outputs exists, and the fairness check has not been re-run for the 11-feature or
-    12-feature models.
+    12-feature models. **Updated 2026-09-28:** both 12-feature models now have occupation,
+    age-band and gender fairness checks on validation data (`reports/model_comparison_12feature.md`).
+    Most occupations still have too few High cases (under 15) for a reliable High-recall
+    comparison.
 11. The choice of Random Forest over XGBoost is now backed by a documented rationale
     (`model_card.md`, "Model Selection Rationale"), but that rationale was written up *after*
     the model was already selected, and the full SHAP/calibration/uncertainty/fairness analysis
     suite has not been re-run on XGBoost for comparison — the selection has not been validated
     against an equivalent depth of analysis on the alternative (Q10). This is a separate question
     from the two later feature-set changes (17→11, then 11→12 with Age restored), which each
-    kept Random Forest and only changed the input columns (Q9/Q10).
+    kept Random Forest and only changed the input columns (Q9/Q10). **Resolved 2026-09-28:**
+    the full suite was run on both 12-feature models, and the evidence favoured XGBoost, which was
+    adopted (update note at the top).
 12. *(Surfaced here.)* **The current, deployed 12-feature model (Age restored) has strictly less
     evidentiary depth than either the 17-feature or 11-feature configurations that preceded it**
     — validation-only headline metrics exist and nothing else (items 4, 6, 7, 9, 10 above). This
     is a deliberate, disclosed scope decision tied to the clinical/UX nature of the Age-restoration
     decision (Q9/Q10), not an unnoticed gap — but it does mean the model actually running in
     production today has been evaluated less thoroughly than its two immediate predecessors.
+    **Resolved 2026-09-28:** the deployed model (now XGBoost) has the full validation-set analysis
+    suite. It still has no test-set number, by design.
+13. *(Added 2026-09-30.)* **Nested cross-validation doesn't cover the decisions made outside it.**
+    The nested CV (`reports/nested_cv_12feature_xgb.md`) redoes the preprocessing, tuning and
+    threshold choice inside every fold, so those steps are estimated honestly. But these were all
+    decided on the same train + validation data, outside the loop:
+    - the 17 → 11 → 12 feature reduction;
+    - choosing XGBoost over Random Forest;
+    - the 158/165 flag-coverage target;
+    - the Low/Medium/High label boundaries;
+    - the 18–49 age limit.
+
+    The nested figures describe **re-running this pipeline**, not the whole chain of decisions, and
+    can still be optimistic about that chain. **No test-set number exists for the current model.**
 
 ### 23. What claims can we legitimately make?
 
@@ -512,7 +584,13 @@ current, deployed 12-feature 3-class model (Age restored, as of 2026-09-22) — 
   configuration, and the current 12-feature configuration (Age restored) — meaningfully
   outperforms a majority-class baseline (17-feature: balanced accuracy 0.8056 vs. 0.3333,
   macro-F1 0.8177 vs. 0.2136; 11-feature: balanced accuracy 0.8084, macro-F1 0.8204; 12-feature:
-  balanced accuracy 0.8062, macro-F1 0.8182). The disclosed held-out **test** evaluations confirm
+  balanced accuracy 0.8062, macro-F1 0.8182). The current 12-feature **XGBoost** model does
+  likewise on validation (balanced accuracy 0.8078, macro-F1 0.8171), statistically tied with the
+  Random Forest in 5-fold CV. Its primary estimate is **nested cross-validation** (added
+  2026-09-30): balanced accuracy 0.8119 ± 0.0057, macro-F1 0.8244 ± 0.0064, accuracy
+  0.7904 ± 0.0094 and High recall 0.8771 ± 0.0111, with the whole pipeline rebuilt inside each
+  fold. The legitimate claim is about **re-running this pipeline** on this dataset, not the full
+  chain of decisions (Q22 item 13). The disclosed held-out **test** evaluations confirm
   this wasn't an artifact of validation-set overfitting for the 17-feature and 11-feature
   configurations — 17-feature test balanced accuracy 0.8193 (+0.0137 vs. validation), 11-feature
   test balanced accuracy 0.8177 (+0.0093 vs. validation) (Q11, Q12). **This confirmation does not
@@ -564,6 +642,10 @@ current, deployed 12-feature 3-class model (Age restored, as of 2026-09-22) — 
   Rule 7.
 - **No claim of external validity** — the model has never been evaluated on data outside this one
   (likely synthetic) source file (Q19).
+- **No claim that the current model's High recall is 0.897** *(added 2026-09-30)*. That figure is
+  from a single validation split. The nested cross-validation estimate is 0.8771 ± 0.0111, so
+  quote about 0.88. Nor can the nested figures be presented as a test of the whole decision chain
+  (Q22 item 13).
 - **No claim of clinical effectiveness** — no clinical evaluation, trial, or real-outcome
   comparison has occurred (Q20).
 - **No claim the model is calibrated** — it is measurably not, across most of the probability
@@ -619,11 +701,15 @@ Based strictly on the gaps this report surfaced:
    confidence figure.
 6. **Broader subgroup fairness analysis** — beyond Occupation, at minimum age and gender (gender
    was excluded as a predictive feature for lack of signal, which is a separate question from
-   whether the model's *errors* are distributed fairly by gender).
+   whether the model's *errors* are distributed fairly by gender). *Partly done 2026-09-28:* age
+   and gender checks exist for both 12-feature models on validation data. Nothing has been
+   checked on real data.
 7. **A re-run of the full Phase 15-18 analysis stack (SHAP, calibration, uncertainty, fairness)
    on tuned XGBoost**, to validate the now-documented Random Forest selection rationale (Q10)
    against an equivalent depth of evidence on the alternative — the rationale exists, but was
    written retroactively and has not been tested against that alternative's actual behavior.
+   **Done 2026-09-28** (`reports/model_comparison_12feature.md`). The evidence led to adopting
+   XGBoost.
 8. **Resolution of the Stress-Level single-feature dependency**, particularly for the 5-class
    Severity target, before that target (if retained at all) is used in any deployment context.
 9. **Completion of Phase 15 (calibration) and Phase 16 (uncertainty) for the 5-class target**, if

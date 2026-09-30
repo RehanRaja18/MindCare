@@ -1,7 +1,8 @@
 # MindCare Anxiety Level API — Usage Guide
 
-FastAPI service exposing the tuned Random Forest (3-class Anxiety Level target) for
-single-patient inference. Source: [`src/api/main.py`](../src/api/main.py).
+FastAPI service exposing the canonical XGBoost model (3-class Anxiety Level target; XGBoost
+since 2026-09-28, see [`reports/model_comparison_12feature.md`](../reports/model_comparison_12feature.md))
+for single-patient inference. Source: [`src/api/main.py`](../src/api/main.py).
 
 **Decision-support only.** Per `CLAUDE.md`'s critical workflow constraint, no prediction from
 this service may reach a patient without psychologist review. The service itself has no concept
@@ -103,10 +104,12 @@ shouldn't be on the platform at all.
   rate, breathing rate) and consent rules differ for minors.
 - **Why 50 and over:** these ages are in the training data, but the share of High-anxiety cases
   drops from 12–15% below age 50 to about 1% from 50 on. That's almost certainly an artifact of
-  a very likely synthetic dataset. The model has learned it: for otherwise identical people,
-  mean P(High) falls from 0.90 at age 49 to 0.63 at 55, and the priority-review flag switches
-  off for some borderline cases. The biggest risk is missing High anxiety in older users, so
-  the model is not used for them.
+  a very likely synthetic dataset. With so few High examples at these ages, there is almost no
+  evidence the model can recognise High anxiety in older users. The Random Forest that preceded
+  XGBoost clearly learned the artifact: for otherwise identical people, its mean P(High) fell
+  from 0.90 at age 49 to 0.63 at 55. XGBoost barely does (0.885 → 0.863), but a model ignoring a
+  data gap doesn't fill it. Missing High anxiety is the most dangerous error, so the model is
+  not used for these ages.
 
 This is a scope limit set by the training data, not a clinical rule. It could be revisited with
 real data that covers these ages.
@@ -211,9 +214,9 @@ caffeine mg value and the *computed* Stress Level, not the raw serving counts or
 {
   "predicted_class": "Low",
   "probabilities": {
-    "Low": 0.9100,
-    "Medium": 0.0886,
-    "High": 0.0014
+    "Low": 0.9666,
+    "Medium": 0.0327,
+    "High": 0.0007
   },
   "uncertainty_flag": false,
   "warnings": [],
@@ -225,9 +228,11 @@ caffeine mg value and the *computed* Stress Level, not the raw serving counts or
 - `predicted_class`: one of `"Low"`, `"Medium"`, `"High"` — the model's top prediction.
 - `probabilities`: full 3-class probability distribution, keys always `Low`/`Medium`/`High`,
   values sum to 1.0.
-- `uncertainty_flag`: `true` if `probabilities.High >= 0.10` — the production
-  uncertainty-flagging rule (`src/models/uncertainty_flagging.py`). This means **"recommend
-  priority review"**, not "reject this prediction" — every prediction should go through
+- `uncertainty_flag`: `true` if `probabilities.High >= 0.025` — the priority-review rule
+  (`HIGH_PROBA_THRESHOLD` in `src/api/main.py`). It was 0.10 for the earlier Random Forest.
+  XGBoost's probabilities are better calibrated, so it uses 0.025: the level at which it catches
+  as many High cases as the old rule did on validation data (158 of 165). This means
+  **"recommend priority review"**, not "reject this prediction" — every prediction should go through
   psychologist review regardless of this flag; it only reprioritizes attention.
 - `warnings`: list of human-readable strings for any field that was valid but outside the
   training data's observed range. Empty list if none.
@@ -302,9 +307,9 @@ Content-Type: application/json
 {
   "predicted_class": "Low",
   "probabilities": {
-    "Low": 0.9099944718489401,
-    "Medium": 0.0885721879330646,
-    "High": 0.001433340217995167
+    "Low": 0.9665917158126831,
+    "Medium": 0.03268687427043915,
+    "High": 0.0007213451899588108
   },
   "uncertainty_flag": false,
   "warnings": [],
@@ -315,7 +320,7 @@ Content-Type: application/json
 
 The PSS answers here give a total of 0 + (4−3) + (4−4) + 0 = 1, so 1 + 1 × 9/16 = 1.56, which
 rounds to Stress Level 2. This exact request/response pair was captured from a live run of the
-service (`uvicorn src.api.main:app`) — not hand-written.
+service (`uvicorn src.api.main:app`, XGBoost model, 2026-09-28) — not hand-written.
 
 ## Known limitations to be aware of when integrating
 

@@ -67,6 +67,21 @@ def test_health(client: TestClient) -> None:
     assert body["label_encoder_loaded"] is True
 
 
+def test_serves_xgboost_with_its_review_threshold(client: TestClient) -> None:
+    """XGBoost became the canonical model on 2026-09-28
+    (reports/model_comparison_12feature.md), with the priority-review
+    threshold lowered from 0.10 to 0.025 to match the Random Forest's
+    validation coverage. Guards against the API silently loading the old
+    Random Forest artifact or threshold."""
+    from xgboost import XGBClassifier
+
+    from src.api.main import HIGH_PROBA_THRESHOLD, MODEL_PATH, ml_artifacts
+
+    assert MODEL_PATH.name == "mindcare_final_model_12feature_xgb.pkl"
+    assert isinstance(ml_artifacts["model"], XGBClassifier)
+    assert HIGH_PROBA_THRESHOLD == 0.025
+
+
 def test_estimate_caffeine_mg_arithmetic() -> None:
     # 2 cups coffee + 1 cup tea = 2*95 + 47 = 237mg
     assert estimate_caffeine_mg(cups_of_coffee=2, cups_of_tea=1, energy_drinks=0, cans_of_soda=0) == 237
