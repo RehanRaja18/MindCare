@@ -1,11 +1,12 @@
 """
 PHI-safe access logging.
 
-Provides log_auth_event(), which records auth events (login, failed login,
-logout, token refresh, registration) as structured JSON log lines, without
-ever writing PHI (patient names, journal content, clinical notes, health
-data) into plaintext application logs. All access to sensitive resources
-should go through here instead of `logging` directly.
+Provides log_auth_event() and log_identity_reveal(), which record auth events
+(login, failed login, logout, token refresh, registration) and identity
+revelations as structured JSON log lines, without ever writing PHI (patient
+names, journal content, clinical notes, health data) into plaintext application
+logs. All access to sensitive resources should go through here instead of
+`logging` directly.
 """
 
 import json
@@ -31,5 +32,18 @@ def log_auth_event(
         "role": role,
         "ip": ip,
         "success": success,
+    }
+    logger.info(json.dumps(payload))
+
+
+def log_identity_reveal(*, viewer_id, patient_id):
+    """An admin resolved a private patient's real identity (see
+    apps/patients/selectors.get_patient_display_identity). IDs only — never
+    names, emails or anything else."""
+    payload = {
+        "event_type": "identity_reveal",
+        "timestamp": timezone.now().isoformat(),
+        "viewer_id": viewer_id,
+        "patient_id": patient_id,
     }
     logger.info(json.dumps(payload))

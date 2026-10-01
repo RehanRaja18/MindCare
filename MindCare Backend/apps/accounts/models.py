@@ -58,6 +58,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_super_admin = models.BooleanField(default=False)
+    # Set when the user declared "I am 18 or older" at public registration
+    # (docs/decisions.md, 2026-09-26). NULL for createsuperuser accounts.
+    adult_confirmed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

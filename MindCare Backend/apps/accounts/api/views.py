@@ -4,7 +4,8 @@ Views stay thin: parse the request, delegate to services.py (writes) or
 selectors.py (reads), then serialize the result. No business logic here.
 """
 
-from rest_framework import status
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers, status
 from rest_framework.exceptions import ParseError, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -18,10 +19,13 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from apps.accounts import selectors, services
 from apps.accounts.api.serializers import (
     MindCareTokenObtainPairSerializer,
+    RegisterRequestDoc,
+    RegisterResponseDoc,
     RegisterSerializer,
-    UserPublicSerializer,
+    registration_response_data,
 )
 from apps.accounts.models import ApprovalStatus
+from core.exceptions import DomainValidationError
 
 
 class RegisterRateThrottle(AnonRateThrottle):
@@ -33,14 +37,32 @@ class RegisterView(APIView):
     authentication_classes = []
     throttle_classes = [RegisterRateThrottle]
 
+    @extend_schema(request=RegisterRequestDoc, responses={201: RegisterResponseDoc})
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
         try:
-            user = services.register_user(**serializer.validated_data)
+            user = services.register_user(
+                email=data["email"],
+                password=data["password"],
+                full_name=data["full_name"],
+                role=data["role"],
+                is_adult_confirmed=data["is_adult_confirmed"],
+                profile_data=data["profile"],
+            )
         except services.DuplicateEmailError as exc:
             raise ValidationError({"email": str(exc)}) from exc
-        return Response(UserPublicSerializer(user).data, status=status.HTTP_201_CREATED)
+        except DomainValidationError as exc:
+            errors = (
+                exc.errors
+                if "is_adult_confirmed" in exc.errors
+                else {"profile": exc.errors}
+            )
+            raise ValidationError(errors, code=exc.code) from exc
+        return Response(
+            registration_response_data(user), status=status.HTTP_201_CREATED
+        )
 
 
 class LoginRateThrottle(AnonRateThrottle):
@@ -84,6 +106,12 @@ class RefreshView(TokenRefreshView):
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=inline_serializer(
+            "LogoutRequest", {"refresh": serializers.CharField()}
+        ),
+        responses={205: None},
+    )
     def post(self, request):
         refresh_token = request.data.get("refresh")
         if not refresh_token:

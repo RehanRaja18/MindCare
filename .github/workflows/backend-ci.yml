@@ -53,6 +53,7 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: config.settings.test
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mindcare_test
+          TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mindcare_test
           SECRET_KEY: ci-test-secret-key
           DEBUG: "False"
           REDIS_URL: redis://localhost:6379/0
@@ -62,6 +63,7 @@ jobs:
         working-directory: "MindCare Backend"
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mindcare_test
+          TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mindcare_test
           SECRET_KEY: ci-test-secret-key
           DEBUG: "False"
           REDIS_URL: redis://localhost:6379/0

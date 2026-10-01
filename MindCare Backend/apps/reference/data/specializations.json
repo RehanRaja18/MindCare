@@ -1,0 +1,14 @@
+[
+ {"slug": "anxiety", "name": "Anxiety"},
+ {"slug": "depression", "name": "Depression"},
+ {"slug": "trauma-ptsd", "name": "Trauma / PTSD"},
+ {"slug": "couples-relationship", "name": "Couples / Relationship"},
+ {"slug": "grief", "name": "Grief"},
+ {"slug": "addiction-substance-use", "name": "Addiction / Substance use"},
+ {"slug": "stress-management", "name": "Stress management"},
+ {"slug": "ocd", "name": "OCD"},
+ {"slug": "eating-disorders", "name": "Eating disorders"},
+ {"slug": "sleep-issues", "name": "Sleep issues"},
+ {"slug": "anger-management", "name": "Anger management"},
+ {"slug": "family-therapy", "name": "Family therapy"}
+]

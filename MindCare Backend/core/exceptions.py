@@ -1,9 +1,19 @@
 """
-Shared exception types and a DRF exception handler.
+Shared exception types.
 
-Eventually this module will define domain-level exceptions (e.g.
-PermissionDeniedForPatient, RecommendationNotApproved) and a custom
-`exception_handler` wired into REST_FRAMEWORK['EXCEPTION_HANDLER'] so
-every app raises and renders errors consistently instead of each
-view inventing its own error shape.
+DomainValidationError is what services raise when a business rule rejects
+input. Views translate it into a DRF ValidationError (400) so every app
+renders rule violations the same way. A project-wide DRF exception handler
+may be added here later.
 """
+
+
+class DomainValidationError(Exception):
+    """A business rule rejected the input. `errors` maps field name -> messages."""
+
+    default_code = "invalid"
+
+    def __init__(self, errors, *, code=None):
+        super().__init__(errors)
+        self.errors = errors
+        self.code = code or self.default_code
