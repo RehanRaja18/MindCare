@@ -97,8 +97,10 @@ export interface PsychologistProfile {
   country: string;
   city: string;
   timezone: string; // IANA, e.g. "Asia/Karachi"
-  gender: string;
-  bio: string;
+  /** Optional: "male" | "female" | "other" | "prefer_not_to_say" | null */
+  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say' | null;
+  /** Optional, max 2000 */
+  bio?: string;
 }
 
 export interface NgoServiceArea {
@@ -114,10 +116,13 @@ export interface NgoProfile {
   country: string;
   city: string;
   timezone: string;
+  /** E.164, e.g. "+922111234567" */
   official_phone: string;
   official_email: string;
-  website: string;
-  description: string;
+  /** Optional */
+  website?: string;
+  /** Optional, max 2000 */
+  description?: string;
   service_areas: NgoServiceArea[];
 }
 

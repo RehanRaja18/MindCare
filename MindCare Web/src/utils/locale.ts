@@ -31,11 +31,39 @@ export const COUNTRY_OPTIONS: Option[] = [
     .sort((a, b) => a.label.localeCompare(b.label)),
 ];
 
-/** Languages clinicians most often practise in here (ISO 639-1). */
-export const LANGUAGE_OPTIONS: Option[] = ['en', 'ur', 'pa', 'sd', 'ps', 'ar', 'fa', 'hi', 'bn'].map((c) => ({
+/** Pakistan first, then alphabetical — applied to the live country list too. */
+export const sortCountries = (opts: Option[]) => [
+  ...opts.filter((o) => o.value === 'PK'),
+  ...opts.filter((o) => o.value !== 'PK').sort((a, b) => a.label.localeCompare(b.label)),
+];
+
+/** Languages clinicians most often practise in here (ISO 639-1) — shown as quick picks. */
+export const COMMON_LANGUAGE_CODES = ['en', 'ur', 'pa', 'sd', 'ps', 'ar', 'fa', 'hi', 'bn'];
+
+export const LANGUAGE_OPTIONS: Option[] = COMMON_LANGUAGE_CODES.map((c) => ({
   value: c,
   label: displayName('language', c),
 }));
+
+/** Fallback until GET /reference/specializations/ loads (backend's seeded slugs). */
+export const SPECIALIZATION_FALLBACK: Option[] = [
+  ['anxiety', 'Anxiety'],
+  ['depression', 'Depression'],
+  ['trauma-ptsd', 'Trauma / PTSD'],
+  ['couples-relationship', 'Couples / Relationship'],
+  ['grief', 'Grief'],
+  ['addiction-substance-use', 'Addiction / Substance use'],
+  ['stress-management', 'Stress management'],
+  ['ocd', 'OCD'],
+  ['eating-disorders', 'Eating disorders'],
+  ['sleep-issues', 'Sleep issues'],
+  ['anger-management', 'Anger management'],
+  ['family-therapy', 'Family therapy'],
+].map(([value, label]) => ({ value, label }));
+
+/** International phone format the backend requires (E.164), e.g. +923001234567. */
+export const E164 = /^\+[1-9]\d{6,14}$/;
+export const toE164 = (raw: string) => raw.replace(/[\s()-]/g, '');
 
 /** The visitor's own time zone, falling back to Pakistan. */
 export const DEFAULT_TIMEZONE = (() => {

@@ -123,6 +123,24 @@ export async function logoutRequest(): Promise<void> {
 }
 
 /**
+ * GET /reference/{kind}/ — public lists the register form must pick from.
+ * Rows are { slug, name } (specializations) or { code, name } (languages,
+ * countries); normalised to { value, label }. Returns null on failure.
+ */
+export async function getReferenceList(
+  kind: 'specializations' | 'languages' | 'countries'
+): Promise<{ value: string; label: string }[] | null> {
+  const res = await apiFetch<{ slug?: string; code?: string; name?: string }[]>(`/reference/${kind}/`, {
+    method: 'GET',
+    skipAuth: true,
+  });
+  if (!Array.isArray(res.data)) return null;
+  return res.data
+    .map((r) => ({ value: String(r.slug ?? r.code ?? ''), label: String(r.name ?? r.slug ?? r.code ?? '') }))
+    .filter((o) => o.value);
+}
+
+/**
  * POST /accounts/register/ — JSON body per the backend contract.
  * 201 on success (no tokens: sign in afterwards). Psychologist and NGO
  * accounts come back approval_status "pending" until an admin approves.

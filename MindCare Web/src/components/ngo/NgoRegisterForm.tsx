@@ -19,7 +19,8 @@ import {
   sanitizeText,
   MAX_LENGTHS,
 } from '../../utils/validation';
-import { COUNTRY_OPTIONS, DEFAULT_TIMEZONE, TIMEZONE_OPTIONS } from '../../utils/locale';
+import { COUNTRY_OPTIONS, DEFAULT_TIMEZONE, E164, TIMEZONE_OPTIONS, sortCountries, toE164 } from '../../utils/locale';
+import { useReferenceOptions } from '../../hooks/useReferenceOptions';
 import type { NgoProfile, RegisterPayload } from '../../types';
 
 interface Area {
@@ -50,7 +51,8 @@ const initial = {
 type FormState = typeof initial;
 type Errors = Record<string, string | undefined>;
 
-const PHONE_RE = /^\+?[0-9 ()-]{7,20}$/;
+// Backend field limits (NGORegistrationProfileSerializer)
+const LIMITS = { org: 200, regNumber: 64, authority: 200, city: 120, description: 2000 };
 
 const NgoRegisterForm: React.FC = () => {
   const [form, setForm] = useState<FormState>(initial);
@@ -59,6 +61,8 @@ const NgoRegisterForm: React.FC = () => {
   const [honeypot, setHoneypot] = useState(''); // hidden field — real users never fill this in
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // Live country list — the API only accepts codes from it
+  const { options: countries } = useReferenceOptions('countries', COUNTRY_OPTIONS, sortCountries);
 
   const clear = (key: string) => errors[key] && setErrors((prev) => ({ ...prev, [key]: undefined }));
   const set = <K extends keyof FormState>(key: K, errorKey: string = `profile.${key}`) => (value: FormState[K]) => {
@@ -81,19 +85,22 @@ const NgoRegisterForm: React.FC = () => {
       password: validatePassword(form.password) ?? undefined,
       confirm: validatePasswordConfirmation(form.password, form.confirm) ?? undefined,
       is_adult_confirmed: form.adult ? undefined : 'You must be 18 or older to register.',
-      'profile.organization_name': validateRequiredText(form.organization_name, 'Organisation name') ?? undefined,
-      'profile.registration_number': validateRequiredText(form.registration_number, 'Registration number') ?? undefined,
-      'profile.registering_authority': validateRequiredText(form.registering_authority, 'Registering authority') ?? undefined,
-      'profile.city': validateRequiredText(form.city, 'City') ?? undefined,
-      'profile.official_phone': PHONE_RE.test(form.official_phone.trim())
+      'profile.organization_name': validateRequiredText(form.organization_name, 'Organisation name', LIMITS.org) ?? undefined,
+      'profile.registration_number':
+        validateRequiredText(form.registration_number, 'Registration number', LIMITS.regNumber) ?? undefined,
+      'profile.registering_authority':
+        validateRequiredText(form.registering_authority, 'Registering authority', LIMITS.authority) ?? undefined,
+      'profile.city': validateRequiredText(form.city, 'City', LIMITS.city) ?? undefined,
+      'profile.official_phone': E164.test(toE164(form.official_phone))
         ? undefined
-        : 'Enter a phone number, e.g. +92 21 1123 4567.',
+        : 'Use international format with the country code, e.g. +923001234567.',
       'profile.official_email': validateEmail(form.official_email) ?? undefined,
       'profile.website':
         form.website.trim() && !/^https?:\/\/[^\s.]+\.[^\s]+$/i.test(form.website.trim())
           ? 'Enter a full web address starting with https://'
           : undefined,
-      'profile.description': validateRequiredText(form.description, 'Description', MAX_LENGTHS.longText) ?? undefined,
+      'profile.description':
+        form.description.length > LIMITS.description ? `Keep this under ${LIMITS.description} characters.` : undefined,
     };
     form.service_areas.forEach((a, i) => {
       if (!a.country) next[`profile.service_areas.${i}.country`] = 'Choose a country.';
@@ -110,15 +117,16 @@ const NgoRegisterForm: React.FC = () => {
       country: form.country,
       city: sanitizeText(form.city),
       timezone: form.timezone,
-      official_phone: form.official_phone.replace(/[ ()-]/g, ''),
+      official_phone: toE164(form.official_phone),
       official_email: form.official_email.trim().toLowerCase(),
       website: form.website.trim(),
       description: sanitizeText(form.description),
       // City is optional per area — omit it rather than sending ""
       service_areas: form.service_areas.map((a) => (a.city.trim() ? { country: a.country, city: sanitizeText(a.city) } : { country: a.country })),
     };
-    // Website is optional in the form; leave the key out when empty.
-    if (!profile.website) delete (profile as Partial<NgoProfile>).website;
+    // Optional fields: leave the keys out when empty.
+    if (!profile.website) delete profile.website;
+    if (!profile.description) delete profile.description;
     return {
       email: form.email.trim().toLowerCase(),
       password: form.password,
@@ -209,16 +217,16 @@ const NgoRegisterForm: React.FC = () => {
 
       <Section title="Organisation">
         <TextField fieldClassName="sm:col-span-2" label="Organisation name" required value={form.organization_name} onValue={set('organization_name')} error={e('profile.organization_name')} autoComplete="organization" maxLength={MAX_LENGTHS.shortText} />
-        <TextField label="Registration number" required value={form.registration_number} onValue={set('registration_number')} error={e('profile.registration_number')} maxLength={MAX_LENGTHS.shortText} placeholder="SECP-0001" />
-        <SelectField label="Registered in" required value={form.registration_country} onValue={set('registration_country')} options={COUNTRY_OPTIONS} error={e('profile.registration_country')} />
+        <TextField label="Registration number" required value={form.registration_number} onValue={set('registration_number')} error={e('profile.registration_number')} maxLength={LIMITS.regNumber} placeholder="SECP-0001" />
+        <SelectField label="Registered in" required value={form.registration_country} onValue={set('registration_country')} options={countries} error={e('profile.registration_country')} />
         <TextField fieldClassName="sm:col-span-2" label="Registering authority" required value={form.registering_authority} onValue={set('registering_authority')} error={e('profile.registering_authority')} maxLength={MAX_LENGTHS.shortText} placeholder="SECP" />
-        <SelectField label="Country" required value={form.country} onValue={set('country')} options={COUNTRY_OPTIONS} error={e('profile.country')} />
+        <SelectField label="Country" required value={form.country} onValue={set('country')} options={countries} error={e('profile.country')} />
         <TextField label="City" required value={form.city} onValue={set('city')} error={e('profile.city')} autoComplete="address-level2" maxLength={MAX_LENGTHS.shortText} placeholder="Karachi" />
         <SelectField fieldClassName="sm:col-span-2" label="Time zone" required value={form.timezone} onValue={set('timezone')} options={TIMEZONE_OPTIONS} error={e('profile.timezone')} />
-        <TextField label="Official phone" required type="tel" inputMode="tel" value={form.official_phone} onValue={set('official_phone')} error={e('profile.official_phone')} autoComplete="tel" placeholder="+92 21 1123 4567" />
+        <TextField label="Official phone" required type="tel" inputMode="tel" value={form.official_phone} onValue={set('official_phone')} error={e('profile.official_phone')} autoComplete="tel" placeholder="+922111234567" hint="International format, with the country code." />
         <TextField label="Official email" required type="email" inputMode="email" value={form.official_email} onValue={set('official_email')} error={e('profile.official_email')} maxLength={MAX_LENGTHS.email} placeholder="info@yourngo.org" />
         <TextField fieldClassName="sm:col-span-2" label="Website" type="url" inputMode="url" value={form.website} onValue={set('website')} error={e('profile.website')} autoComplete="url" placeholder="https://yourngo.org" hint="Optional." />
-        <TextAreaField fieldClassName="sm:col-span-2" label="What you do" required rows={4} value={form.description} onValue={set('description')} error={e('profile.description')} maxLength={MAX_LENGTHS.longText} placeholder="In one paragraph: who you serve, and what you offer." />
+        <TextAreaField fieldClassName="sm:col-span-2" label="What you do" rows={4} value={form.description} onValue={set('description')} error={e('profile.description')} maxLength={LIMITS.description} placeholder="In one paragraph: who you serve, and what you offer." hint="Optional." />
       </Section>
 
       <div>
@@ -232,7 +240,7 @@ const NgoRegisterForm: React.FC = () => {
         <div className="space-y-3">
           {form.service_areas.map((a, i) => (
             <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-3 items-start">
-              <SelectField label={`Area ${i + 1} · country`} value={a.country} onValue={(v) => setArea(i, { country: v })} options={COUNTRY_OPTIONS} error={e(`profile.service_areas.${i}.country`)} />
+              <SelectField label={`Area ${i + 1} · country`} value={a.country} onValue={(v) => setArea(i, { country: v })} options={countries} error={e(`profile.service_areas.${i}.country`)} />
               <TextField label="City" value={a.city} onValue={(v) => setArea(i, { city: v })} error={e(`profile.service_areas.${i}.city`)} maxLength={MAX_LENGTHS.shortText} placeholder="Whole country" />
               <button
                 type="button"

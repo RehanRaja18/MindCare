@@ -15,7 +15,6 @@ import {
   ROUTES,
   THERAPIST_ONBOARDING_STEPS,
   THERAPIST_WHAT_HAPPENS_NEXT,
-  THERAPIST_FOCUS_AREAS,
   THERAPIST_STATS,
 } from '../constants';
 import { register, flattenFieldErrors } from '../services/api.service';
@@ -27,23 +26,34 @@ import {
   sanitizeText,
   MAX_LENGTHS,
 } from '../utils/validation';
-import { COUNTRY_OPTIONS, DEFAULT_TIMEZONE, LANGUAGE_OPTIONS, TIMEZONE_OPTIONS, type Option } from '../utils/locale';
+import {
+  COMMON_LANGUAGE_CODES,
+  COUNTRY_OPTIONS,
+  DEFAULT_TIMEZONE,
+  LANGUAGE_OPTIONS,
+  SPECIALIZATION_FALLBACK,
+  TIMEZONE_OPTIONS,
+  sortCountries,
+  type Option,
+} from '../utils/locale';
+import { useReferenceOptions } from '../hooks/useReferenceOptions';
 import type { PsychologistProfile, RegisterPayload, TherapistRegisterStep } from '../types';
 
 const MIN_SPECIALIZATIONS = 1;
 const MAX_SPECIALIZATIONS = 6;
 
-// Specializations are sent as lowercase slugs, e.g. "anxiety", "depression".
-const SPECIALIZATION_OPTIONS: Option[] = Array.from(new Set(['Anxiety', 'Depression', ...THERAPIST_FOCUS_AREAS])).map((a) => ({
-  value: a.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
-  label: a,
-}));
 
+// Backend choices (core.choices.Gender); optional — empty is sent as null.
 const GENDER_OPTIONS: Option[] = [
+  { value: '', label: 'Not specified' },
   { value: 'female', label: 'Female' },
   { value: 'male', label: 'Male' },
   { value: 'other', label: 'Other' },
+  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
 ];
+
+// Backend field limits (PsychologistRegistrationProfileSerializer)
+const LIMITS = { license: 64, authority: 200, qualifications: 1000, city: 120, bio: 2000 };
 
 interface FormState {
   full_name: string;
@@ -134,6 +144,20 @@ const TherapistRegisterPage: React.FC = () => {
 
   const stepIndex = STEP_ORDER.indexOf(activeStep);
 
+  // Live reference lists (the API only accepts values from these)
+  const { options: SPECIALIZATION_OPTIONS } = useReferenceOptions('specializations', SPECIALIZATION_FALLBACK);
+  const { options: allLanguages } = useReferenceOptions('languages', LANGUAGE_OPTIONS);
+  const { options: countries } = useReferenceOptions('countries', COUNTRY_OPTIONS, sortCountries);
+  const commonLanguages = COMMON_LANGUAGE_CODES.map((c) => allLanguages.find((l) => l.value === c)).filter(Boolean) as Option[];
+  // Quick-pick chips: common languages plus any other language already chosen
+  const languageChips = [
+    ...commonLanguages,
+    ...form.languages
+      .filter((c) => !COMMON_LANGUAGE_CODES.includes(c))
+      .map((c) => allLanguages.find((l) => l.value === c) ?? { value: c, label: c }),
+  ];
+  const otherLanguages = allLanguages.filter((l) => !languageChips.some((c) => c.value === l.value));
+
   const set = <K extends keyof FormState>(key: K, value: FormState[K], errorKey: string = key) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     if (errors[errorKey]) setErrors((prev) => ({ ...prev, [errorKey]: undefined }));
@@ -165,11 +189,13 @@ const TherapistRegisterPage: React.FC = () => {
   });
 
   const checkCredentials = (): Errors => ({
-    'profile.license_number': validateRequiredText(form.license_number, 'Licence number') ?? undefined,
+    'profile.license_number': validateRequiredText(form.license_number, 'Licence number', LIMITS.license) ?? undefined,
     'profile.license_issuing_country': form.license_issuing_country ? undefined : 'Choose the issuing country.',
     'profile.license_issuing_authority':
-      validateRequiredText(form.license_issuing_authority, 'Issuing authority') ?? undefined,
-    degree: validateRequiredText(form.degree, 'Degree') ?? undefined,
+      validateRequiredText(form.license_issuing_authority, 'Issuing authority', LIMITS.authority) ?? undefined,
+    degree:
+      validateRequiredText(form.degree, 'Degree') ??
+      (qualificationsOf(form).length > LIMITS.qualifications ? 'Degree and university are too long.' : undefined),
     'profile.specializations':
       form.specializations.length >= MIN_SPECIALIZATIONS ? undefined : 'Pick at least one area you work with.',
     consent: form.consent ? undefined : 'Please consent to verification to continue.',
@@ -184,10 +210,9 @@ const TherapistRegisterPage: React.FC = () => {
           : undefined,
       'profile.languages': form.languages.length ? undefined : 'Pick at least one language.',
       'profile.country': form.country ? undefined : 'Choose your country.',
-      'profile.city': validateRequiredText(form.city, 'City') ?? undefined,
+      'profile.city': validateRequiredText(form.city, 'City', LIMITS.city) ?? undefined,
       'profile.timezone': form.timezone ? undefined : 'Choose your time zone.',
-      'profile.gender': form.gender ? undefined : 'Choose an option.',
-      'profile.bio': validateRequiredText(form.bio, 'Bio', MAX_LENGTHS.longText) ?? undefined,
+      'profile.bio': form.bio.length > LIMITS.bio ? `Bio must be under ${LIMITS.bio} characters.` : undefined,
     };
   };
 
@@ -210,9 +235,10 @@ const TherapistRegisterPage: React.FC = () => {
       country: form.country,
       city: sanitizeText(form.city),
       timezone: form.timezone,
-      gender: form.gender,
+      gender: (form.gender || null) as PsychologistProfile['gender'],
       bio: sanitizeText(form.bio),
     };
+    if (!profile.bio) delete (profile as Partial<PsychologistProfile>).bio; // optional
     return {
       email: form.email.trim().toLowerCase(),
       password: form.password,
@@ -442,7 +468,7 @@ const TherapistRegisterPage: React.FC = () => {
                         required
                         value={form.license_issuing_country}
                         onValue={setProfile('license_issuing_country')}
-                        options={COUNTRY_OPTIONS}
+                        options={countries}
                         error={e('profile.license_issuing_country')}
                       />
                       <TextField
@@ -534,19 +560,18 @@ const TherapistRegisterPage: React.FC = () => {
                       />
                       <SelectField
                         label="Gender"
-                        required
                         value={form.gender}
                         onValue={setProfile('gender')}
                         options={GENDER_OPTIONS}
-                        placeholder="Select…"
                         error={e('profile.gender')}
+                        hint="Optional."
                       />
                       <SelectField
                         label="Country"
                         required
                         value={form.country}
                         onValue={setProfile('country')}
-                        options={COUNTRY_OPTIONS}
+                        options={countries}
                         error={e('profile.country')}
                       />
                       <TextField
@@ -574,21 +599,32 @@ const TherapistRegisterPage: React.FC = () => {
                       <ChipGroup
                         label="Languages you practise in"
                         required
-                        options={LANGUAGE_OPTIONS}
+                        options={languageChips}
                         selected={form.languages}
                         onToggle={(v) => toggle('languages', v)}
                         error={e('profile.languages')}
                       />
+                      {otherLanguages.length > 0 && (
+                        <div className="mt-3 max-w-xs">
+                          <SelectField
+                            label="Add another language"
+                            value=""
+                            onValue={(v) => v && toggle('languages', v)}
+                            options={otherLanguages}
+                            placeholder="Choose…"
+                          />
+                        </div>
+                      )}
                     </div>
                     <div className="mb-8">
                       <TextAreaField
                         label="Short bio"
-                        required
                         rows={4}
                         value={form.bio}
                         onValue={setProfile('bio')}
                         error={e('profile.bio')}
-                        maxLength={MAX_LENGTHS.longText}
+                        hint="Optional. Patients see this on your profile."
+                        maxLength={LIMITS.bio}
                         placeholder="e.g. CBT-focused therapist working with anxiety and burnout."
                       />
                     </div>
@@ -610,17 +646,17 @@ const TherapistRegisterPage: React.FC = () => {
                       ['18 or older', form.adult ? 'Confirmed' : '—'],
                     ]} />
                     <ReviewSection title="Credentials" onEdit={() => goToStep('credentials')} rows={[
-                      ['Licence', `${form.license_number} · ${labelOf(COUNTRY_OPTIONS, form.license_issuing_country)}`],
+                      ['Licence', `${form.license_number} · ${labelOf(countries, form.license_issuing_country)}`],
                       ['Issued by', form.license_issuing_authority],
                       ['Qualifications', qualificationsOf(form)],
                       ['Works with', form.specializations.map((s) => labelOf(SPECIALIZATION_OPTIONS, s)).join(', ')],
                     ]} />
                     <ReviewSection title="Practice" onEdit={() => goToStep('practice')} rows={[
                       ['Experience', form.years_of_experience ? `${form.years_of_experience} years` : '—'],
-                      ['Languages', form.languages.map((l) => labelOf(LANGUAGE_OPTIONS, l)).join(', ')],
-                      ['Location', [form.city, labelOf(COUNTRY_OPTIONS, form.country)].filter(Boolean).join(', ')],
+                      ['Languages', form.languages.map((l) => labelOf(allLanguages, l)).join(', ')],
+                      ['Location', [form.city, labelOf(countries, form.country)].filter(Boolean).join(', ')],
                       ['Time zone', form.timezone],
-                      ['Gender', labelOf(GENDER_OPTIONS, form.gender)],
+                      ['Gender', form.gender ? labelOf(GENDER_OPTIONS, form.gender) : 'Not specified'],
                       ['Bio', form.bio],
                     ]} />
                     <StepNav
