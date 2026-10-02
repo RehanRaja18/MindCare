@@ -11,7 +11,21 @@ import { NAV_ITEMS, ROUTES } from '../../constants';
 import { useScrollPosition } from '../../hooks/useScrollPosition';
 import { cn } from '../../utils/cn';
 
-const Navbar: React.FC = () => {
+interface NavLink {
+  label: string;
+  to: string;
+}
+
+interface NavbarProps {
+  /** Main button on the right. Defaults to "Get started" (app download + sign-up). */
+  cta?: NavLink;
+  /** Optional quieter link shown before the button (e.g. "Sign in"). */
+  secondary?: NavLink;
+}
+
+const DEFAULT_CTA: NavLink = { label: 'Get started →', to: ROUTES.CLIENT_APP };
+
+const Navbar: React.FC<NavbarProps> = ({ cta = DEFAULT_CTA, secondary }) => {
   const scrollY = useScrollPosition();
   const [mobileOpen, setMobileOpen] = useState(false);
   const scrolled = scrollY > 20;
@@ -59,9 +73,14 @@ const Navbar: React.FC = () => {
 
         {/* Right side */}
         <div className="hidden lg:flex items-center gap-3">
-          <Link to={ROUTES.CLIENT_APP}>
+          {secondary && (
+            <Link to={secondary.to} className="px-3 py-2 text-sm font-semibold text-gray-700 hover:text-gray-900 transition-colors">
+              {secondary.label}
+            </Link>
+          )}
+          <Link to={cta.to}>
             <Button size="sm" variant="primary" className="rounded-full px-5">
-              Get started →
+              {cta.label}
             </Button>
           </Link>
         </div>
@@ -104,11 +123,18 @@ const Navbar: React.FC = () => {
             ))}
           </ul>
           <div className="mt-4 flex flex-col gap-3">
-            <Link to={ROUTES.CLIENT_APP} onClick={() => setMobileOpen(false)}>
+            <Link to={cta.to} onClick={() => setMobileOpen(false)}>
               <Button variant="primary" fullWidth size="md">
-                Get started →
+                {cta.label}
               </Button>
             </Link>
+            {secondary && (
+              <Link to={secondary.to} onClick={() => setMobileOpen(false)}>
+                <Button variant="secondary" fullWidth size="md">
+                  {secondary.label}
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       )}
