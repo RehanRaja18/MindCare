@@ -78,11 +78,71 @@ export interface SignInPayload {
   password: string;
 }
 
-export interface SignUpPayload {
-  name: string;
+// ——— POST /accounts/register/ (backend contract) ———
+// JSON only. Unknown fields anywhere are rejected with a 400, so these
+// types list exactly what the backend accepts — nothing more.
+
+export interface PatientProfile {
+  timezone: string;
+}
+
+export interface PsychologistProfile {
+  license_number: string;
+  license_issuing_country: string; // ISO 3166-1 alpha-2, e.g. "PK"
+  license_issuing_authority: string;
+  qualifications: string;
+  specializations: string[];
+  years_of_experience: number;
+  languages: string[]; // ISO 639-1, e.g. "en", "ur"
+  country: string;
+  city: string;
+  timezone: string; // IANA, e.g. "Asia/Karachi"
+  /** Optional: "male" | "female" | "other" | "prefer_not_to_say" | null */
+  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say' | null;
+  /** Optional, max 2000 */
+  bio?: string;
+}
+
+export interface NgoServiceArea {
+  country: string;
+  city?: string;
+}
+
+export interface NgoProfile {
+  organization_name: string;
+  registration_number: string;
+  registration_country: string;
+  registering_authority: string;
+  country: string;
+  city: string;
+  timezone: string;
+  /** E.164, e.g. "+922111234567" */
+  official_phone: string;
+  official_email: string;
+  /** Optional */
+  website?: string;
+  /** Optional, max 2000 */
+  description?: string;
+  service_areas: NgoServiceArea[];
+}
+
+interface RegisterBase {
   email: string;
   password: string;
-  role: UserRole;
+  full_name: string;
+  /** Must be the JSON boolean true — the backend rejects "true" or 1. */
+  is_adult_confirmed: true;
+}
+
+export type RegisterPayload =
+  | (RegisterBase & { role: 'patient'; profile: PatientProfile })
+  | (RegisterBase & { role: 'psychologist'; profile: PsychologistProfile })
+  | (RegisterBase & { role: 'ngo'; profile: NgoProfile });
+
+/** 201 body. No tokens — sign in afterwards. Psychologist/NGO start "pending". */
+export interface RegisteredUser {
+  approval_status?: 'approved' | 'pending' | 'rejected';
+  [key: string]: unknown;
 }
 
 export interface ApiResponse<T> {
@@ -90,6 +150,8 @@ export interface ApiResponse<T> {
   error: string | null;
   /** HTTP status (0 = network failure); absent on local stubs */
   status?: number;
+  /** Raw error body (e.g. DRF field errors, nested under "profile") */
+  errorBody?: unknown;
   loading: boolean;
 }
 
@@ -133,14 +195,6 @@ export interface NGOPartnerEntry {
   routedCount: number;
 }
 
-export interface NGORegisterPayload {
-  organisationName: string;
-  coverageType: string;
-  coverage: string;
-  contactEmail: string;
-  description: string;
-}
-
 // ——— For Therapists page ———
 export interface TherapistFeature {
   id: string;
@@ -158,17 +212,6 @@ export interface TherapistLoginPayload {
 }
 
 export type TherapistRegisterStep = 'identity' | 'credentials' | 'practice' | 'review';
-
-export interface TherapistCredentials {
-  pmdcLicenseNumber: string;
-  pmdcVerified: boolean;
-  specialty: string;
-  degree: string;
-  university: string;
-  graduationYear: string;
-  focusAreas: string[];
-  consentBackgroundCheck: boolean;
-}
 
 // ——— About Us page ———
 export interface AboutValueCard {

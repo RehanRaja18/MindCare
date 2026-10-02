@@ -54,7 +54,7 @@ export function validateEmail(value: string): string | null {
 /**
  * Validates a required short text field (names, titles, etc.)
  */
-export function validateRequiredText(value: string, label: string, maxLength = MAX_LENGTHS.shortText): string | null {
+export function validateRequiredText(value: string, label: string, maxLength: number = MAX_LENGTHS.shortText): string | null {
   const trimmed = value.trim();
   if (!trimmed) return `${label} is required.`;
   if (trimmed.length > maxLength) return `${label} must be under ${maxLength} characters.`;

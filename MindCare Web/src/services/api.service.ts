@@ -6,7 +6,8 @@
 import { API_BASE_URL } from '../constants';
 import { getAccessToken, getRefreshToken, isExpired, saveTokens } from './tokens';
 import type {
-  SignUpPayload,
+  RegisterPayload,
+  RegisteredUser,
   ApiResponse,
   StoryEntry,
   StorySubmission,
@@ -91,7 +92,7 @@ async function apiFetch<T>(
 
     const body = await response.json().catch(() => null);
     if (!response.ok) {
-      return { data: null, error: errorMessage(body, response.status), status: response.status, loading: false };
+      return { data: null, error: errorMessage(body, response.status), errorBody: body, status: response.status, loading: false };
     }
     return { data: body as T, error: null, status: response.status, loading: false };
   } catch {
@@ -121,21 +122,62 @@ export async function logoutRequest(): Promise<void> {
   if (refresh) await apiFetch('/accounts/logout/', { method: 'POST', body: JSON.stringify({ refresh }) });
 }
 
-export async function signUp(
-  payload: SignUpPayload
-): Promise<ApiResponse<{ token: string; userId: string }>> {
-  // TODO: return apiFetch('/accounts/register/', { method: 'POST', body: JSON.stringify(payload) });
-  // TODO(backend): request BODY SHAPE IS PENDING CONFIRMATION — do not wire this
-  // up yet. The backend is finalising it; it will include a nested "profile"
-  // object that differs by role (patient / psychologist / ngo), so the current
-  // SignUpPayload will change once the exact shape is sent over.
-  console.info('[MindCare] signUp called with', payload);
+/**
+ * GET /reference/{kind}/ — public lists the register form must pick from.
+ * Rows are { slug, name } (specializations) or { code, name } (languages,
+ * countries); normalised to { value, label }. Returns null on failure.
+ */
+export async function getReferenceList(
+  kind: 'specializations' | 'languages' | 'countries'
+): Promise<{ value: string; label: string }[] | null> {
+  const res = await apiFetch<{ slug?: string; code?: string; name?: string }[]>(`/reference/${kind}/`, {
+    method: 'GET',
+    skipAuth: true,
+  });
+  if (!Array.isArray(res.data)) return null;
+  return res.data
+    .map((r) => ({ value: String(r.slug ?? r.code ?? ''), label: String(r.name ?? r.slug ?? r.code ?? '') }))
+    .filter((o) => o.value);
+}
 
-  return new Promise((resolve) =>
-    setTimeout(() => {
-      resolve({ data: { token: 'dummy-jwt-token', userId: 'new-user-123' }, error: null, loading: false });
-    }, 800)
-  );
+/**
+ * POST /accounts/register/ — JSON body per the backend contract.
+ * 201 on success (no tokens: sign in afterwards). Psychologist and NGO
+ * accounts come back approval_status "pending" until an admin approves.
+ */
+export function register(payload: RegisterPayload) {
+  return apiFetch<RegisteredUser>('/accounts/register/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    skipAuth: true,
+  });
+}
+
+/**
+ * Flatten a DRF 400 body into { "email": msg, "profile.city": msg,
+ * "profile.service_areas.1.city": msg, … } so forms can show each error
+ * next to its field. Non-field errors land under "_".
+ */
+export function flattenFieldErrors(body: unknown, prefix = ''): Record<string, string> {
+  const out: Record<string, string> = {};
+  const walk = (value: unknown, path: string) => {
+    if (typeof value === 'string') {
+      out[path || '_'] ??= value;
+    } else if (Array.isArray(value)) {
+      if (value.every((v) => typeof v === 'string')) {
+        if (value.length) out[path || '_'] ??= value.join(' ');
+      } else {
+        value.forEach((v, i) => walk(v, path ? `${path}.${i}` : String(i)));
+      }
+    } else if (value && typeof value === 'object') {
+      for (const [k, v] of Object.entries(value)) {
+        const key = k === 'non_field_errors' || k === 'detail' ? path : path ? `${path}.${k}` : k;
+        walk(v, key);
+      }
+    }
+  };
+  walk(body, prefix);
+  return out;
 }
 
 export async function getTherapists(): Promise<ApiResponse<{ id: string; name: string; specialty: string }[]>> {
