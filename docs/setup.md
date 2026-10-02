@@ -54,6 +54,11 @@ correct rebuild the file comes out byte-identical, so `git status` should show n
 If it does change, the rebuild did not reproduce the documented model; investigate before
 using it.
 
+**Manual-form template suggestions (optional):** `data/processed/recommendation_templates.json` is
+committed, so nothing needs rebuilding. To regenerate it from the raw CSV, run
+`.venv/Scripts/python -m src.build_recommendation_templates`. It writes the file only if the templates
+rebuild all 9,350 train + validation texts exactly.
+
 ## The final model and the PSS-4 / caffeine inputs
 
 Step 6's XGBoost model is the one the API serves. **The model itself is trained on the

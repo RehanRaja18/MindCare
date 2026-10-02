@@ -19,6 +19,7 @@ Do not build or suggest anything that bypasses psychologist review.
 - `docs/setup.md` — model artifacts (`data/processed/*.pkl`/`*.npz`) are not in git; this lists
   the exact scripts to regenerate them, in order. `mindcare_processed_splits.npz` is the one
   tracked exception (no script can recreate it from scratch) — never delete it.
+- `reports/recommendation_mapping_investigation.md` — evidence base for `POST /patient-summary` (2026-09-30), which returns the prediction plus an **estimated** Severity tier (3-class prediction + PSS Stress Level → most common tier; 88.0% ceiling with the true label per this report, 78.4% measured with the model's own predictions) and the matching dataset recommendation bundle, always under a fixed clinician-review caveat; `/predict` returns none of this.
 
 ## Dataset
 data/raw/mindcare_dataset_final.csv — ~11,000 rows, 23 columns.

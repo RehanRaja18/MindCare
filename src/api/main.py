@@ -26,6 +26,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.inference.input_validation import ALL_FEATURES, InputValidationError, validate_patient
 from src.inference.stress_scale import PSS_FIELDS, PSS_ITEM_MAX, PSS_ITEM_MIN, estimate_stress_level
+from src.inference.template_advice import CAVEAT as SUMMARY_CAVEAT
+from src.inference.template_advice import estimate_tier, render
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -263,4 +265,66 @@ def predict(patient: PatientFeatures) -> PredictionResponse:
         warnings=warnings,
         estimated_caffeine_mg=caffeine_mg,
         estimated_stress_level=stress_level,
+    )
+
+
+class PatientSummaryRequest(PatientFeatures):
+    """/predict's fields plus two OPTIONAL fields the model never uses. They only fill slots in
+    the recommendation bundle; when omitted (or null), those slots say "not provided"."""
+
+    gender: Literal["Female", "Male", "Other"] | None = Field(default=None, alias="Gender")
+    alcohol_consumption: float | None = Field(default=None, alias="Alcohol Consumption (drinks/week)", ge=0, le=100)
+
+
+class SeverityTierBasis(BaseModel):
+    method: str
+    share_of_matching_patients: float | None
+    matching_patients: int
+
+
+class RecommendationBundle(BaseModel):
+    exercises: str
+    sleep_schedule: str
+    nutrition: str
+
+
+class PatientSummaryResponse(BaseModel):
+    # First field on purpose, so the caveat is the first thing a reader of the JSON sees.
+    caveat: str
+    predicted_class: Literal["Low", "Medium", "High"]
+    probabilities: dict[str, float]
+    uncertainty_flag: bool
+    warnings: list[str]
+    estimated_caffeine_mg: float
+    estimated_stress_level: int
+    estimated_severity_tier: Literal["Minimal (1-2)", "Mild (3-4)", "Moderate (5-6)", "High (7-8)", "Severe (9-10)"]
+    severity_tier_basis: SeverityTierBasis
+    recommendation_bundle: RecommendationBundle
+
+
+@app.post("/patient-summary", response_model=PatientSummaryResponse)
+def patient_summary(request: PatientSummaryRequest) -> PatientSummaryResponse:
+    """Psychologist-facing summary: /predict's result, plus an ESTIMATED Severity tier and the
+    dataset's recommendation bundle for it, always with SUMMARY_CAVEAT. Decision support for
+    clinician review only.
+
+    - The prediction fields come from predict() unchanged (same validation and age rules).
+    - estimated_severity_tier is a best guess from the predicted 3-class label plus the
+      PSS-derived Stress Level: the most common tier for that pair among the 9,350 train +
+      validation rows (reports/recommendation_mapping_investigation.md; ~88% ceiling given the
+      TRUE label, lower with the model's own errors). It is not the model's prediction.
+    - POST, not GET: the input is patient health data, which would otherwise be written to the
+      server's access logs as query parameters."""
+    patient = PatientFeatures(**request.model_dump(by_alias=True, exclude={"gender", "alcohol_consumption"}))
+    prediction = predict(patient)
+    tier = estimate_tier(prediction.predicted_class, prediction.estimated_stress_level)
+    bundle = render(tier["tier"], request.gender, request.sleep_hours,
+                    int(round(prediction.estimated_caffeine_mg)), request.alcohol_consumption)
+    return PatientSummaryResponse(
+        caveat=SUMMARY_CAVEAT,
+        **prediction.model_dump(),
+        estimated_severity_tier=tier["tier"],
+        severity_tier_basis=SeverityTierBasis(
+            method=tier["basis"], share_of_matching_patients=tier["share"], matching_patients=tier["n"]),
+        recommendation_bundle=RecommendationBundle(**bundle),
     )

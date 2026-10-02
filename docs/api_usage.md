@@ -322,6 +322,79 @@ The PSS answers here give a total of 0 + (4−3) + (4−4) + 0 = 1, so 1 + 1 × 
 rounds to Stress Level 2. This exact request/response pair was captured from a live run of the
 service (`uvicorn src.api.main:app`, XGBoost model, 2026-09-28) — not hand-written.
 
+## `POST /patient-summary`
+
+A **psychologist-facing summary** for clinician review, **never to be shown to a patient directly**.
+It returns everything `POST /predict` returns, plus an **estimated Severity tier** and the dataset's
+**recommendation bundle** for that tier. A fixed `caveat` comes first in every response.
+
+> **Caveat (the `caveat` field, the first key of every 200 response):** "Estimated severity and
+> recommendation are a best-guess reconstruction (~88% accurate at best, lower given this model's own
+> prediction error) from synthetic dataset templates. This is decision support for clinician review,
+> not a recommendation to show a patient directly and not validated clinical advice."
+
+### Request body
+
+The same 18 fields as `POST /predict` (same validation, same 18-49 age rules, same 422 responses),
+plus two **optional** fields. The model never uses them; they only fill slots in the bundle:
+
+| JSON key | Type | Valid values | If omitted or `null` |
+|---|---|---|---|
+| `Gender` | string | `"Female"`, `"Male"`, `"Other"` | Protein slot reads `Protein: not provided (needs Gender)` |
+| `Alcohol Consumption (drinks/week)` | number | 0–100 | Alcohol slot reads `Alcohol: not provided (needs Alcohol Consumption)` |
+
+POST, not GET: the input is patient health data, which would otherwise be written to the server's
+access logs as query parameters.
+
+### Response body — 200
+
+| Field | Meaning |
+|---|---|
+| `caveat` | The fixed caveat above. Always present. |
+| `predicted_class`, `probabilities`, `uncertainty_flag`, `warnings`, `estimated_caffeine_mg`, `estimated_stress_level` | Identical to `/predict` for identical input. `predicted_class` is the **model's actual prediction**. |
+| `estimated_severity_tier` | One of `Minimal (1-2)`, `Mild (3-4)`, `Moderate (5-6)`, `High (7-8)`, `Severe (9-10)`. **An estimate, not a model prediction** (see below). |
+| `severity_tier_basis` | How the tier was chosen: `method`, `share_of_matching_patients` (how often this tier was right for dataset patients with the same predicted level and stress level; `null` if there were none) and `matching_patients`. |
+| `recommendation_bundle` | `exercises`, `sleep_schedule`, `nutrition`: the dataset's fixed template text for the estimated tier, with the patient's Sleep Hours, caffeine (over/under 200 mg), alcohol (0 or not) and protein (by Gender) filled in. |
+
+**How the tier is estimated.** The dataset's Severity is a band of (Anxiety Level + Stress Level) / 2.
+The model never sees Anxiety Level, so the tier is the **most common tier among the 9,350 train +
+validation patients with the same predicted 3-class level and the same PSS-derived Stress Level**.
+Evidence and limits (`reports/recommendation_mapping_investigation.md`; `tests/test_api.py`):
+
+- **Ceiling, with the true 3-class label:** 88.0% on the 9,350 rows the table is built from, and
+  88.7% on a held-out 20% when rebuilt on the other 80%.
+- **With this model's own predictions** (table built on the training rows only, scored on the
+  validation rows): **78.4%** overall and 79.2% for ages 18-49. Expect about 4 in 5 tiers to be right.
+- The bundle text comes from a very likely synthetic dataset and was never clinically validated.
+
+**Response (200)**, captured from a live run (2026-09-30). The patient is `ambiguous_moderate` with PSS
+answers 3/1/1/3, plus `"Gender": "Female"` and `"Alcohol Consumption (drinks/week)": 6`:
+```json
+{
+  "caveat": "Estimated severity and recommendation are a best-guess reconstruction (~88% accurate at best, lower given this model's own prediction error) from synthetic dataset templates. This is decision support for clinician review, not a recommendation to show a patient directly and not validated clinical advice.",
+  "predicted_class": "Medium",
+  "probabilities": {"Low": 0.1652977466583252, "Medium": 0.8156806230545044, "High": 0.019021596759557724},
+  "uncertainty_flag": false,
+  "warnings": [],
+  "estimated_caffeine_mg": 284.0,
+  "estimated_stress_level": 8,
+  "estimated_severity_tier": "Moderate (5-6)",
+  "severity_tier_basis": {
+    "method": "most common tier for this predicted level and stress level in the data",
+    "share_of_matching_patients": 0.8493,
+    "matching_patients": 657
+  },
+  "recommendation_bundle": {
+    "exercises": "4-7-8 Breathing 3x/day 5 min each; Alternate Nostril Breathing 10 min/day; Walking/Swimming 30 min/day 5x/week; Yoga or Tai Chi 3x/week 45 min; PMR 20 min/day; Mindfulness Meditation 15 min/day",
+    "sleep_schedule": "Target: 8 hrs/night; Fixed wake time daily; No screens 1 hr before bed; Blue-light filter from 20:00; No caffeine after 13:00; Magnesium 200 mg before bed (consult physician); Current: 6.5 hrs; Increase by 1.5 hrs",
+    "nutrition": "Protein: 50 g/day; Omega-3: 1000 mg EPA+DHA/day; Magnesium: 400-420 mg/day; Zinc: 8-11 mg/day; Probiotics daily (yogurt/kefir); Free sugar <5% total energy; Eliminate ultra-processed foods; Reduce caffeine to <200 mg/day (current: 284 mg); Eliminate alcohol (current: 6 drinks/week)"
+  }
+}
+```
+
+Without `Gender` and `Alcohol Consumption`, the same request returns the same fields, and `nutrition`
+reads `Protein: not provided (needs Gender); ... Alcohol: not provided (needs Alcohol Consumption)`.
+
 ## Known limitations to be aware of when integrating
 
 This model has documented weaknesses that matter for how a caller should treat its output — see
@@ -340,6 +413,9 @@ This model has documented weaknesses that matter for how a caller should treat i
   trained on an unanchored 1–10 self-rating, not PSS scores. Since Stress Level is the model's
   single most important feature, any mismatch between the two scales feeds directly into
   predictions.
+- **The `/patient-summary` severity tier and recommendation bundle are estimates** (about 78% of tiers
+  right with this model's predictions) built from synthetic dataset templates. They are for clinician
+  review, never to be shown to a patient directly.
 - **Ages 18–49 only.** Requests for anyone else are rejected (see "Supported age range"). The web
   app must block under-18s at registration, and send users 50+ straight to a psychologist.
 - This is a prototype/research model on a very likely synthetic dataset — never represent its

@@ -325,3 +325,112 @@ def test_age_supported_range_boundaries_are_accepted(client: TestClient, age: in
     response = client.post("/predict", json={**API_PATIENTS["ambiguous_moderate"], "Age": age})
     assert response.status_code == 200
     assert response.json()["warnings"] == []  # 18-49 is inside the observed training range too
+
+
+# --- POST /patient-summary: prediction + estimated Severity tier + recommendation bundle ------------
+
+SUMMARY_WITH_EXTRAS = {**API_PATIENTS["ambiguous_moderate"], "Gender": "Male", "Alcohol Consumption (drinks/week)": 0}
+
+
+def test_patient_summary_prediction_fields_match_predict(client: TestClient) -> None:
+    """The summary adds fields but never changes the prediction: for identical input, every
+    /predict field is identical in the summary (with or without the optional extras)."""
+    for name, patient in API_PATIENTS.items():
+        prediction = client.post("/predict", json=patient).json()
+        for payload in (patient, {**patient, "Gender": "Female", "Alcohol Consumption (drinks/week)": 4}):
+            summary = client.post("/patient-summary", json=payload)
+            assert summary.status_code == 200, name
+            body = summary.json()
+            assert {k: body[k] for k in prediction} == prediction, name
+            assert body["estimated_severity_tier"] != body["predicted_class"]  # distinct field, tier labels differ
+
+
+def test_patient_summary_caveat_is_always_present_and_first(client: TestClient) -> None:
+    from src.inference.template_advice import CAVEAT
+
+    assert CAVEAT == (
+        "Estimated severity and recommendation are a best-guess reconstruction (~88% accurate at best, "
+        "lower given this model's own prediction error) from synthetic dataset templates. This is "
+        "decision support for clinician review, not a recommendation to show a patient directly and "
+        "not validated clinical advice."
+    )
+    for payload in (API_PATIENTS["ambiguous_moderate"], SUMMARY_WITH_EXTRAS, *API_PATIENTS.values()):
+        body = client.post("/patient-summary", json=payload).json()
+        assert body["caveat"] == CAVEAT
+        assert list(body)[0] == "caveat"
+
+
+def test_patient_summary_without_gender_or_alcohol_does_not_crash(client: TestClient) -> None:
+    """Both extras omitted, or sent as null: 200, and exactly their slots say "not provided"."""
+    for payload in (API_PATIENTS["ambiguous_moderate"],
+                    {**API_PATIENTS["ambiguous_moderate"], "Gender": None, "Alcohol Consumption (drinks/week)": None}):
+        response = client.post("/patient-summary", json=payload)
+        assert response.status_code == 200
+        nutrition = response.json()["recommendation_bundle"]["nutrition"]
+        assert nutrition.startswith("Protein: not provided (needs Gender)")
+        assert "Alcohol: not provided (needs Alcohol Consumption)" in nutrition
+        assert "current: 284 mg" in nutrition  # caffeine slot still filled: 2 coffee + 2 tea = 284 mg > 200
+
+
+def test_patient_summary_fills_slots_when_provided(client: TestClient) -> None:
+    bundle = client.post("/patient-summary", json=SUMMARY_WITH_EXTRAS).json()["recommendation_bundle"]
+    assert bundle["nutrition"].startswith("Protein: 58 g/day")  # Male -> 58
+    assert bundle["nutrition"].endswith("No alcohol: good")  # 0 drinks
+    assert "not provided" not in bundle["nutrition"]
+    assert "Current: 6.5 hrs" in bundle["sleep_schedule"]
+
+
+def test_patient_summary_rejects_what_predict_rejects(client: TestClient) -> None:
+    """Same validation path: an out-of-range age gets the same 422 from both endpoints."""
+    patient = {**API_PATIENTS["ambiguous_moderate"], "Age": 55}
+    prediction = client.post("/predict", json=patient)
+    summary = client.post("/patient-summary", json={**patient, "Gender": "Other"})
+    assert prediction.status_code == summary.status_code == 422
+    assert summary.json() == prediction.json()
+
+
+def test_predict_returns_no_reconstruction(client: TestClient) -> None:
+    body = client.post("/predict", json=SUMMARY_WITH_EXTRAS).json()
+    assert not {"caveat", "estimated_severity_tier", "recommendation_bundle"} & set(body)
+
+
+def test_severity_reconstruction_accuracy_matches_investigation() -> None:
+    """The best-guess rule (3-class label + Stress Level -> most common Severity tier) is documented
+    in reports/recommendation_mapping_investigation.md at 88.0% on the 9,350 train + validation rows,
+    using the TRUE 3-class label. Check (a) the shipped lookup reproduces that exactly, and (b) the
+    RULE holds up out of sample: rebuilt on 80% of train + validation rows, scored on the held-out
+    20%. The test split is never loaded (the 12-feature splits file has no test keys)."""
+    import numpy as np
+    import pandas as pd
+    from src.inference.template_advice import estimate_tier
+
+    df = pd.read_csv("data/raw/mindcare_dataset_final.csv")
+    splits = np.load("data/processed/mindcare_processed_splits_12feature.npz")
+    assert "test_original_idx" not in splits.files
+    rows = np.concatenate([splits["train_original_idx"], splits["val_original_idx"]])
+    d = df.iloc[rows].reset_index(drop=True)
+    d["label"] = pd.cut(d["Anxiety Level (1-10)"], [0, 3, 6, 10], labels=["Low", "Medium", "High"]).astype(str)
+    stress = d["Stress Level (1-10)"]
+
+    shipped = [estimate_tier(lbl, int(s))["tier"] for lbl, s in zip(d["label"], stress)]
+    in_sample = float(np.mean(np.array(shipped) == d["Severity"].to_numpy()))
+    assert round(in_sample, 3) == 0.880
+
+    held_out = d.sample(frac=0.2, random_state=42)
+    fit = d.drop(held_out.index)
+    table = fit.groupby(["label", "Stress Level (1-10)"])["Severity"].agg(lambda x: x.value_counts().index[0])
+    guesses = [table.get((lbl, s)) for lbl, s in zip(held_out["label"], held_out["Stress Level (1-10)"])]
+    out_of_sample = float(np.mean([g == t for g, t in zip(guesses, held_out["Severity"])]))
+    print(f"\nreconstruction accuracy: shipped lookup in-sample {in_sample:.4f}; "
+          f"rebuilt on 80%, held-out 20% ({len(held_out)} rows) {out_of_sample:.4f}")
+    assert abs(out_of_sample - 0.880) < 0.03
+
+
+def test_estimate_tier_lookup_and_fallback() -> None:
+    from src.inference.template_advice import estimate_tier, severity_band
+
+    seen = estimate_tier("Medium", 9)  # 699 train+val patients; most common tier High (7-8), 63%
+    assert seen["tier"] == "High (7-8)" and seen["n"] == 699 and 0.6 < seen["share"] < 0.65
+    unseen = estimate_tier("High", 1)  # High with stress 1-4 never occurs -> band rule, anxiety midpoint 8.5
+    assert unseen["n"] == 0 and unseen["share"] is None
+    assert unseen["tier"] == severity_band(8.5, 1) == "Moderate (5-6)"

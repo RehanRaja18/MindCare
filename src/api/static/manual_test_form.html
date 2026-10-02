@@ -78,6 +78,13 @@
   .flag.no { color: #0f5132; }
   .warnings { color: #664d03; font-size: 0.85rem; }
   .error { color: #842029; white-space: pre-wrap; font-size: 0.85rem; }
+  .advice { margin-top: 1.4rem; border: 2px dashed #b54708; border-radius: 8px; padding: 0.8rem 1rem; }
+  .advice h2 { font-size: 1.05rem; margin: 0 0 0.5rem; }
+  .caveat { background: #fdecea; color: #842029; border: 2px solid #842029; border-radius: 6px; padding: 0.6rem 0.8rem; font-weight: 600; }
+  .advice .disclaimer { background: #fdecea; color: #842029; border-radius: 6px; padding: 0.5rem 0.7rem; font-size: 0.85rem; }
+  .advice .tier { font-size: 0.9rem; }
+  .advice h3 { font-size: 0.95rem; margin: 0.9rem 0 0.2rem; }
+  .advice ul { margin: 0.2rem 0 0 1.1rem; padding: 0; font-size: 0.88rem; }
 </style>
 </head>
 <body>
@@ -87,7 +94,8 @@
   Decision-support model only — not a diagnostic tool. Every real prediction must go through
   psychologist review before reaching a patient. This page is a local manual-testing convenience
   for the running dev server (<code>src/api/main.py</code>); it is not part of the documented,
-  deployed patient-facing product.
+  deployed patient-facing product. The estimated severity tier and recommendation bundle shown after a
+  prediction are a best-guess reconstruction from synthetic dataset templates, not clinical advice.
 </div>
 
 <form id="predict-form">
@@ -144,6 +152,18 @@
     </div>
   </fieldset>
 
+  <fieldset>
+    <legend>Optional — only fill slots in the recommendation bundle (the model does not use these)</legend>
+    <div>
+      <div><label for="gender">Gender</label>
+        <select id="gender">
+          <option value="">Not provided</option><option>Female</option><option>Male</option><option>Other</option>
+        </select>
+      </div>
+      <div><label for="alcohol">Alcohol Consumption (drinks/week) — leave blank if not provided</label><input type="number" id="alcohol" min="0" max="100" value="" /></div>
+    </div>
+  </fieldset>
+
   <button type="submit">Predict</button>
 </form>
 
@@ -173,7 +193,9 @@ document.getElementById('predict-form').addEventListener('submit', async (event)
     "Therapy Sessions (per month)": Number(document.getElementById('therapy_sessions').value),
     "Diet Quality (1-10)": Number(document.getElementById('diet_quality').value),
     "Occupation": document.getElementById('occupation').value,
-    "Family History of Anxiety": document.getElementById('family_history').value
+    "Family History of Anxiety": document.getElementById('family_history').value,
+    "Gender": document.getElementById('gender').value || null,
+    "Alcohol Consumption (drinks/week)": document.getElementById('alcohol').value === '' ? null : Number(document.getElementById('alcohol').value)
   };
 
   const resultDiv = document.getElementById('result');
@@ -182,7 +204,7 @@ document.getElementById('predict-form').addEventListener('submit', async (event)
   body.innerHTML = '<p>Predicting…</p>';
 
   try {
-    const response = await fetch('/predict', {
+    const response = await fetch('/patient-summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -210,13 +232,32 @@ document.getElementById('predict-form').addEventListener('submit', async (event)
       ? '<p class="warnings"><strong>Warnings:</strong><br>' + data.warnings.join('<br>') + '</p>'
       : '';
 
+    const esc = (text) => String(text).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+    const list = (text) => '<ul>' + text.split('; ').map(item => '<li>' + esc(item) + '</li>').join('') + '</ul>';
+    const basis = data.severity_tier_basis;
+    const tierDetail = basis.share_of_matching_patients === null
+      ? 'No patients in the data had this predicted level with this stress level, so the tier comes from the band rule with a mid-range anxiety level.'
+      : 'Most common tier among ' + basis.matching_patients + ' dataset patients with the same predicted level and stress level; ' +
+        (basis.share_of_matching_patients * 100).toFixed(0) + '% of them were in it. This is an estimate, not the model prediction.';
+    const b = data.recommendation_bundle;
+    const advice =
+      '<div class="advice">' +
+        '<h2>Estimated severity tier: ' + esc(data.estimated_severity_tier) + '</h2>' +
+        '<p class="tier">' + esc(tierDetail) + '</p>' +
+        '<h3>Exercises</h3>' + list(b.exercises) +
+        '<h3>Sleep schedule</h3>' + list(b.sleep_schedule) +
+        '<h3>Nutrition</h3>' + list(b.nutrition) +
+      '</div>';
+
     body.innerHTML =
+      '<p class="disclaimer caveat">' + esc(data.caveat) + '</p>' +
+      '<p>Predicted anxiety risk level (the actual model prediction):</p>' +
       '<p><span class="predicted-class ' + data.predicted_class + '">' + data.predicted_class + '</span></p>' +
       bars +
       '<p>Priority-review flag (P(High) ≥ 0.025): <span class="flag ' + (data.uncertainty_flag ? 'yes">YES — recommend review' : 'no">no') + '</span></p>' +
       '<p>Estimated caffeine intake: ' + data.estimated_caffeine_mg + ' mg/day</p>' +
       '<p>Stress Level (from PSS-4): ' + data.estimated_stress_level + ' / 10</p>' +
-      warnings;
+      warnings + advice;
   } catch (err) {
     body.innerHTML = '<p class="error">Request failed: ' + err + '</p>';
   }
