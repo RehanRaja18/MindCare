@@ -1,17 +1,18 @@
 // ============================================================
-// MindCare — Screen 3: Client App Download Page
-// "MindCare lives in your pocket."
+// MindCare — Get Started Page
+// Two doors, side by side:
+//   left  — patients: scan the QR code / download the mobile app
+//   right — psychologists: the full registration wizard
 // ============================================================
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { Mail } from 'lucide-react';
 import Logo from '../components/common/Logo';
-import PhoneMockup from '../components/mockup/PhoneMockup';
 import QRCode from '../components/mockup/QRCode';
 import Button from '../components/common/Button';
 import Reveal from '../components/motion/Reveal';
+import TherapistRegisterWizard from '../components/therapist/TherapistRegisterWizard';
 import { ROUTES } from '../constants';
 import { requestAppLink } from '../services/api.service';
 
@@ -106,88 +107,102 @@ const StoreButton: React.FC<StoreButtonProps> = ({ platform }) => (
 const ClientAppPage: React.FC = () => (
   <div className="min-h-screen mc-page-glow flex flex-col">
     {/* Header */}
-    <header className="flex items-center justify-between px-6 sm:px-10 py-5 border-b border-gray-200/60">
+    <header className="flex items-center justify-between px-4 sm:px-10 py-5 border-b border-gray-200/60">
       <Logo />
-      <Link
-        to={ROUTES.HOME}
-        className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-      >
+      <Link to={ROUTES.HOME} className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
         ← Back to home
       </Link>
     </header>
 
     {/* Split layout */}
-    <main className="flex-1 grid md:grid-cols-2">
-      {/* Left: Copy */}
-      <Reveal className="flex flex-col justify-center px-8 sm:px-14 py-16 max-w-xl" y={16}>
-        {/* Step badge */}
-        <p className="text-[10px] font-black tracking-[0.25em] text-gray-500 uppercase mb-6">
-          Get the app
-        </p>
-
-        {/* Headline */}
-        <h1 className="text-4xl sm:text-5xl font-black text-gray-900 leading-tight mb-6">
-          MindCare lives in{' '}
-          <em style={{ fontFamily: "'Playfair Display', serif" }}>your pocket.</em>
-        </h1>
-
-        {/* Body copy */}
-        <p className="text-gray-600 text-base leading-relaxed mb-4 max-w-sm">
-          The client side of MindCare is built for mobile — body sensors, daily
-          check-ins, voice journaling and quiet circles are easier to live with on a
-          phone than on a laptop.
-        </p>
-        <p className="text-gray-500 text-sm leading-relaxed mb-10 max-w-sm">
-          Download the app, finish your intake, and your first session can be booked
-          tonight.
-        </p>
-
-        {/* Store buttons */}
-        <div className="flex flex-wrap gap-3 mb-10">
-          <StoreButton platform="google" />
-          <StoreButton platform="apple" />
-        </div>
-
-        {/* QR row */}
-        <div className="flex items-center gap-5 mb-8">
-          <QRCode className="w-24 h-24 shrink-0" />
-          <div>
-            <p className="font-bold text-gray-900 text-base">Or point your camera here.</p>
-            <p className="text-sm text-gray-500 mt-1">
-              Detects your device · takes you to the right store.
-            </p>
-          </div>
-        </div>
-
-        {/* Email link */}
-        <div>
-          <p className="text-xs text-gray-500 mb-1">
-            iOS 15+ · Android 9+ &nbsp;·&nbsp; Free · 7-day trial
-          </p>
+    <main className="flex-1 grid lg:grid-cols-2">
+      {/* Left — patients: get the app */}
+      <Reveal className="px-4 sm:px-14 py-12 lg:py-16 lg:sticky lg:top-0 lg:self-start" y={16}>
+        <div className="max-w-xl mx-auto lg:mx-0">
+          {/* On small screens the registration sits below — offer a shortcut */}
           <button
-            className="text-xs text-gray-500 underline underline-offset-2 hover:text-gray-900 transition-colors"
-            onClick={(e) => {
-              const form = (e.currentTarget.closest('div') as HTMLElement).querySelector('form');
-              form?.classList.toggle('hidden');
-            }}
+            type="button"
+            onClick={() => document.getElementById('apply-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="lg:hidden mb-8 inline-flex items-center gap-2 rounded-full bg-white/80 border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 hover:border-gray-400 transition-colors"
           >
-            Email me the link instead
+            Are you a psychologist? Apply below ↓
           </button>
-          <div className="hidden">
-            <EmailLinkForm />
+
+          <p className="text-[10px] font-black tracking-[0.25em] text-gray-500 uppercase mb-6">
+            Looking for support · Get the app
+          </p>
+
+          <h1 className="text-4xl sm:text-5xl font-black text-gray-900 leading-tight mb-6">
+            MindCare lives in{' '}
+            <em style={{ fontFamily: "'Playfair Display', serif" }}>your pocket.</em>
+          </h1>
+
+          <p className="text-gray-600 text-base leading-relaxed mb-8 max-w-md">
+            Care happens in the mobile app — sessions, daily check-ins, journaling and quiet
+            circles. Scan the code, finish your intake, and book your first session.
+          </p>
+
+          {/* QR card */}
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 flex flex-col sm:flex-row items-center gap-6 max-w-md mb-8">
+            <QRCode className="w-40 h-40 shrink-0" />
+            <div className="text-center sm:text-left">
+              <p className="font-bold text-gray-900 text-lg">Scan to download</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Point your phone&apos;s camera at the code. It detects your device and takes you to the
+                right store.
+              </p>
+            </div>
+          </div>
+
+          {/* Store buttons */}
+          <div className="flex flex-wrap gap-3 mb-6">
+            <StoreButton platform="google" />
+            <StoreButton platform="apple" />
+          </div>
+
+          {/* Email link */}
+          <div>
+            <p className="text-xs text-gray-500 mb-1">iOS 15+ · Android 9+ &nbsp;·&nbsp; Free · 7-day trial</p>
+            <button
+              className="text-xs text-gray-500 underline underline-offset-2 hover:text-gray-900 transition-colors"
+              onClick={(e) => {
+                const form = (e.currentTarget.closest('div') as HTMLElement).querySelector('form');
+                form?.classList.toggle('hidden');
+              }}
+            >
+              Email me the link instead
+            </button>
+            <div className="hidden">
+              <EmailLinkForm />
+            </div>
           </div>
         </div>
       </Reveal>
 
-      {/* Right: Phone mockup */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut', delay: 0.1 }}
-        className="hidden md:flex items-center justify-center bg-[#EDEAE0] px-10 py-16"
-      >
-        <PhoneMockup />
-      </motion.div>
+      {/* Right — psychologists: register */}
+      <section className="bg-[#EDEAE0] px-4 sm:px-10 py-12 lg:py-16 scroll-mt-4" aria-labelledby="apply-heading">
+        <div className="max-w-2xl mx-auto">
+          <p className="text-[10px] font-black tracking-[0.25em] text-gray-500 uppercase mb-6">
+            For psychologists · Apply to practice
+          </p>
+          <h2 id="apply-heading" className="scroll-mt-6 text-3xl sm:text-4xl font-black text-gray-900 leading-tight mb-4">
+            Join as a <em style={{ fontFamily: "'Playfair Display', serif" }}>psychologist.</em>
+          </h2>
+          <p className="text-gray-600 text-base leading-relaxed mb-8 max-w-md">
+            Licensed clinician? Apply here in four short steps. An admin reviews your details before
+            your account is activated.
+          </p>
+
+          <TherapistRegisterWizard />
+
+          <p className="text-sm text-gray-500 mt-6">
+            Already approved?{' '}
+            <Link to={ROUTES.THERAPIST_LOGIN} className="font-semibold text-gray-900 underline underline-offset-2">
+              Sign in
+            </Link>
+          </p>
+        </div>
+      </section>
     </main>
   </div>
 );

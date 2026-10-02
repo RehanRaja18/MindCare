@@ -23,7 +23,11 @@ const ICON_MAP: Record<TherapistFeature['icon'], LucideIcon> = {
 const ForTherapistsPage: React.FC = () => {
   return (
     <div className="min-h-screen mc-page-glow">
-      <Navbar />
+      {/* This page is for psychologists only: no app-download "Get started" here. */}
+      <Navbar
+        cta={{ label: 'Apply to practice →', to: ROUTES.THERAPIST_REGISTER }}
+        secondary={{ label: 'Sign in', to: ROUTES.THERAPIST_LOGIN }}
+      />
 
       <main className="pt-16 grid grid-cols-1 lg:grid-cols-2">
         {/* Left — pitch */}
@@ -48,7 +52,12 @@ const ForTherapistsPage: React.FC = () => {
             <div className="flex flex-wrap gap-4 mb-14">
               <Link to={ROUTES.THERAPIST_REGISTER}>
                 <Button variant="primary" size="lg">
-                  Get started →
+                  Apply to practice →
+                </Button>
+              </Link>
+              <Link to={ROUTES.THERAPIST_LOGIN}>
+                <Button variant="secondary" size="lg">
+                  Sign in
                 </Button>
               </Link>
               <Button variant="secondary" size="lg">

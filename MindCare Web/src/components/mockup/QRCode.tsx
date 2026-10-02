@@ -12,7 +12,7 @@ const QRCode: React.FC<{ className?: string }> = ({ className = '' }) => (
     aria-label="QR code — scan to download the MindCare app"
   >
     {/* SVG QR-like pattern (decorative placeholder) */}
-    <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <svg width="100%" height="100%" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       {/* Corners */}
       <rect x="4" y="4" width="24" height="24" rx="3" fill="none" stroke="#111" strokeWidth="3" />
       <rect x="8" y="8" width="16" height="16" rx="1" fill="#111" />
