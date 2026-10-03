@@ -24,6 +24,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.inference.confidence import confidence_label
 from src.inference.input_validation import ALL_FEATURES, InputValidationError, validate_patient
 from src.inference.stress_scale import PSS_FIELDS, PSS_ITEM_MAX, PSS_ITEM_MIN, estimate_stress_level
 from src.inference.template_advice import CAVEAT as SUMMARY_CAVEAT
@@ -187,6 +188,11 @@ class PredictionResponse(BaseModel):
     warnings: list[str]
     estimated_caffeine_mg: float
     estimated_stress_level: int
+    # Confident / borderline label (src/inference/confidence.py). It changes no prediction.
+    confidence: float
+    confidence_label: Literal["confident", "borderline"]
+    borderline_reasons: list[str]
+    borderline_between: list[str] | None
 
 
 class HealthResponse(BaseModel):
@@ -260,13 +266,17 @@ def predict(patient: PatientFeatures) -> PredictionResponse:
     predicted_index = int(np.argmax(probabilities))
     p_high = float(probabilities[high_index])
 
+    predicted_class = class_names[predicted_index]
+    probability_by_class = {name: float(p) for name, p in zip(class_names, probabilities)}
+    review_flag = p_high >= HIGH_PROBA_THRESHOLD
     return PredictionResponse(
-        predicted_class=class_names[predicted_index],
-        probabilities={name: float(p) for name, p in zip(class_names, probabilities)},
-        uncertainty_flag=p_high >= HIGH_PROBA_THRESHOLD,
+        predicted_class=predicted_class,
+        probabilities=probability_by_class,
+        uncertainty_flag=review_flag,
         warnings=warnings,
         estimated_caffeine_mg=caffeine_mg,
         estimated_stress_level=stress_level,
+        **confidence_label(probability_by_class, predicted_class, review_flag),
     )
 
 
@@ -299,6 +309,11 @@ class PatientSummaryResponse(BaseModel):
     warnings: list[str]
     estimated_caffeine_mg: float
     estimated_stress_level: int
+    # Confident / borderline label (src/inference/confidence.py). It changes no prediction.
+    confidence: float
+    confidence_label: Literal["confident", "borderline"]
+    borderline_reasons: list[str]
+    borderline_between: list[str] | None
     estimated_severity_tier: Literal["Minimal (1-2)", "Mild (3-4)", "Moderate (5-6)", "High (7-8)", "Severe (9-10)"]
     severity_tier_basis: SeverityTierBasis
     recommendation_bundle: RecommendationBundle

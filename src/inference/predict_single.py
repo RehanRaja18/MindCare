@@ -34,6 +34,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from src.inference.confidence import confidence_label
 from src.inference.input_validation import InputValidationError, validate_patient
 from src.inference.stress_scale import PSS_FIELDS, estimate_stress_level
 
@@ -145,13 +146,17 @@ def predict_patient(patient: dict, preprocessor: object, model: object) -> dict:
     probabilities = model.predict_proba(x)[0]
     predicted_index = int(np.argmax(probabilities))
     p_high = float(probabilities[HIGH_INDEX])
+    predicted_class = CLASS_NAMES[predicted_index]
+    probability_by_class = {name: float(p) for name, p in zip(CLASS_NAMES, probabilities)}
+    review_flag = p_high >= HIGH_PROBA_THRESHOLD
     return {
-        "predicted_class": CLASS_NAMES[predicted_index],
-        "probabilities": {name: float(p) for name, p in zip(CLASS_NAMES, probabilities)},
+        "predicted_class": predicted_class,
+        "probabilities": probability_by_class,
         "p_high": p_high,
         "stress_level": patient["Stress Level (1-10)"],
-        "uncertainty_flag": p_high >= HIGH_PROBA_THRESHOLD,
+        "uncertainty_flag": review_flag,
         "warnings": warnings,
+        **confidence_label(probability_by_class, predicted_class, review_flag),
     }
 
 
@@ -184,7 +189,9 @@ def main() -> None:
         for warning in result["warnings"]:
             print(f"  WARNING: {warning}")
         print(f"Stress Level (computed from PSS-4): {result['stress_level']}")
-        print(f"Predicted class: {result['predicted_class']}")
+        print(f"Predicted class: {result['predicted_class']} "
+              f"({result['confidence_label']}, confidence {result['confidence']:.2f}"
+              + (f"; between {' and '.join(result['borderline_between'])}" if result["borderline_between"] else "") + ")")
         print("Probability distribution:")
         for class_name in CLASS_NAMES:
             print(f"  {class_name}: {result['probabilities'][class_name]:.4f}")

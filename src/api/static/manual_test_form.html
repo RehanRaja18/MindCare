@@ -251,6 +251,10 @@ document.getElementById('predict-form').addEventListener('submit', async (event)
       '<p class="disclaimer caveat">' + esc(data.caveat) + '</p>' +
       '<p>Predicted anxiety risk level (the actual model prediction):</p>' +
       '<p><span class="predicted-class ' + data.predicted_class + '">' + data.predicted_class + '</span></p>' +
+      '<p>Confidence: <span class="flag ' + (data.confidence_label === 'confident' ? 'no">CONFIDENT' : 'yes">BORDERLINE') + '</span>' +
+        ' (top probability ' + (data.confidence * 100).toFixed(1) + '%)' +
+        (data.borderline_between ? '<br>Borderline between ' + esc(data.borderline_between.join(' and ')) +
+          '. Reason: ' + esc(data.borderline_reasons.join('; ')) + '.' : '') + '</p>' +
       bars +
       '<p>Priority-review flag (P(High) ≥ 0.025): <span class="flag ' + (data.uncertainty_flag ? 'yes">YES — recommend review' : 'no">no') + '</span></p>' +
       '<p>Estimated caffeine intake: ' + data.estimated_caffeine_mg + ' mg/day</p>' +
