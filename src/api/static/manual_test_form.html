@@ -247,8 +247,10 @@ document.getElementById('predict-form').addEventListener('submit', async (event)
         '<h3>Nutrition</h3>' + list(b.nutrition) +
       '</div>';
 
+    // The API's `caveat` field is deliberately not rendered here: this page is a manual testing
+    // tool, and the notice at the top of the page already says the tier and bundle are a
+    // reconstruction, not clinical advice. /patient-summary still returns the caveat.
     body.innerHTML =
-      '<p class="disclaimer caveat">' + esc(data.caveat) + '</p>' +
       '<p>Predicted anxiety risk level (the actual model prediction):</p>' +
       '<p><span class="predicted-class ' + data.predicted_class + '">' + data.predicted_class + '</span></p>' +
       '<p>Confidence: <span class="flag ' + (data.confidence_label === 'confident' ? 'no">CONFIDENT' : 'yes">BORDERLINE') + '</span>' +
