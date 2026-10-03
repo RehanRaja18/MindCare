@@ -1,11 +1,11 @@
 """Single-patient inference for the canonical XGBoost model, 3-class Anxiety
-Level target. Takes raw feature values (a dict using the exact 12 column
+Level target. Takes raw feature values (a dict using the exact 11 column
 names from CLAUDE.md's current feature set - the 11-feature reduced set
 (reports/feature_reduction_3class.md) plus Age, re-added as a clinical/UX
 decision (reports/feature_addition_age_3class.md)), runs them through the
 saved preprocessor, predicts with the saved final model
-(data/processed/mindcare_final_model_12feature_xgb.pkl, built by
-src/models/adopt_xgboost_12feature_model.py - XGBoost since 2026-09-28), and reports the uncertainty-flagging
+(data/processed/mindcare_final_model_11feature_v2_xgb.pkl, built by
+src/models/adopt_11feature_v2_model.py - XGBoost without Sweating Level, since 2026-10-02), and reports the uncertainty-flagging
 status.
 
 Note on caffeine: this internal script speaks "Caffeine Intake (mg/day)"
@@ -39,9 +39,9 @@ from src.inference.stress_scale import PSS_FIELDS, estimate_stress_level
 
 
 ROOT = Path(__file__).resolve().parents[2]
-PREPROCESSOR_PATH = ROOT / "data" / "processed" / "mindcare_preprocessor_12feature.pkl"
+PREPROCESSOR_PATH = ROOT / "data" / "processed" / "mindcare_preprocessor_11feature_v2.pkl"
 LABEL_ENCODER_PATH = ROOT / "data" / "processed" / "mindcare_label_encoder_3class.pkl"
-MODEL_PATH = ROOT / "data" / "processed" / "mindcare_final_model_12feature_xgb.pkl"
+MODEL_PATH = ROOT / "data" / "processed" / "mindcare_final_model_11feature_v2_xgb.pkl"
 
 CLASS_NAMES = ["Low", "Medium", "High"]
 HIGH_INDEX = CLASS_NAMES.index("High")
@@ -57,7 +57,6 @@ NUMERIC_FEATURES = [
     "Stress Level (1-10)",
     "Heart Rate (bpm)",
     "Breathing Rate (breaths/min)",
-    "Sweating Level (1-5)",
     "Therapy Sessions (per month)",
     "Diet Quality (1-10)",
     "Age",
@@ -80,7 +79,6 @@ EXAMPLE_PATIENTS = {
         "pss_difficulties_piling_up": 0,
         "Heart Rate (bpm)": 68,
         "Breathing Rate (breaths/min)": 14,
-        "Sweating Level (1-5)": 1,
         "Therapy Sessions (per month)": 0,
         "Diet Quality (1-10)": 9,
         "Age": 29,
@@ -98,7 +96,6 @@ EXAMPLE_PATIENTS = {
         "pss_difficulties_piling_up": 4,
         "Heart Rate (bpm)": 112,
         "Breathing Rate (breaths/min)": 27,
-        "Sweating Level (1-5)": 5,
         "Therapy Sessions (per month)": 6,
         "Diet Quality (1-10)": 2,
         "Age": 47,
@@ -117,7 +114,6 @@ EXAMPLE_PATIENTS = {
         "pss_difficulties_piling_up": 2,
         "Heart Rate (bpm)": 91,
         "Breathing Rate (breaths/min)": 21,
-        "Sweating Level (1-5)": 3,
         "Therapy Sessions (per month)": 2,
         "Diet Quality (1-10)": 5,
         "Age": 38,

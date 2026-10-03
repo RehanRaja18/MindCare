@@ -146,7 +146,6 @@
     <div>
       <div><label for="heart_rate">Heart Rate (bpm)</label><input type="number" id="heart_rate" value="80" required /></div>
       <div><label for="breathing_rate">Breathing Rate (breaths/min)</label><input type="number" id="breathing_rate" value="16" required /></div>
-      <div><label for="sweating_level">Sweating Level (1-5)</label><input type="number" id="sweating_level" min="0" max="6" value="2" required /></div>
       <div><label for="therapy_sessions">Therapy Sessions (per month)</label><input type="number" id="therapy_sessions" min="0" value="1" required /></div>
       <div><label for="diet_quality">Diet Quality (1-10)</label><input type="number" id="diet_quality" min="0" max="12" value="6" required /></div>
     </div>
@@ -189,7 +188,6 @@ document.getElementById('predict-form').addEventListener('submit', async (event)
     "pss_difficulties_piling_up": Number(document.getElementById('pss_difficulties_piling_up').value),
     "Heart Rate (bpm)": Number(document.getElementById('heart_rate').value),
     "Breathing Rate (breaths/min)": Number(document.getElementById('breathing_rate').value),
-    "Sweating Level (1-5)": Number(document.getElementById('sweating_level').value),
     "Therapy Sessions (per month)": Number(document.getElementById('therapy_sessions').value),
     "Diet Quality (1-10)": Number(document.getElementById('diet_quality').value),
     "Occupation": document.getElementById('occupation').value,

@@ -32,16 +32,18 @@ from src.inference.template_advice import estimate_tier, render
 
 ROOT = Path(__file__).resolve().parents[2]
 MANUAL_TEST_FORM_PATH = Path(__file__).resolve().parent / "static" / "manual_test_form.html"
-# 12-feature canonical model: XGBoost since 2026-09-28 (reports/model_comparison_12feature.md,
-# built by src/models/adopt_xgboost_12feature_model.py). The 12-feature Random Forest it replaced
-# (mindcare_final_model_12feature.pkl) is kept for history. Preprocessor unchanged.
-PREPROCESSOR_PATH = ROOT / "data" / "processed" / "mindcare_preprocessor_12feature.pkl"
-MODEL_PATH = ROOT / "data" / "processed" / "mindcare_final_model_12feature_xgb.pkl"
+# Canonical model: 11-feature "v2" XGBoost since 2026-10-02 - the 12-feature XGBoost with Sweating
+# Level removed (reports/feature_reduction_sweatlevel_3class.md; built by
+# src/models/adopt_11feature_v2_model.py). "v2" because *_11feature.* is the superseded 2026-09-22
+# Random Forest set (no Age, with Sweating Level). The 12-feature artifacts are kept for history.
+PREPROCESSOR_PATH = ROOT / "data" / "processed" / "mindcare_preprocessor_11feature_v2.pkl"
+MODEL_PATH = ROOT / "data" / "processed" / "mindcare_final_model_11feature_v2_xgb.pkl"
 LABEL_ENCODER_PATH = ROOT / "data" / "processed" / "mindcare_label_encoder_3class.pkl"
 
 # Priority-review flag on P(High). 0.025 for XGBoost (was 0.10 for the Random Forest): the level at
 # which XGBoost matches the Random Forest's validation coverage - 158/165 true-High rows and 10/17
-# true-High rows predicted Medium (src/models/adopt_xgboost_12feature_model.py).
+# true-High rows predicted Medium (src/models/adopt_xgboost_12feature_model.py). Unchanged for the
+# 11-feature v2 model, which catches the same 158/165 at 0.025 (411 flagged instead of 410).
 HIGH_PROBA_THRESHOLD = 0.025
 
 # Average caffeine content per serving (mg) - commonly-cited USDA/Mayo-Clinic-style figures.
@@ -110,7 +112,7 @@ MAX_SERVINGS = 20
 
 
 class PatientFeatures(BaseModel):
-    """The 12 raw feature values the canonical model uses, using the exact
+    """The 11 raw feature values the canonical model uses, using the exact
     column names from CLAUDE.md as JSON keys (via Field aliases) - except
     caffeine, which is collected as four patient-friendly serving counts
     instead of a raw mg/day figure (see estimate_caffeine_mg()), and Stress
@@ -120,8 +122,10 @@ class PatientFeatures(BaseModel):
     Age was re-added on 2026-09-22 (clinical/UX decision, see
     reports/feature_addition_age_3class.md). Alcohol Consumption
     (drinks/week), Dizziness, Smoking, Recent Major Life Event, and
-    Medication remain dropped (reports/feature_reduction_3class.md) and are
-    not accepted here.
+    Medication remain dropped (reports/feature_reduction_3class.md), and
+    Sweating Level (1-5) was dropped on 2026-10-02
+    (reports/feature_reduction_sweatlevel_3class.md). None are part of this
+    schema; if a caller still sends one, it is silently ignored.
 
     Age's schema bound (0-120) only catches impossible values. The supported
     range for a prediction is narrower, 18-49 (decided 2026-09-27), and is
@@ -147,7 +151,6 @@ class PatientFeatures(BaseModel):
                 "pss_difficulties_piling_up": 0,
                 "Heart Rate (bpm)": 68,
                 "Breathing Rate (breaths/min)": 14,
-                "Sweating Level (1-5)": 1,
                 "Therapy Sessions (per month)": 0,
                 "Diet Quality (1-10)": 9,
                 "Occupation": "Teacher",
@@ -171,7 +174,6 @@ class PatientFeatures(BaseModel):
     pss_difficulties_piling_up: int = Field(ge=PSS_ITEM_MIN, le=PSS_ITEM_MAX)
     heart_rate_bpm: float = Field(alias="Heart Rate (bpm)")
     breathing_rate_breaths_min: float = Field(alias="Breathing Rate (breaths/min)")
-    sweating_level: float = Field(alias="Sweating Level (1-5)")
     therapy_sessions_per_month: float = Field(alias="Therapy Sessions (per month)")
     diet_quality: float = Field(alias="Diet Quality (1-10)")
     occupation: OccupationValue = Field(alias="Occupation")

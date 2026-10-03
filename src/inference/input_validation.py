@@ -1,6 +1,8 @@
-"""Input validation for the 12 MindCare features (canonical model as of the
-Age re-addition - see reports/feature_addition_age_3class.md), used before
-any prediction. Alcohol Consumption (drinks/week), Dizziness, Smoking,
+"""Input validation for the 11 MindCare features (canonical model as of
+2026-10-02, when Sweating Level (1-5) was removed - see
+reports/feature_reduction_sweatlevel_3class.md; Age was re-added on
+2026-09-22 - reports/feature_addition_age_3class.md), used before any
+prediction. Sweating Level has no bounds here any more. Alcohol Consumption (drinks/week), Dizziness, Smoking,
 Recent Major Life Event, and Medication remain dropped (bottom-5 of the
 original bottom-6 by SHAP importance, no measurable performance cost -
 reports/feature_reduction_3class.md) and have no bounds here. Age was
@@ -29,7 +31,7 @@ Two tiers per numeric feature, derived (not guessed) as follows:
   30-220 bpm is the standard outer clinical range spanning severe
   bradycardia to extreme tachycardia, and is used here as the physically-
   impossible cutoff. For fixed rating scales (Stress Level (1-10), Diet
-  Quality (1-10), Sweating Level (1-5)), the same small-margin approach is
+  Quality (1-10)), the same small-margin approach is
   used rather than treating the labeled range as an absolute cutoff: a
   small margin beyond the defined range accommodates minor reporting or
   rounding variance (e.g. a half-point or slightly-over-scale response,
@@ -108,10 +110,6 @@ NUMERIC_RANGES: dict[str, NumericRange] = {
         observed_min=12, observed_max=29, hard_min=5, hard_max=60,
         rationale="5-60 breaths/min: standard clinical outer range, severe bradypnea to severe "
         "tachypnea.",
-    ),
-    "Sweating Level (1-5)": NumericRange(
-        observed_min=1, observed_max=5, hard_min=0, hard_max=6,
-        rationale="0-6: 1-5 rating scale plus a small margin for reporting/rounding variance.",
     ),
     "Therapy Sessions (per month)": NumericRange(
         observed_min=0, observed_max=12, hard_min=0, hard_max=31,
