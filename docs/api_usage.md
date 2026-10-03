@@ -1,7 +1,9 @@
 # MindCare Anxiety Level API — Usage Guide
 
 FastAPI service exposing the canonical XGBoost model (3-class Anxiety Level target; XGBoost
-since 2026-09-28, see [`reports/model_comparison_12feature.md`](../reports/model_comparison_12feature.md))
+since 2026-09-28, see [`reports/model_comparison_12feature.md`](../reports/model_comparison_12feature.md);
+11 features since 2026-10-02, see
+[`reports/feature_reduction_sweatlevel_3class.md`](../reports/feature_reduction_sweatlevel_3class.md))
 for single-patient inference. Source: [`src/api/main.py`](../src/api/main.py).
 
 **Decision-support only.** Per `CLAUDE.md`'s critical workflow constraint, no prediction from
@@ -42,16 +44,19 @@ code.
 
 ### Request body
 
-**12 model features**, one patient per request — the canonical model was reduced from 17 to 11
+**11 model features**, one patient per request — the canonical model was reduced from 17 to 11
 features (`Age`, `Alcohol Consumption (drinks/week)`, `Dizziness`, `Smoking`,
 `Recent Major Life Event`, and `Medication` were dropped: they were the 6 lowest-ranked features
 by SHAP importance and removing them cost no measurable accuracy — see
 [`reports/feature_reduction_3class.md`](../reports/feature_reduction_3class.md)), then `Age` was
 restored as a clinical/UX decision
-([`reports/feature_addition_age_3class.md`](../reports/feature_addition_age_3class.md)). **The
-other 5 dropped fields are no longer part of the request schema at all** — if you send them
-anyway, they are silently ignored (not an error), since old integrations that haven't been
-updated yet will still get a prediction rather than a hard failure.
+([`reports/feature_addition_age_3class.md`](../reports/feature_addition_age_3class.md)). On
+2026-10-02 `Sweating Level (1-5)` was removed as well: it was the least important of the 12 inputs,
+and dropping it changed nothing measurable for High patients
+([`reports/feature_reduction_sweatlevel_3class.md`](../reports/feature_reduction_sweatlevel_3class.md)).
+**The dropped fields (those 5 and `Sweating Level (1-5)`) are no longer part of the request schema
+at all** — if you send them anyway, they are silently ignored (not an error), since old
+integrations that haven't been updated yet will still get a prediction rather than a hard failure.
 
 JSON keys are the **exact column names** used throughout this project (matching `CLAUDE.md`'s
 feature list and the raw CSV) — not snake_case, not abbreviated — **except caffeine and stress**:
@@ -74,13 +79,12 @@ Stress Level is collected as the four PSS-4 questionnaire answers instead of a r
 | `pss_difficulties_piling_up` | integer | 0–4 |
 | `Heart Rate (bpm)` | number | — |
 | `Breathing Rate (breaths/min)` | number | — |
-| `Sweating Level (1-5)` | number | intended range 1-5 |
 | `Therapy Sessions (per month)` | number | — |
 | `Diet Quality (1-10)` | number | intended range 1-10 |
 | `Occupation` | string | one of: `Artist`, `Athlete`, `Chef`, `Doctor`, `Engineer`, `Freelancer`, `Lawyer`, `Musician`, `Nurse`, `Other`, `Scientist`, `Student`, `Teacher` |
 | `Family History of Anxiety` | string | `"Yes"` or `"No"` |
 
-All 18 fields above are required. Numeric fields may be sent as JSON integers or floats (both
+All 17 fields above are required. Numeric fields may be sent as JSON integers or floats (both
 accepted); `Age`, the 4 caffeine fields, and the 4 PSS fields must be whole numbers. A raw
 `Stress Level (1-10)` key is **no longer accepted as input** — if an older integration still
 sends it, it is silently ignored and the value computed from the PSS answers is used instead.
@@ -214,8 +218,8 @@ caffeine mg value and the *computed* Stress Level, not the raw serving counts or
 {
   "predicted_class": "Low",
   "probabilities": {
-    "Low": 0.9666,
-    "Medium": 0.0327,
+    "Low": 0.9660,
+    "Medium": 0.0333,
     "High": 0.0007
   },
   "uncertainty_flag": false,
@@ -294,7 +298,6 @@ Content-Type: application/json
   "pss_difficulties_piling_up": 0,
   "Heart Rate (bpm)": 68,
   "Breathing Rate (breaths/min)": 14,
-  "Sweating Level (1-5)": 1,
   "Therapy Sessions (per month)": 0,
   "Diet Quality (1-10)": 9,
   "Occupation": "Teacher",
@@ -307,9 +310,9 @@ Content-Type: application/json
 {
   "predicted_class": "Low",
   "probabilities": {
-    "Low": 0.9665917158126831,
-    "Medium": 0.03268687427043915,
-    "High": 0.0007213451899588108
+    "Low": 0.9660267233848572,
+    "Medium": 0.03331087529659271,
+    "High": 0.0006624316447414458
   },
   "uncertainty_flag": false,
   "warnings": [],
@@ -320,7 +323,7 @@ Content-Type: application/json
 
 The PSS answers here give a total of 0 + (4−3) + (4−4) + 0 = 1, so 1 + 1 × 9/16 = 1.56, which
 rounds to Stress Level 2. This exact request/response pair was captured from a live run of the
-service (`uvicorn src.api.main:app`, XGBoost model, 2026-09-28) — not hand-written.
+service (`uvicorn src.api.main:app`, 11-feature XGBoost model, 2026-10-02) — not hand-written.
 
 ## `POST /patient-summary`
 
@@ -335,7 +338,7 @@ It returns everything `POST /predict` returns, plus an **estimated Severity tier
 
 ### Request body
 
-The same 18 fields as `POST /predict` (same validation, same 18-49 age rules, same 422 responses),
+The same 17 fields as `POST /predict` (same validation, same 18-49 age rules, same 422 responses),
 plus two **optional** fields. The model never uses them; they only fill slots in the bundle:
 
 | JSON key | Type | Valid values | If omitted or `null` |
@@ -364,16 +367,16 @@ Evidence and limits (`reports/recommendation_mapping_investigation.md`; `tests/t
 - **Ceiling, with the true 3-class label:** 88.0% on the 9,350 rows the table is built from, and
   88.7% on a held-out 20% when rebuilt on the other 80%.
 - **With this model's own predictions** (table built on the training rows only, scored on the
-  validation rows): **78.4%** overall and 79.2% for ages 18-49. Expect about 4 in 5 tiers to be right.
+  validation rows): **78.3%** overall and 79.1% for ages 18-49. Expect about 4 in 5 tiers to be right.
 - The bundle text comes from a very likely synthetic dataset and was never clinically validated.
 
-**Response (200)**, captured from a live run (2026-09-30). The patient is `ambiguous_moderate` with PSS
+**Response (200)**, captured from a live run (2026-10-02). The patient is `ambiguous_moderate` with PSS
 answers 3/1/1/3, plus `"Gender": "Female"` and `"Alcohol Consumption (drinks/week)": 6`:
 ```json
 {
   "caveat": "Estimated severity and recommendation are a best-guess reconstruction (~88% accurate at best, lower given this model's own prediction error) from synthetic dataset templates. This is decision support for clinician review, not a recommendation to show a patient directly and not validated clinical advice.",
   "predicted_class": "Medium",
-  "probabilities": {"Low": 0.1652977466583252, "Medium": 0.8156806230545044, "High": 0.019021596759557724},
+  "probabilities": {"Low": 0.16264456510543823, "Medium": 0.8181824088096619, "High": 0.019173085689544678},
   "uncertainty_flag": false,
   "warnings": [],
   "estimated_caffeine_mg": 284.0,

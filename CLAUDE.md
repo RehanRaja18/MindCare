@@ -19,7 +19,7 @@ Do not build or suggest anything that bypasses psychologist review.
 - `docs/setup.md` — model artifacts (`data/processed/*.pkl`/`*.npz`) are not in git; this lists
   the exact scripts to regenerate them, in order. `mindcare_processed_splits.npz` is the one
   tracked exception (no script can recreate it from scratch) — never delete it.
-- `reports/recommendation_mapping_investigation.md` — evidence base for `POST /patient-summary` (2026-09-30), which returns the prediction plus an **estimated** Severity tier (3-class prediction + PSS Stress Level → most common tier; 88.0% ceiling with the true label per this report, 78.4% measured with the model's own predictions) and the matching dataset recommendation bundle, always under a fixed clinician-review caveat; `/predict` returns none of this.
+- `reports/recommendation_mapping_investigation.md` — evidence base for `POST /patient-summary` (2026-09-30), which returns the prediction plus an **estimated** Severity tier (3-class prediction + PSS Stress Level → most common tier; 88.0% ceiling with the true label per this report, 78.3% measured with the current model's own predictions) and the matching dataset recommendation bundle, always under a fixed clinician-review caveat; `/predict` returns none of this.
 
 ## Dataset
 data/raw/mindcare_dataset_final.csv — ~11,000 rows, 23 columns.
@@ -74,16 +74,19 @@ report balanced accuracy, macro-F1, and per-class recall (especially High) for t
   2026-09-28, see below) went through two
   changes the same day: first reduced from 17 to 11 features, then Age was restored, bringing
   it to **12**. The 11-feature configuration is superseded and kept only for history (see
-  Pipeline Status below); it is not the current canonical model.
+  Pipeline Status below); it is not the current canonical model. **On 2026-10-02 Sweating Level
+  was removed, giving the current canonical "11-feature v2" set** (with Age, without Sweating
+  Level) — a different set from that superseded 11-feature one.
 
-### 3-class Anxiety Level (canonical, 12 features)
-- **Numeric (10):** Stress Level (1-10) [now collected via the API as the 4 PSS-4
+### 3-class Anxiety Level (canonical, 11 features — "11-feature v2", since 2026-10-02)
+- **Numeric (9):** Stress Level (1-10) [now collected via the API as the 4 PSS-4
   questionnaire items and converted server-side — see "Stress Level input method changed"
   below, not entered as a raw 1-10 rating], Therapy Sessions (per month), Sleep Hours, Caffeine
   Intake (mg/day) [now collected via the API as 4 serving-count fields and estimated
   server-side — see below, not entered as raw mg], Diet Quality (1-10), Physical Activity
-  (hrs/week), Heart Rate (bpm), Breathing Rate (breaths/min), Sweating Level (1-5), Age
-  [restored — see "Age restored" below]
+  (hrs/week), Heart Rate (bpm), Breathing Rate (breaths/min), Age
+  [restored — see "Age restored" below]. Sweating Level (1-5) was removed on 2026-10-02 — see
+  "Sweating Level removed" below.
 - **Categorical (2):** Occupation, Family History of Anxiety
 - **Removed entirely (not just deprioritized), 2026-09-22:** Alcohol Consumption
   (drinks/week), Dizziness, Smoking, Recent Major Life Event, Medication — 5 of the original
@@ -109,7 +112,8 @@ report balanced accuracy, macro-F1, and per-class recall (especially High) for t
     the mg/day figure the model needs (`src/api/main.py`, `estimate_caffeine_mg()`), rather
     than dropping the feature outright.
 - **Age restored, 2026-09-22 (subsequent to the removal above):** Age moves from "removed" back
-  to a model input — 10 numeric + 2 categorical = **12 features**, the current canonical set.
+  to a model input — 10 numeric + 2 categorical = **12 features**, the canonical set until
+  2026-10-02 (when Sweating Level was removed, giving the current 11-feature v2 set).
   - **Decision log — why restored:** this was a **clinical/UX decision, not a
     performance-driven one** — the mirror image of the removal decision above. Age is a
     professional norm for a healthcare-adjacent platform (age-appropriate reference ranges for
@@ -227,6 +231,44 @@ report balanced accuracy, macro-F1, and per-class recall (especially High) for t
       coverage target, the label boundaries and the 18-49 age limit were all decided on this same
       data, outside the nested loop. The figures describe re-running this pipeline, not the whole
       chain of decisions. No test-set number exists for the current model.
+- **Sweating Level removed, 2026-10-02 — canonical model is now "11-feature v2" XGBoost:** 9 numeric
+  + 2 categorical. Same hyperparameters and 0.025 threshold as the 12-feature XGBoost; new
+  preprocessor. Built by `src/models/adopt_11feature_v2_model.py`. The API, `input_validation.py`,
+  `predict_single.py` and the test form no longer take the field; a caller that still sends it gets
+  the same prediction (it is ignored).
+  - **Naming:** "v2" because `data/processed/*_11feature.*` is the superseded 2026-09-22 Random
+    Forest set (no Age, WITH Sweating Level). The current files are `*_11feature_v2*`. Never mix
+    the two.
+  - **Decision log — why:** a product/UX decision (one fewer question on the patient form), taken
+    only after testing showed no meaningful cost (`reports/feature_reduction_sweatlevel_3class.md`,
+    train + validation only):
+    - It was the least important of the 12 inputs (0.4% of mean |SHAP| in the 12-feature XGBoost).
+    - High patients unchanged: 148/165 labelled High and 158/165 flagged at 0.025, before and
+      after; High recall identical in all 5 folds of a paired CV.
+    - Largest validation-split drop 0.4 points (Medium recall); every paired-CV change about zero.
+    - Shortcut test: forcing all High patients' Sweating Level to the median (3) changed no label
+      and no flag.
+    - Re-running the tuning procedure on the 11 features chose the same hyperparameters.
+  - **Primary performance estimate is now `reports/nested_cv_11feature_v2_xgb.md`** (run with
+    `python -m src.evaluation.nested_cv_12feature_xgb 11feature_v2`); quote it, not the
+    12-feature figures below. Mean ± std over 5 outer folds:
+    - **All ages:** accuracy 0.7891 ± 0.0081, balanced accuracy 0.8121 ± 0.0060, macro-F1
+      0.8225 ± 0.0052, High recall 0.8812 ± 0.0092, High precision 0.9632 ± 0.0231, flag catch
+      rate 0.9546 ± 0.0143.
+    - **Ages 18-49:** accuracy 0.7978 ± 0.0084, balanced accuracy 0.8226 ± 0.0053, macro-F1
+      0.8297 ± 0.0043, High recall 0.9130 ± 0.0089, High precision 0.9729 ± 0.0230, flag catch
+      rate 0.9658 ± 0.0166.
+    - **Validation split:** accuracy 0.7745, balanced accuracy 0.8055, macro-F1 0.8148, High
+      recall 0.8970; 411 flagged, 158/165 High caught at 0.025.
+  - **Caveat — tuning near-tie:** in one of five folds the tuning step chose balanced class
+    weights over unweighted (inner CV 0.8078 vs 0.8077). That fold needed a threshold of 0.081 and
+    had High precision 0.919; the four unweighted folds chose 0.0234-0.0311. The deployed model
+    is unweighted with 0.025. **If the model is ever re-tuned and balanced weights win, re-derive
+    the threshold** — do not reuse 0.025.
+  - **Not re-run for this model:** calibration, SHAP, fairness and robustness
+    (`reports/model_comparison_12feature.md`) describe the 12-feature XGBoost. Validation and
+    train only; the test set was not used.
+  - Tests: `test_sweating_level_is_no_longer_an_input`, `test_serves_xgboost_with_its_review_threshold`.
 - **Supported age range restricted to 18-49, 2026-09-27:** the model makes predictions only for
   ages 18-49 inclusive. Any other age gets HTTP 422, with a different message per side (see the
   platform rules below). Enforced in `validate_patient()` (`ELIGIBLE_AGE_MIN`/`ELIGIBLE_AGE_MAX` in
@@ -376,8 +418,8 @@ preprocessing (Phase 10) is shared between the two targets.
       is for** — checking whether a validation-only result holds up, not chasing a better number.
 
 ### FEATURE SET CHANGE — 2026-09-22 (THIRD change, 3-class target, Age restored, 12-feature model — VALIDATION ONLY, test set NOT used)
-- [x] **Age was restored as a model input, on top of the 11-feature set, producing the current
-      canonical 12-feature model.** (`src/models/adopt_12feature_model.py`,
+- [x] **Age was restored as a model input, on top of the 11-feature set, producing the
+      12-feature model (canonical until 2026-10-02).** (`src/models/adopt_12feature_model.py`,
       `reports/feature_addition_age_3class.md`.) **Unlike the first two feature-set changes
       above, this one is explicitly NOT test-set-verified, by design.** The 3-class test set was
       already used twice (17-feature, then 11-feature) and is being treated as fully spent —
@@ -483,7 +525,8 @@ preprocessing (Phase 10) is shared between the two targets.
   outer bounds — real physiological limits for open-ended quantities like Heart Rate (30-220 bpm)
   and Breathing Rate (5-60), literal unit ceilings for bounded counts like Physical Activity
   (≤168 hrs/week) and Therapy Sessions (≤31/month), and the rating scale plus a small margin for
-  Stress Level/Diet Quality/Sweating Level so e.g. a half-point value like 10.5 warns rather than
+  Stress Level/Diet Quality (and Sweating Level, until it was removed as a feature on 2026-10-02;
+  its bounds were deleted with it) so e.g. a half-point value like 10.5 warns rather than
   rejects). Outside `hard` bounds → rejected with a clear error, listing every violation found.
   Inside `hard` but outside `observed` → allowed through with a warning. Categorical features are
   closed sets (13 occupations; Yes/No for the 5 binary fields) — anything else is rejected, no
@@ -513,8 +556,8 @@ preprocessing (Phase 10) is shared between the two targets.
   fresh Python subprocess and predicting on `X_val` gives predictions identical
   (`np.array_equal`) to predicting with the in-memory freshly-fit model.
   **No longer the canonical/deployed model** — replaced 2026-09-22, first by the 11-feature
-  model below (also since superseded), then the same day by the current 12-feature model
-  (further below). File left on disk, untouched, for historical reference and reproducibility of
+  model below (also since superseded), then the same day by the 12-feature model
+  (further below; itself superseded, see the current 11-feature v2 XGBoost). File left on disk, untouched, for historical reference and reproducibility of
   `reports/final_test_evaluation.md`; not used by `predict_single.py` or `src/api/main.py`
   anymore.
 
@@ -529,7 +572,19 @@ preprocessing (Phase 10) is shared between the two targets.
   of `reports/final_test_evaluation_11feature.md`; not used by `predict_single.py` or
   `src/api/main.py` anymore.
 
-### Saved final model artifact (3-class target) — CURRENT canonical, 12-feature XGBoost
+### Saved final model artifact (3-class target) — CURRENT canonical, 11-feature v2 XGBoost
+- `data/processed/mindcare_final_model_11feature_v2_xgb.pkl` — XGBoost on the 11-feature v2 set
+  (12 features minus Sweating Level), with `mindcare_preprocessor_11feature_v2.pkl` and
+  `mindcare_processed_splits_11feature_v2.npz` (train + validation only; no test keys). Built by
+  `src/models/adopt_11feature_v2_model.py`, hyperparameters from
+  `reports/tuning_results_12feature.json`.
+  - The script checks the saved model against `reports/feature_reduction_sweatlevel_3class.md`
+    and deletes its outputs on any mismatch: accuracy 0.7745, balanced accuracy 0.8055, macro-F1
+    0.8148, High recall 0.8970, and 411 flagged / 158 true-High flagged / 148 labelled High at 0.025.
+  - This is what `src/api/main.py` and `src/inference/predict_single.py` load. No test-set number
+    exists or is planned.
+
+### Saved final model artifact (3-class target) — SUPERSEDED 2026-10-02, kept for history, 12-feature XGBoost
 - `data/processed/mindcare_final_model_12feature_xgb.pkl` — XGBoost on the same 12 features and
   preprocessor (`mindcare_preprocessor_12feature.pkl`), fit on the 12-feature `X_train` by
   `src/models/adopt_xgboost_12feature_model.py`, with hyperparameters read from
@@ -537,8 +592,8 @@ preprocessing (Phase 10) is shared between the two targets.
   - The script checks it against `reports/model_comparison_12feature.md` and stops, deleting
     the file, on any mismatch: accuracy 0.7776, balanced accuracy 0.8078, macro-F1 0.8171, High
     recall 0.8970, and 410 flagged / 158 true-High / 10 of 17 hard misses at the 0.025 threshold.
-  - This is what `src/api/main.py` and `src/inference/predict_single.py` load. Validation-only
-    evidence; no test-set number exists or is planned.
+  - It was the deployed model from 2026-09-28 to 2026-10-02. Validation-only evidence; no
+    test-set number exists.
 
 ### Saved final model artifact (3-class target) — SUPERSEDED 2026-09-28, kept for history, 12-feature Random Forest
 - `data/processed/mindcare_final_model_12feature.pkl` — the tuned Random Forest on the

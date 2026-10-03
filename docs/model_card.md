@@ -1,6 +1,7 @@
 # Model Card — MindCare Anxiety Level Classifier (3-Class)
 
-**Model:** XGBoost (`xgboost.XGBClassifier`), canonical since 2026-09-28. It replaced a tuned
+**Model:** XGBoost (`xgboost.XGBClassifier`), canonical since 2026-09-28, on **11 features since
+2026-10-02** (Sweating Level removed); see "Performance — 11-Feature v2 XGBoost". It replaced a tuned
 Random Forest; see "Performance — 12-Feature XGBoost" and `reports/model_comparison_12feature.md`.
 Sections covering Phases 14-19 below describe the earlier Random Forest models unless they say
 otherwise.
@@ -52,8 +53,8 @@ See Known Limitations #12.
   via `data/processed/mindcare_processed_splits_3class.npz` (`CLAUDE.md`, "Target change").
 - **Test set:** the 3-class test set has been evaluated **twice** — 2026-09-15 for the original
   17-feature model, 2026-09-22 for the 11-feature model — and is now **fully spent** (see "Final
-  Test-Set Evaluation" below for both). The current canonical 12-feature model (Age restored,
-  see "Features" below) deliberately does **not** have a test-set evaluation — validation-only
+  Test-Set Evaluation" below for both). The 12-feature models (Age restored, see "Features" below) and the current
+  canonical 11-feature v2 model deliberately do **not** have a test-set evaluation — validation-only
   by design, since a third use was not justified as a genuinely new configuration requiring it.
   The 5-class Severity test set remains untouched.
 
@@ -75,16 +76,18 @@ insufficient; balanced accuracy, macro-F1, and per-class recall (especially High
 
 ## Features
 
-**12 features (10 numeric + 2 categorical), as of 2026-09-22** — the current canonical set,
-reached via two changes to the original 17 the same day: first reduced to 11
-(`reports/feature_reduction_3class.md`), then Age restored, bringing it to 12
-(`reports/feature_addition_age_3class.md`). The 11-feature configuration is superseded and no
-longer deployed. The 5-class Severity reference model is unaffected by either change and still
+**11 features (9 numeric + 2 categorical), as of 2026-10-02** — the current canonical set
+("11-feature v2"). History: the original 17 were reduced to 11 on 2026-09-22
+(`reports/feature_reduction_3class.md`), Age was restored the same day, bringing it to 12
+(`reports/feature_addition_age_3class.md`), and Sweating Level was removed on 2026-10-02
+(`reports/feature_reduction_sweatlevel_3class.md`). The 2026-09-22 11-feature configuration (no
+Age, with Sweating Level) is a different set; it is superseded and no longer deployed. The 5-class Severity reference model is unaffected by either change and still
 uses all 17.
 
-- **Numeric (10):** Stress Level (1-10), Therapy Sessions (per month), Sleep Hours, Caffeine
+- **Numeric (9):** Stress Level (1-10), Therapy Sessions (per month), Sleep Hours, Caffeine
   Intake (mg/day), Diet Quality (1-10), Physical Activity (hrs/week), Heart Rate (bpm),
-  Breathing Rate (breaths/min), Sweating Level (1-5), **Age** (restored 2026-09-22, see below).
+  Breathing Rate (breaths/min), **Age** (restored 2026-09-22, see below). Sweating Level (1-5)
+  was removed on 2026-10-02 (see "Performance — 11-Feature v2 XGBoost").
   **Caffeine Intake is no longer entered as a raw mg value.** The API
   (`src/api/main.py`) collects it as four everyday serving counts — `cups_of_coffee`,
   `cups_of_tea`, `energy_drinks`, `cans_of_soda` — and converts them server-side via
@@ -255,8 +258,9 @@ one of these five "attempted improvement" experiments — both were separate, de
 "Finalized feature decisions"), not responses to an improvement experiment's evidence. The
 17→11 change was confirmed on the test set in `reports/final_test_evaluation_11feature.md`; the
 11→12 change deliberately was not (see "Final Test-Set Evaluation" below for why). **The model
-actually deployed today (`src/api/main.py`) is the 12-feature model (Age restored), calibration
-untouched (uncalibrated), with the original 0.10 flagging threshold** — see "Performance" above
+deployed when this section was written (2026-09-22) was the 12-feature Random Forest (Age restored),
+calibration untouched (uncalibrated), with the original 0.10 flagging threshold** (since replaced:
+the current model is the 11-feature v2 XGBoost with a 0.025 threshold) — see "Performance" above
 for all three configurations' validation numbers, and "Final Test-Set Evaluation" below for the
 17-feature and 11-feature test results only (the 12-feature model has no test-set entry, by
 design — see that section's note on why).
@@ -315,7 +319,7 @@ all confusion is between Low and Medium, not involving High.
 ## Performance — 11-Feature Model (Superseded 2026-09-22, `reports/feature_reduction_3class.md`)
 
 **Historical reference — this configuration was deployed only briefly on 2026-09-22 before Age
-was restored the same day.** See "Performance — 12-Feature Model" below for the current
+was restored the same day.** See "Performance — 11-Feature v2 XGBoost" below for the current
 canonical model actually deployed via `src/api/main.py`. Same tuned Random Forest
 hyperparameters as above (`n_estimators=200, max_depth=10, min_samples_split=10,
 min_samples_leaf=4, max_features='sqrt', class_weight='balanced'`, `random_state=42`), retrained
@@ -339,9 +343,70 @@ Evaluation" below.
 
 ---
 
-## Performance — 12-Feature XGBoost (Current Canonical, since 2026-09-28 — `reports/model_comparison_12feature.md`)
+## Performance — 11-Feature v2 XGBoost (Current Canonical, since 2026-10-02 — `reports/nested_cv_11feature_v2_xgb.md`)
 
-**This is the model deployed via `src/api/main.py`** (`mindcare_final_model_12feature_xgb.pkl`,
+**This is the model deployed via `src/api/main.py`** (`mindcare_final_model_11feature_v2_xgb.pkl`,
+built by `src/models/adopt_11feature_v2_model.py`). It is the 12-feature XGBoost below with
+`Sweating Level (1-5)` removed: same hyperparameters, same 0.025 review threshold, new preprocessor.
+"v2" distinguishes it from the superseded 2026-09-22 11-feature Random Forest set, which had no Age
+and did include Sweating Level.
+
+**Why Sweating Level was removed** (`reports/feature_reduction_sweatlevel_3class.md`):
+- It was the least important of the 12 inputs (0.4% of mean |SHAP| in the 12-feature XGBoost).
+- **High patients were unaffected:** 148 of 165 labelled High and 158 of 165 flagged, before and
+  after. High recall was identical in every fold of a paired 5-fold cross-validation.
+- **Low and Medium:** the largest drop on the validation split was 0.4 points (Medium recall). In
+  the paired cross-validation every change averaged about zero.
+- **No hidden dependence:** forcing every High patient's Sweating Level to the median changed no
+  label and no flag.
+- **No re-tuning needed:** re-running the tuning procedure on 11 features chose the same settings.
+- One fewer question on the patient form.
+
+### Primary performance estimate: nested cross-validation
+
+The whole pipeline rebuilt inside each of 5 outer folds on the 9,350 train + validation rows
+(preprocessor, tuning, review threshold), scored on unseen rows. The test set was not used. Mean ±
+standard deviation across folds; the 12-feature column is the previous model, same procedure.
+
+| | Nested CV, all ages | Nested CV, ages 18-49 | Validation split, all ages | 12-feature nested CV, all ages |
+|---|---:|---:|---:|---:|
+| Accuracy | **0.7891 ± 0.0081** | 0.7978 ± 0.0084 | 0.7745 | 0.7904 ± 0.0094 |
+| Balanced accuracy | **0.8121 ± 0.0060** | 0.8226 ± 0.0053 | 0.8055 | 0.8119 ± 0.0057 |
+| Macro-F1 | **0.8225 ± 0.0052** | 0.8297 ± 0.0043 | 0.8148 | 0.8244 ± 0.0064 |
+| Recall Low | 0.7946 ± 0.0133 | 0.8042 ± 0.0179 | 0.7841 | 0.7978 ± 0.0150 |
+| Recall Medium | 0.7604 ± 0.0101 | 0.7506 ± 0.0152 | 0.7355 | 0.7609 ± 0.0098 |
+| High recall | **0.8812 ± 0.0092** | 0.9130 ± 0.0089 | 0.8970 | 0.8771 ± 0.0111 |
+| High precision | **0.9632 ± 0.0231** | 0.9729 ± 0.0230 | 0.9673 | 0.9759 ± 0.0065 |
+| Flag catch rate (share of High cases flagged) | **0.9546 ± 0.0143** | 0.9658 ± 0.0166 | 0.9576 | 0.9587 ± 0.0153 |
+| Flag volume (share of all rows flagged) | 0.2425 ± 0.0219 | 0.2769 ± 0.0254 | 0.2491 | 0.2448 ± 0.0217 |
+
+- **The nested figures are the primary estimate.** They are within noise of the 12-feature model's
+  on every headline metric.
+- **Validation was slightly pessimistic** on accuracy, balanced accuracy and macro-F1, and its High
+  recall (0.897) sits about 1.6 points above the nested 0.881, within the sampling noise of 165
+  High cases (standard error about 0.026). Quote about **0.88**.
+- **One fold tuned differently, and this is the main caveat.** In fold 2 the tuning step chose
+  *balanced* class weights over unweighted on a near-tie (inner CV 0.8078 vs 0.8077). A
+  balanced-weight model gives much higher P(High) values, so that fold's own review threshold was
+  0.081 and its High precision 0.919. That one fold is why High precision has a wider spread here
+  (± 0.0231 against ± 0.0065) and why the fold thresholds average 0.0382 ± 0.0217 (range
+  0.023–0.081). With 12 features, all five folds chose unweighted.
+- **The deployed model is unweighted, and 0.025 still fits it.** The four unweighted folds chose
+  thresholds of 0.0234–0.0311 (mean 0.0274). On the validation split the deployed model at 0.025
+  catches 158 of 165 High patients, flagging 411 of 1,650 rows (the 12-feature model: 158, 410).
+- **What this does not cover** is in Known Limitations #13 and #14.
+
+**Not re-run for this model:** calibration, SHAP, fairness and robustness
+(`reports/model_comparison_12feature.md`) describe the 12-feature XGBoost. The feature removed was
+its least important input and the hyperparameters are identical, so large changes are unlikely, but
+that has not been measured.
+
+---
+
+## Performance — 12-Feature XGBoost (Superseded 2026-10-02 — `reports/model_comparison_12feature.md`)
+
+**This model was deployed via `src/api/main.py` from 2026-09-28 to 2026-10-02**
+(`mindcare_final_model_12feature_xgb.pkl`,
 built by `src/models/adopt_xgboost_12feature_model.py`). Same 12 features and preprocessor as the
 Random Forest below.
 
@@ -481,8 +546,8 @@ The test set has now been used **twice**, both disclosed and justified in `CLAUD
 USED" entries), and is **fully spent** as of 2026-09-22 — no further evaluation is permitted for
 the 17-feature or 11-feature model configurations below.
 
-**The current canonical 12-feature model (Age restored) deliberately has no entry here and none
-is planned.** Restoring Age was a clinical/UX decision, not a performance claim, so it was not
+**The 12-feature models (Age restored) and the current canonical 11-feature v2 model deliberately
+have no entry here and none is planned.** Restoring Age was a clinical/UX decision, not a performance claim, so it was not
 treated as justifying a third test-set use — see `reports/feature_addition_age_3class.md` and
 "Performance — 12-Feature Model" above for its validation-only evidence. Do not read the
 "fully spent" statement above as implying a gap for the 12-feature model; the absence of a
@@ -659,7 +724,9 @@ Not yet done for the 5-class Severity target (`CLAUDE.md`, Pipeline Status).
 
 ## Uncertainty / Abstention Mechanism (Phase 16 — `src/models/uncertainty_flagging.py`, `reports/uncertainty_flagging.md`)
 
-> **Current rule (since 2026-09-28): P(High) ≥ 0.025 on the XGBoost model.** The 0.10 rule
+> **Current rule (since 2026-09-28): P(High) ≥ 0.025 on the XGBoost model.** Unchanged for the
+> 11-feature v2 model adopted on 2026-10-02, which catches the same 158 of 165 at 0.025 (411 rows
+> flagged instead of 410). The 0.10 rule
 > described below was set for the Random Forest, as the ~10% base rate of High cases. XGBoost's
 > better-calibrated probabilities put most borderline High cases below 0.10. At 0.10 it would
 > catch 152 of 165 High cases and 4 of the 17 hardest misses (true High predicted Medium).
@@ -788,7 +855,7 @@ Not yet done for the 5-class Severity target beyond what's already in `reports/f
    analysis (Phase 11) predates both 2026-09-22 feature-set changes (17→11, then 11→12 with Age
    restored) and was not recomputed for either** — Stress Level was not removed or affected by
    either change, so the dependency is expected to persist, but the exact percentages above are
-   unverified for the current canonical (12-feature) model.
+   unverified for the 12-feature models and the current canonical 11-feature v2 model.
 3. **Imbalanced target, small High-class subgroup samples.** High is ~10% of the data; per-
    occupation High-class validation samples are as small as 9-18 rows, making subgroup fairness
    metrics (and the two flags above) inherently noisy at this sample size.
@@ -828,9 +895,9 @@ Not yet done for the 5-class Severity target beyond what's already in `reports/f
    "Final Test-Set Evaluation" above for both, including the honest finding that the 11-feature
    model's validation-set improvement over the 17-feature model did not replicate on test (test
    showed a tiny, consistent regression instead — net conclusion: no meaningful cost either way).
-   **No further test-set evaluation is permitted for the 17-feature or 11-feature
-   configurations** — both uses were one-way doors, each disclosed and justified once. See
-   limitation 11 below for the current 12-feature model's deliberately different evidentiary
+   **No further test-set evaluation is permitted for the 17-feature or 11-feature (2026-09-22,
+   no Age) configurations** — both uses were one-way doors, each disclosed and justified once. See
+   limitation 11 below for the 12-feature and current 11-feature v2 models' deliberately different evidentiary
    status.
 9. **Not yet done for the 5-class Severity target:** Phase 15 (calibration), Phase 16
    (uncertainty/abstention). (Phase 12 and Phase 19 are now done for the 3-class target — see
@@ -838,7 +905,7 @@ Not yet done for the 5-class Severity target beyond what's already in `reports/f
 10. **This is a prototype/research model** (`CLAUDE.md` Engineering Rule 7) — it must never be
     represented as having clinical diagnostic validity, and its output must never bypass
     psychologist review per the project's critical workflow constraint.
-11. **The current canonical model (12-feature XGBoost) has validation-only evidence, and
+11. **The current canonical model (11-feature v2 XGBoost) has validation-only evidence, and
     always will unless a future decision explicitly justifies a third test-set use.** This is
     true of both 12-feature models. Unlike the 17-feature and 11-feature configurations above, no
     test-set number exists for either, by design — `src/models/adopt_12feature_model.py` never loads, transforms, or
@@ -868,7 +935,7 @@ Not yet done for the 5-class Severity target beyond what's already in `reports/f
     (`reports/nested_cv_12feature_xgb.md`). It makes the preprocessing, tuning and threshold steps
     honest, because they are redone inside every fold. But these were all decided on the same
     train + validation data, before or outside the nested loop:
-    - the 17 → 11 → 12 feature reduction;
+    - the 17 → 11 → 12 feature reduction, and removing Sweating Level (12 → 11 v2);
     - choosing XGBoost over Random Forest;
     - the 158/165 flag-coverage target (copied from the Random Forest's validation result);
     - the Low/Medium/High label boundaries;
@@ -878,6 +945,15 @@ Not yet done for the 5-class Severity target beyond what's already in `reports/f
     chain of decisions that produced it would perform on new data. They can still be optimistic
     about that chain. **No test-set number exists for the current model** (the 3-class test set was
     used twice, on earlier models, and is treated as spent), so only fresh data can check it.
+14. **The tuning step is close to a coin-flip between unweighted and balanced class weights.**
+    In the 11-feature v2 nested cross-validation (`reports/nested_cv_11feature_v2_xgb.md`), one of
+    five folds chose balanced weights on an inner-CV margin of 0.0001. That fold needed a review
+    threshold of 0.081 instead of about 0.027, and had lower High precision (0.919).
+    - The deployed model is unweighted, and its 0.025 threshold was set for an unweighted model.
+    - **If the model is ever re-tuned and balanced weights win, the threshold must be re-derived.**
+      Reusing 0.025 would flag far more patients: 41.8% of rows in that fold, against about 25%.
+    - Calibration, SHAP, fairness and robustness were measured on the 12-feature XGBoost and were
+      not re-run for the 11-feature v2 model.
 
 ---
 

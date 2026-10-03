@@ -34,6 +34,25 @@ so explicitly rather than skipping the question or implying otherwise.
 > - **Not covered:** decisions made on the same data outside the nested loop (Q22 item 13).
 >
 > Q12, Q22, Q23 and Q24 carry update notes.
+>
+> **Update 2026-10-02 — Sweating Level removed; the canonical model now has 11 features ("v2").**
+> Evidence: `reports/feature_reduction_sweatlevel_3class.md`. Train + validation only; the test set
+> was not used.
+> - **Why:** it was the least important input. Removing it left High patients unchanged (148 of 165
+>   labelled High, 158 of 165 flagged) and cost at most 0.4 points on any Low/Medium metric on the
+>   validation split, about zero in paired 5-fold cross-validation.
+> - **Primary estimate, re-run for this model** (`reports/nested_cv_11feature_v2_xgb.md`): accuracy
+>   0.7891 ± 0.0081, balanced accuracy 0.8121 ± 0.0060, macro-F1 0.8225 ± 0.0052, High recall
+>   0.8812 ± 0.0092, High precision 0.9632 ± 0.0231, flag catch rate 0.9546 ± 0.0143. All within
+>   noise of the 12-feature figures quoted in the 2026-09-30 note.
+> - **Caveat:** in one of five folds the tuning step chose balanced class weights on a near-tie,
+>   which needs a much higher review threshold (0.081). The deployed model is unweighted and keeps
+>   0.025 (Q22 item 14).
+> - **Not re-run:** calibration, SHAP, fairness and robustness still describe the 12-feature
+>   XGBoost.
+>
+> Wherever an answer below says "12-feature" for the current model, read it as the model's
+> predecessor. Q9, Q22 and Q23 carry update notes.
 
 ---
 
@@ -57,10 +76,10 @@ is").
 `data/raw/mindcare_dataset_final.csv` — ~11,000 rows, 23 columns. **As of 2026-09-22, the two
 targets use different feature sets, and the 3-class target's own feature set changed twice the
 same day** (`model_card.md`, "Features"; `CLAUDE.md`, "Finalized feature decisions"):
-- The **primary, deployed 3-class Anxiety Level model uses 12 features** — 10 numeric (Stress
-  Level, Therapy Sessions, Sleep Hours, Caffeine Intake, Diet Quality, Physical Activity, Heart
-  Rate, Breathing Rate, Sweating Level, **Age**) + 2 categorical (Occupation, Family History of
-  Anxiety). Six columns that were previously features (Age, Alcohol Consumption, Dizziness,
+- The **primary, deployed 3-class Anxiety Level model uses 11 features (since 2026-10-02)** — 9
+  numeric (Stress Level, Therapy Sessions, Sleep Hours, Caffeine Intake, Diet Quality, Physical
+  Activity, Heart Rate, Breathing Rate, **Age**) + 2 categorical (Occupation, Family History of
+  Anxiety). Sweating Level was the 12th feature until it was removed on 2026-10-02. Six columns that were previously features (Age, Alcohol Consumption, Dizziness,
   Smoking, Recent Major Life Event, Medication) were removed on 2026-09-22; Age was then restored
   the same day, leaving 5 removed (Alcohol Consumption, Dizziness, Smoking, Recent Major Life
   Event, Medication) — see Q9/Q10 for why both changes happened and why they differ in kind.
@@ -70,7 +89,8 @@ same day** (`model_card.md`, "Features"; `CLAUDE.md`, "Finalized feature decisio
 The rest of the 23 columns are the target columns (Severity, Anxiety Level) or columns dropped
 for leakage reasons (`model_card.md`, "Training Data", "Features"). Unless a question below is
 explicitly about the 5-class target, or explicitly about a superseded configuration, "the model"
-in this report refers to the deployed 12-feature 3-class model.
+in this report refers to the 12-feature 3-class model deployed when this answer was written (the current model is
+the 11-feature v2 XGBoost; see the update notes at the top).
 
 ### 4. How was the data collected?
 
@@ -131,7 +151,11 @@ in `model_card.md`'s baseline table; see Q10 for the tuned XGBoost figures that 
 
 ### 9. What model was selected?
 
-**Current (since 2026-09-28): XGBoost**, with 300 trees, max_depth 3, learning_rate 0.03,
+**Current (since 2026-10-02): XGBoost on 11 features** — the model described next with
+`Sweating Level (1-5)` removed, same hyperparameters (`src/models/adopt_11feature_v2_model.py`,
+`reports/feature_reduction_sweatlevel_3class.md`).
+
+**Since 2026-09-28: XGBoost**, with 300 trees, max_depth 3, learning_rate 0.03,
 subsample 0.8, colsample_bytree 1.0, min_child_weight 3, gamma 0, unweighted. It was re-tuned on
 the 12 features (`reports/tuning_results_12feature.json`) and chosen after the side-by-side
 comparison in `reports/model_comparison_12feature.md` (see the update note at the top). The
@@ -204,11 +228,13 @@ Q22 for why, and for what evidentiary gap that leaves for the currently-deployed
 
 ### 11. What are its AUROC/AUPRC values?
 
-**The model actually deployed via `src/api/main.py` today is the 12-feature model (Age
-restored) — but no AUROC/AUPRC figures exist for it, on either validation or test, by design
-(see Q9/Q10, Q22).** Figures for the 17-feature (original) and 11-feature (superseded 2026-09-22)
+**When this answer was written, the deployed model was the 12-feature Random Forest (Age
+restored), and no AUROC/AUPRC figures existed for it, on either validation or test, by design
+(see Q9/Q10, Q22).** (Since then: the 12-feature XGBoost has validation AUROC/AUPRC in
+`reports/model_comparison_12feature.md`; none has been computed for the current 11-feature v2
+model.) Figures for the 17-feature (original) and 11-feature (superseded 2026-09-22)
 models are given below, kept explicitly distinct, per `model_card.md`'s "Performance" sections.
-**Nothing below should be read as characterizing the currently-deployed 12-feature model's
+**Nothing below should be read as characterizing the 12-feature or current 11-feature v2 models'
 AUROC/AUPRC** — that evidence does not exist.
 
 17-feature model, per-class, one-vs-rest, validation set (`model_card.md`, "Performance —
@@ -252,7 +278,7 @@ negative (macro AUROC −0.0006, macro AUPRC −0.0058), and Medium-class AUPRC 
 one gap that crosses the 0.01 threshold used elsewhere in this project. See Q10 and Q25 for the
 full honest verdict on this comparison.
 
-**12-feature model (current, deployed): no AUROC/AUPRC exists, on validation or test.** Only
+**12-feature Random Forest (deployed when this was written): no AUROC/AUPRC exists, on validation or test.** Only
 accuracy, balanced accuracy, macro-F1, and per-class recall were computed
 (`reports/feature_addition_age_3class.md`) — see Q12 below for the recall figures, and Q22 for
 why this evidentiary gap is a deliberate, disclosed scope decision rather than an oversight.
@@ -263,7 +289,7 @@ why this evidentiary gap is a deliberate, disclosed scope decision rather than a
 test-set recall exists only for the 17-feature and 11-feature (superseded) models, by design.
 Specificity is not documented at all, for any configuration.**
 
-> **Update 2026-09-30 — current model (12-feature XGBoost), nested cross-validation**
+> **Update 2026-09-30 — then-current model (12-feature XGBoost), nested cross-validation**
 > (`reports/nested_cv_12feature_xgb.md`, mean ± std over 5 outer folds; primary estimate):
 >
 > | Class | Recall, all ages | Recall, ages 18-49 | Recall, validation split |
@@ -300,7 +326,7 @@ Test-Set Evaluation" classification reports):
 | High | 0.8970 | 0.8994 |
 | Macro average | 0.8084 | 0.8177 |
 
-**12-feature model (current, deployed) — validation only, no test-set column** (deliberate, see
+**12-feature Random Forest (deployed when this was written) — validation only, no test-set column** (deliberate, see
 Q9/Q10, Q22), per-class recall (`reports/feature_addition_age_3class.md`):
 
 | Class | Recall (validation) | Recall (test) |
@@ -498,14 +524,14 @@ represented otherwise.
 
 Directly from `model_card.md`'s "Known Limitations" section, plus the gaps surfaced by this
 report (Q16, Q17, Q19, Q20). **Scope note: unless stated otherwise, "the model" below is the
-current, deployed 12-feature 3-class model (Age restored, as of 2026-09-22) — see Q3, Q9/Q10.**
+12-feature 3-class model deployed as of 2026-09-22 (Age restored; the current model is the 11-feature v2 XGBoost) — see Q3, Q9/Q10.**
 1. Training data is very likely synthetic — no performance figure here is clinically validated.
 2. Even for the 3-class target, over half (17.6 of ~30.6 points) of the model's improvement over
    the majority baseline comes from one feature, Stress Level. **This dependency figure was
    computed against the original 17-feature model (Phase 11) and was not recomputed after either
    2026-09-22 feature-set change (17→11, then 11→12 with Age restored); Stress Level was not
    affected by either change, so the dependency is expected to persist but is unverified for the
-   current 12-feature model** (`model_card.md`, "Known Limitations" #2).
+   12-feature and current 11-feature v2 models** (`model_card.md`, "Known Limitations" #2).
 3. Imbalanced target with small per-occupation High-class samples (9-18 rows) — subgroup metrics
    are inherently noisy at this scale.
 4. Predicted probabilities are not well-calibrated across the full range for any class. (This
@@ -518,7 +544,7 @@ current, deployed 12-feature 3-class model (Age restored, as of 2026-09-22) — 
    genuinely new feature-set configuration, not a re-check of the same model. Both uses are
    disclosed and kept distinct from validation figures throughout. **No further test-set
    evaluation is permitted for the 17-feature or 11-feature configurations** (Q10, Q25). **The
-   current, deployed 12-feature model (Age restored) deliberately has no test-set evaluation at
+   12-feature models and the current 11-feature v2 model deliberately have no test-set evaluation at
    all** — restoring Age was a clinical/UX decision, not a performance claim, so it was not
    treated as justifying a third one-way-door use. This is a genuine, disclosed evidentiary gap
    for the currently-deployed model, not an oversight (Q9/Q10).
@@ -536,7 +562,7 @@ current, deployed 12-feature 3-class model (Age restored, as of 2026-09-22) — 
    diagnostic validity.
 9. Phase 19 robustness testing has been performed for the 17-feature configuration of the 3-class
    target and found real, specific fragilities (Q16, Q18) — one of which (missing input
-   validation) has since been fixed (Q21) and re-verified for the current 12-feature input set,
+   validation) has since been fixed (Q21) and re-verified for the 12-feature input set and again for the current 11-feature v2 set,
    including Age's restored bounds (`src/inference/input_validation.py`). The robustness findings
    themselves have not been re-tested against the 11-feature or 12-feature models. OOD handling,
    external validation, and clinical evaluation remain entirely unperformed (Q17, Q19, Q20).
@@ -556,7 +582,7 @@ current, deployed 12-feature 3-class model (Age restored, as of 2026-09-22) — 
     kept Random Forest and only changed the input columns (Q9/Q10). **Resolved 2026-09-28:**
     the full suite was run on both 12-feature models, and the evidence favoured XGBoost, which was
     adopted (update note at the top).
-12. *(Surfaced here.)* **The current, deployed 12-feature model (Age restored) has strictly less
+12. *(Surfaced here.)* **The 12-feature model deployed at the time (Age restored) had strictly less
     evidentiary depth than either the 17-feature or 11-feature configurations that preceded it**
     — validation-only headline metrics exist and nothing else (items 4, 6, 7, 9, 10 above). This
     is a deliberate, disclosed scope decision tied to the clinical/UX nature of the Age-restoration
@@ -576,25 +602,34 @@ current, deployed 12-feature 3-class model (Age restored, as of 2026-09-22) — 
 
     The nested figures describe **re-running this pipeline**, not the whole chain of decisions, and
     can still be optimistic about that chain. **No test-set number exists for the current model.**
+    Removing Sweating Level (2026-10-02) is one more decision made on this same data.
+14. *(Added 2026-10-02.)* **Tuning is close to a coin-flip between unweighted and balanced class
+    weights.** In the 11-feature v2 nested cross-validation, one of five folds chose balanced
+    weights on an inner-CV margin of 0.0001, and needed a review threshold of 0.081 instead of
+    about 0.027. The deployed model is unweighted with a 0.025 threshold. If it is ever re-tuned and
+    balanced weights win, the threshold must be re-derived. Calibration, SHAP, fairness and
+    robustness were not re-run for the 11-feature v2 model.
 
 ### 23. What claims can we legitimately make?
 
 - On an internal, held-out validation split of this specific (very likely synthetic) dataset, the
   tuned Random Forest — across its original 17-feature configuration, the superseded 11-feature
-  configuration, and the current 12-feature configuration (Age restored) — meaningfully
+  configuration, and the 12-feature configuration (Age restored) — meaningfully
   outperforms a majority-class baseline (17-feature: balanced accuracy 0.8056 vs. 0.3333,
   macro-F1 0.8177 vs. 0.2136; 11-feature: balanced accuracy 0.8084, macro-F1 0.8204; 12-feature:
-  balanced accuracy 0.8062, macro-F1 0.8182). The current 12-feature **XGBoost** model does
+  balanced accuracy 0.8062, macro-F1 0.8182). The 12-feature **XGBoost** model (canonical 2026-09-28 to 2026-10-02) does
   likewise on validation (balanced accuracy 0.8078, macro-F1 0.8171), statistically tied with the
   Random Forest in 5-fold CV. Its primary estimate is **nested cross-validation** (added
   2026-09-30): balanced accuracy 0.8119 ± 0.0057, macro-F1 0.8244 ± 0.0064, accuracy
   0.7904 ± 0.0094 and High recall 0.8771 ± 0.0111, with the whole pipeline rebuilt inside each
   fold. The legitimate claim is about **re-running this pipeline** on this dataset, not the full
-  chain of decisions (Q22 item 13). The disclosed held-out **test** evaluations confirm
+  chain of decisions (Q22 item 13). For the current 11-feature v2 model (since 2026-10-02) the
+  nested figures are balanced accuracy 0.8121 ± 0.0060, macro-F1 0.8225 ± 0.0052, accuracy
+  0.7891 ± 0.0081 and High recall 0.8812 ± 0.0092. The disclosed held-out **test** evaluations confirm
   this wasn't an artifact of validation-set overfitting for the 17-feature and 11-feature
   configurations — 17-feature test balanced accuracy 0.8193 (+0.0137 vs. validation), 11-feature
   test balanced accuracy 0.8177 (+0.0093 vs. validation) (Q11, Q12). **This confirmation does not
-  exist for the current 12-feature model** — no test-set evaluation was performed for it, by
+  exist for the 12-feature models or the current 11-feature v2 model** — no test-set evaluation was performed for them, by
   design (Q9/Q10, Q22).
 - When the model predicts High, it is very rarely wrong (0.9933 precision overall on 17-feature
   validation, 0.9935 on 17-feature test, 0.9870 on 11-feature test; 1.00 precision in 12 of 13
@@ -655,7 +690,9 @@ current, deployed 12-feature 3-class model (Age restored, as of 2026-09-22) — 
   17-feature model: it is measurably fragile to losing or corrupting its top 1-2 features, and to
   realistic-magnitude input noise (Q16, Q18). No claim of robustness to adversarial inputs
   specifically — that was not tested. **Robustness has not been separately re-tested for the
-  12-feature model actually deployed** (or for the 11-feature model before it).
+  12-feature Random Forest** (or for the 11-feature model before it). It was re-tested for the
+  12-feature XGBoost (`reports/model_comparison_12feature.md`), but not for the current 11-feature
+  v2 model.
 - **No claim about behavior on out-of-distribution inputs** — untested and undocumented (Q17).
 - **No claim of fairness across patient subgroups in general** — only Occupation has been
   checked, only for the 17-feature model, and even that check surfaced one low-confidence flag
@@ -723,13 +760,15 @@ Based strictly on the gaps this report surfaced:
     results showed a small, consistent regression versus the 17-feature model's test performance
     that validation alone had not predicted, again with no retraining or model change triggered
     in response. **Both uses are complete and disclosed; the 3-class test set must not be
-    evaluated again for either of those two configurations.** The current, deployed 12-feature
-    model (Age restored) was deliberately NOT given a third test-set evaluation — see item 12
+    evaluated again for either of those two configurations.** The 12-feature models and the
+    current 11-feature v2 model were deliberately NOT given a third test-set evaluation — see item 12
     below, which is a distinct, still-open item, not resolved by this one. The remaining gap for
     this item specifically is the analogous evaluation for the 5-class target, if that target is
     ever finalized (it retains its own, never-touched test split — see Q7).
 11. **Re-running the Phase 15-19 analysis stack (calibration, uncertainty flagging, SHAP,
-    fairness, robustness) against the current 12-feature model.** All of that depth currently
+    fairness, robustness) against the deployed model.** *Done 2026-09-28 for the 12-feature XGBoost
+    (`reports/model_comparison_12feature.md`); not re-run for the current 11-feature v2 model.* The
+    original text follows. All of that depth currently
     exists only for the superseded 17-feature model (Q22 item 7, Q23) — the model actually
     deployed today has only headline accuracy/balanced-accuracy/macro-F1/recall figures, on
     validation only, with no test-set evaluation at all. This is a gap in evidentiary depth for
