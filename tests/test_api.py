@@ -453,3 +453,74 @@ def test_estimate_tier_lookup_and_fallback() -> None:
     assert unseen["n"] == 0 and unseen["share"] is None
     assert unseen["tier"] == severity_band(8.5, 1) == "Moderate (5-6)"
 
+
+# --- Confident / borderline label (src/inference/confidence.py) --------------------------------------
+
+def test_confidence_label_rule() -> None:
+    """Confident only if the top probability is >= 0.70 AND it is not a flagged non-High prediction."""
+    from src.inference.confidence import CONFIDENCE_THRESHOLD, confidence_label
+
+    assert CONFIDENCE_THRESHOLD == 0.70
+    sure = confidence_label({"Low": 0.90, "Medium": 0.09, "High": 0.01}, "Low", review_flag=False)
+    assert sure == {"confidence": 0.90, "confidence_label": "confident", "borderline_reasons": [], "borderline_between": None}
+
+    unsure = confidence_label({"Low": 0.45, "Medium": 0.54, "High": 0.01}, "Medium", review_flag=False)
+    assert unsure["confidence_label"] == "borderline" and unsure["borderline_between"] == ["Medium", "Low"]
+    assert unsure["borderline_reasons"] == ["top probability below 0.70"]
+
+    # High confidence in Medium, but the review flag says possibly High: never shown as confident.
+    flagged = confidence_label({"Low": 0.05, "Medium": 0.90, "High": 0.05}, "Medium", review_flag=True)
+    assert flagged["confidence_label"] == "borderline" and flagged["borderline_between"] == ["Medium", "High"]
+    assert flagged["borderline_reasons"] == ["flagged as possibly High while predicting a lower class"]
+
+    # Both reasons at once: unsure between Low and Medium, and flagged as possibly High.
+    both = confidence_label({"Low": 0.40, "Medium": 0.55, "High": 0.05}, "Medium", review_flag=True)
+    assert both["borderline_between"] == ["Medium", "Low", "High"] and len(both["borderline_reasons"]) == 2
+
+    # Predicting High with the flag on is not a reason to doubt it.
+    high = confidence_label({"Low": 0.0, "Medium": 0.02, "High": 0.98}, "High", review_flag=True)
+    assert high["confidence_label"] == "confident"
+
+    exactly = confidence_label({"Low": 0.70, "Medium": 0.30, "High": 0.0}, "Low", review_flag=False)
+    assert exactly["confidence_label"] == "confident"  # the cut-off itself counts as confident
+
+
+def test_predict_and_summary_return_consistent_confidence_fields(client: TestClient) -> None:
+    from src.inference.confidence import confidence_label
+
+    for name, patient in API_PATIENTS.items():
+        for path in ("/predict", "/patient-summary"):
+            body = client.post(path, json=patient).json()
+            expected = confidence_label(body["probabilities"], body["predicted_class"], body["uncertainty_flag"])
+            assert {k: body[k] for k in expected} == expected, (name, path)
+            assert body["confidence"] == max(body["probabilities"].values())
+
+    assert client.post("/predict", json=API_PATIENTS["clearly_low_risk"]).json()["confidence_label"] == "confident"
+    assert client.post("/predict", json=API_PATIENTS["clearly_high_risk"]).json()["confidence_label"] == "confident"
+    moderate = client.post("/predict", json=API_PATIENTS["ambiguous_moderate"]).json()
+    assert moderate["confidence_label"] == "borderline" and moderate["borderline_between"] == ["Medium", "Low"]
+
+
+def test_confidence_label_matches_report_on_validation() -> None:
+    """reports/confidence_label_11feature_v2.md, validation column of "The shipped rule": 54.8% of
+    predictions confident at 0.8530 accuracy, borderline at 0.6792, and 7 of 165 true-High patients
+    shown as a confident Low/Medium. Validation rows only; the splits file has no test keys."""
+    import joblib
+    import numpy as np
+    from src.api.main import HIGH_PROBA_THRESHOLD, MODEL_PATH, PREPROCESSOR_PATH
+    from src.inference.confidence import confidence_label
+
+    splits = np.load("data/processed/mindcare_processed_splits_11feature_v2.npz")
+    assert "X_test" not in splits.files
+    y, prob = splits["y_val"], joblib.load(MODEL_PATH).predict_proba(splits["X_val"])
+    assert np.allclose(joblib.load(PREPROCESSOR_PATH).get_feature_names_out().shape[0], splits["X_val"].shape[1])
+    names = ["Low", "Medium", "High"]
+    pred = prob.argmax(axis=1)
+    confident = np.array([
+        confidence_label(dict(zip(names, map(float, row))), names[k], bool(row[2] >= HIGH_PROBA_THRESHOLD))["confidence_label"] == "confident"
+        for row, k in zip(prob, pred)])
+    correct = pred == y
+    assert round(float(confident.mean()), 3) == 0.548
+    assert round(float(correct[confident].mean()), 4) == 0.8530
+    assert round(float(correct[~confident].mean()), 4) == 0.6792
+    assert int(((y == 2) & confident & (pred != 2)).sum()) == 7
