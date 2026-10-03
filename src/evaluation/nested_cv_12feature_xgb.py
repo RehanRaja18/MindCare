@@ -24,12 +24,17 @@ The untouched outer fold is then scored, for all rows and for ages 18-49
 (the API's supported range).
 
 Writes reports/nested_cv_12feature_xgb.md. Modifies no model, API or doc file.
+
+Variants: run with no argument for the 12-feature model (above), or with
+`11feature_v2` for the canonical model since 2026-10-02 (Sweating Level
+removed; reports/nested_cv_11feature_v2_xgb.md). Same procedure, same rows.
 """
 
 from __future__ import annotations
 
 import json
 import math
+import sys
 import time
 from pathlib import Path
 
@@ -76,6 +81,35 @@ NUMERIC = [
 ]
 CATEGORICAL = ["Occupation", "Family History of Anxiety"]
 FEATURES = NUMERIC + CATEGORICAL
+SWEAT_JSON = ROOT / "reports" / "feature_reduction_sweatlevel_3class.json"
+VARIANTS = {
+    "12feature": {
+        "numeric": NUMERIC, "model": DEPLOYED_MODEL, "preprocessor": DEPLOYED_PREPROCESSOR,
+        "report": REPORT_PATH, "json": RESULTS_JSON,
+        "title": "12-Feature XGBoost Pipeline",
+        "model_file": "mindcare_final_model_12feature_xgb.pkl",
+        "reference_report": "reports/model_comparison_12feature.md",
+        "reference_balanced_accuracy": lambda: json.loads(
+            COMPARISON_JSON.read_text(encoding="utf-8"))["xgb_retuned"]["validation"]["balanced_accuracy"],
+        "extra_not_covered": [],
+    },
+    "11feature_v2": {
+        "numeric": [f for f in NUMERIC if f != "Sweating Level (1-5)"],
+        "model": ROOT / "data" / "processed" / "mindcare_final_model_11feature_v2_xgb.pkl",
+        "preprocessor": ROOT / "data" / "processed" / "mindcare_preprocessor_11feature_v2.pkl",
+        "report": ROOT / "reports" / "nested_cv_11feature_v2_xgb.md",
+        "json": ROOT / "reports" / "nested_cv_11feature_v2_xgb.json",
+        "title": "11-Feature v2 XGBoost Pipeline (Sweating Level removed)",
+        "model_file": "mindcare_final_model_11feature_v2_xgb.pkl",
+        "reference_report": "reports/feature_reduction_sweatlevel_3class.md",
+        "reference_balanced_accuracy": lambda: json.loads(
+            SWEAT_JSON.read_text(encoding="utf-8"))["validation"]["reduced_11"]["balanced_accuracy"],
+        "extra_not_covered": [
+            "- **Removing Sweating Level** (`reports/feature_reduction_sweatlevel_3class.md`), decided on validation"
+            " and paired cross-validation results from these rows.",
+        ],
+    },
+}
 CLASSES = ["Low", "Medium", "High"]
 HIGH = 2
 METRICS = [
@@ -84,9 +118,9 @@ METRICS = [
 ]
 
 
-def make_pipeline() -> Pipeline:
+def make_pipeline(numeric: list[str] = NUMERIC) -> Pipeline:
     preprocessor = ColumnTransformer([
-        ("num", StandardScaler(), NUMERIC),
+        ("num", StandardScaler(), numeric),
         ("cat", OneHotEncoder(handle_unknown="ignore"), CATEGORICAL),
     ])
     model = XGBClassifier(objective="multi:softprob", eval_metric="mlogloss", random_state=SEED, n_jobs=1)
@@ -115,7 +149,10 @@ def score(y: np.ndarray, prob: np.ndarray, threshold: float) -> dict[str, float]
     }
 
 
-def main() -> None:
+def main(variant: str = "12feature") -> None:
+    cfg = VARIANTS[variant]
+    numeric, features = cfg["numeric"], cfg["numeric"] + CATEGORICAL
+    print(f"variant: {variant} ({len(features)} features)")
     df = pd.read_csv(DATA_PATH)
     with np.load(SPLITS_PATH) as splits:
         assert "X_test" not in splits.files and "test_original_idx" not in splits.files
@@ -124,7 +161,7 @@ def main() -> None:
     data = df.iloc[rows].reset_index(drop=True)
     y = bin_anxiety_level(data["Anxiety Level (1-10)"].to_numpy())
     assert np.array_equal(y, y_saved), "labels rebuilt from the CSV must match the saved splits"
-    X = data[FEATURES]
+    X = data[features]
     eligible = (data["Age"] <= 49).to_numpy()
     print(f"Rows: {len(data)} (train + validation), of which ages 18-49: {int(eligible.sum())}")
 
@@ -138,7 +175,7 @@ def main() -> None:
         searches = {}
         for weighting in ("none", "balanced"):
             search = RandomizedSearchCV(
-                make_pipeline(),
+                make_pipeline(numeric),
                 {f"xgb__{k}": v for k, v in XGB_SPACE.items()},
                 n_iter=ITER_PER_WEIGHTING, scoring="balanced_accuracy", cv=INNER_CV,
                 random_state=SEED, n_jobs=-1, refit=True,
@@ -150,7 +187,7 @@ def main() -> None:
 
         # Threshold from the chosen configuration's INNER out-of-fold predictions.
         oof = cross_val_predict(
-            make_pipeline().set_params(**best.best_params_), X_tr, y_tr, cv=INNER_CV, method="predict_proba",
+            make_pipeline(numeric).set_params(**best.best_params_), X_tr, y_tr, cv=INNER_CV, method="predict_proba",
             params={"xgb__sample_weight": weights} if chosen == "balanced" else None,
         )
         threshold = coverage_threshold(oof[:, HIGH], y_tr == HIGH)
@@ -174,23 +211,23 @@ def main() -> None:
               f"flag catch {f['all']['flag_catch_rate']:.3f} ({time.time() - start:.0f}s)")
 
     # Validation-split reference: the deployed XGBoost on X_val (all rows and ages 18-49).
-    comparison = json.loads(COMPARISON_JSON.read_text(encoding="utf-8"))["xgb_retuned"]
     with np.load(SPLITS_PATH) as splits:
         val_rows, y_val = df.iloc[splits["val_original_idx"]].reset_index(drop=True), splits["y_val"]
-    prob_val = joblib.load(DEPLOYED_MODEL).predict_proba(joblib.load(DEPLOYED_PREPROCESSOR).transform(val_rows[FEATURES]))
+    prob_val = joblib.load(cfg["model"]).predict_proba(joblib.load(cfg["preprocessor"]).transform(val_rows[features]))
     val_elig = (val_rows["Age"] <= 49).to_numpy()
     reference = {"all": score(y_val, prob_val, DEPLOYED_THRESHOLD),
                  "eligible": score(y_val[val_elig], prob_val[val_elig], DEPLOYED_THRESHOLD)}
-    assert round(reference["all"]["balanced_accuracy"], 4) == round(comparison["validation"]["balanced_accuracy"], 4), \
-        "validation reference must match reports/model_comparison_12feature.json"
-    RESULTS_JSON.write_text(json.dumps(
+    assert round(reference["all"]["balanced_accuracy"], 4) == round(cfg["reference_balanced_accuracy"](), 4), \
+        f"validation reference must match {cfg['reference_report']}"
+    cfg["json"].write_text(json.dumps(
         {"folds": folds, "reference": reference, "n_rows": int(len(data)), "n_eligible": int(eligible.sum())},
         indent=2, default=float) + "\n", encoding="utf-8")
-    write_report(folds, reference, int(len(data)), int(eligible.sum()))
-    print(f"Saved {REPORT_PATH.relative_to(ROOT)} and {RESULTS_JSON.relative_to(ROOT)}")
+    write_report(folds, reference, int(len(data)), int(eligible.sum()), cfg)
+    print(f"Saved {cfg['report'].relative_to(ROOT)} and {cfg['json'].relative_to(ROOT)}")
 
 
-def write_report(folds: list[dict], reference: dict, n_rows: int, n_eligible: int) -> None:
+def write_report(folds: list[dict], reference: dict, n_rows: int, n_eligible: int, cfg: dict | None = None) -> None:
+    cfg = cfg or VARIANTS["12feature"]
     def summary(key: str) -> dict[str, tuple[float, float]]:
         return {m: (float(np.mean([f[key][m] for f in folds])), float(np.std([f[key][m] for f in folds])))
                 for m in METRICS}
@@ -257,11 +294,11 @@ def write_report(folds: list[dict], reference: dict, n_rows: int, n_eligible: in
 
     flag_all = nested["all"]
     lines = [
-        "# Nested Cross-Validation — 12-Feature XGBoost Pipeline (3-Class Anxiety Level)",
+        f"# Nested Cross-Validation — {cfg['title']} (3-Class Anxiety Level)",
         "",
         "Script: `src/evaluation/nested_cv_12feature_xgb.py`. Estimates how the whole pipeline — preprocessing,"
         " tuning and threshold choice — performs on data it never saw, and compares that with the single"
-        " validation-split figures in `reports/model_comparison_12feature.md`.",
+        f" validation-split figures in `{cfg['reference_report']}`.",
         "",
         "## Setup",
         "",
@@ -282,8 +319,8 @@ def write_report(folds: list[dict], reference: dict, n_rows: int, n_eligible: in
         " 0.025 was chosen to match, with the fewest flags. (The *smallest* threshold meeting the target would"
         " be 0, which flags everyone.)",
         "- **Scored on the untouched outer fold:** all rows, and ages 18-49 only (the API's supported range).",
-        "- **Validation-split reference:** the deployed model (`mindcare_final_model_12feature_xgb.pkl`) on"
-        " `X_val` at its 0.025 threshold. The all-rows headline figures match `reports/model_comparison_12feature.md`"
+        f"- **Validation-split reference:** the saved model (`{cfg['model_file']}`) on"
+        f" `X_val` at its 0.025 threshold. The all-rows headline figures match `{cfg['reference_report']}`"
         " (checked in the script); the 18-49 figures are computed the same way on that subset.",
         "",
         "## Per-Fold Choices",
@@ -337,6 +374,7 @@ def write_report(folds: list[dict], reference: dict, n_rows: int, n_eligible: in
         "",
         "- **The 17 → 11 → 12 feature reduction.** The features were chosen from SHAP rankings and validation"
         " results on these rows (`reports/feature_reduction_3class.md`, `reports/feature_addition_age_3class.md`).",
+        *cfg["extra_not_covered"],
         "- **Choosing XGBoost over Random Forest** (`reports/model_comparison_12feature.md`), made on validation"
         " and cross-validation results from these rows.",
         "- **The coverage target itself (158/165)**, which was copied from the Random Forest's validation result.",
@@ -347,8 +385,8 @@ def write_report(folds: list[dict], reference: dict, n_rows: int, n_eligible: in
         " decisions that led to it. Only fresh data can check that. The 3-class test set is already spent (used"
         " twice), and the dataset is very likely synthetic (see CLAUDE.md) — none of this is clinical validation.",
     ]
-    REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    cfg["report"].write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1] if len(sys.argv) > 1 else "12feature")
