@@ -231,6 +231,25 @@ report balanced accuracy, macro-F1, and per-class recall (especially High) for t
       coverage target, the label boundaries and the 18-49 age limit were all decided on this same
       data, outside the nested loop. The figures describe re-running this pipeline, not the whole
       chain of decisions. No test-set number exists for the current model.
+- **Confident / borderline label added, 2026-10-02:** every prediction (`/predict`, `/patient-summary`,
+  `predict_single.py`) now returns `confidence`, `confidence_label`, `borderline_reasons` and
+  `borderline_between`. The model and its predictions are unchanged, and **overall accuracy is
+  unchanged** — this is not an accuracy improvement and must not be described as one.
+  - **Rule** (`src/inference/confidence.py`): confident only if the top probability is >= 0.70 AND
+    it is not a flagged non-High prediction (P(High) >= 0.025 while predicting Low or Medium).
+  - **Decision log — why:** the user asked how to improve accuracy. Analysis showed a data ceiling:
+    75% of validation errors sit at the class borders (Anxiety Level 3/4 and 6/7), accuracy away
+    from the borders is 88.9%, and every model family tried lands at about 77-79%. Rather than
+    chase the number (Engineering rule 6), the system now says which predictions it is unsure of.
+  - **Evidence** (`src/experiments/confidence_label_analysis.py` →
+    `reports/confidence_label_11feature_v2.md`; out-of-fold over the 9,350 train + validation rows,
+    test set not used): 56.2% confident at 85.8% accuracy; borderline 70.2%. Validation split:
+    54.8% confident at 85.3%.
+  - **Why the flag condition:** a plain 0.70 cut-off labelled 108 of 968 true-High patients a
+    confident Medium; with the flag condition 33 remain (the ones the review flag also misses).
+    "Confident" means sure of the top class, not that the patient is safe.
+  - Tests: `test_confidence_label_rule`, `test_predict_and_summary_return_consistent_confidence_fields`,
+    `test_confidence_label_matches_report_on_validation`.
 - **Sweating Level removed, 2026-10-02 — canonical model is now "11-feature v2" XGBoost:** 9 numeric
   + 2 categorical. Same hyperparameters and 0.025 threshold as the 12-feature XGBoost; new
   preprocessor. Built by `src/models/adopt_11feature_v2_model.py`. The API, `input_validation.py`,

@@ -225,7 +225,11 @@ caffeine mg value and the *computed* Stress Level, not the raw serving counts or
   "uncertainty_flag": false,
   "warnings": [],
   "estimated_caffeine_mg": 95.0,
-  "estimated_stress_level": 2
+  "estimated_stress_level": 2,
+  "confidence": 0.9660,
+  "confidence_label": "confident",
+  "borderline_reasons": [],
+  "borderline_between": null
 }
 ```
 
@@ -247,6 +251,22 @@ caffeine mg value and the *computed* Stress Level, not the raw serving counts or
   from the 4 PSS answers (see "Stress Level: PSS-4 answers" above). Remember that the PSS-to-1–10
   mapping is this project's own unvalidated convention; display it as "the value the model
   used", not as a clinical stress score.
+- `confidence`: the largest of the three probabilities.
+- `confidence_label`: `"confident"` or `"borderline"` (added 2026-10-02). **It changes no prediction
+  and does not make the model more accurate**; it tells the reviewing psychologist which predictions
+  the model itself is unsure about. A prediction is `"confident"` only if `confidence` is at least
+  0.70 **and** it is not a flagged non-High prediction (`uncertainty_flag` true while
+  `predicted_class` is Low or Medium). Evidence
+  ([`reports/confidence_label_11feature_v2.md`](../reports/confidence_label_11feature_v2.md),
+  out-of-fold over the 9,350 train + validation rows): 56.2% of predictions are confident and 85.8%
+  of those are correct; borderline predictions are 70.2% correct. **"Confident" means the model is
+  sure of its top class, not that the patient is safe**: 33 of 968 High patients were still shown as
+  a confident Low or Medium. Every prediction needs psychologist review regardless.
+- `borderline_reasons`: empty when confident. Otherwise one or both of `"top probability below 0.70"`
+  and `"flagged as possibly High while predicting a lower class"`.
+- `borderline_between`: `null` when confident. Otherwise the classes the prediction is unsure
+  between: its two most likely classes when the top probability is low, plus `"High"` when it is
+  flagged as possibly High. Example: `["Medium", "Low"]`, `["Medium", "High"]`.
 
 ### Response body — 422 (rejected)
 
@@ -317,7 +337,11 @@ Content-Type: application/json
   "uncertainty_flag": false,
   "warnings": [],
   "estimated_caffeine_mg": 95.0,
-  "estimated_stress_level": 2
+  "estimated_stress_level": 2,
+  "confidence": 0.9660267233848572,
+  "confidence_label": "confident",
+  "borderline_reasons": [],
+  "borderline_between": null
 }
 ```
 
@@ -354,7 +378,7 @@ access logs as query parameters.
 | Field | Meaning |
 |---|---|
 | `caveat` | The fixed caveat above. Always present. |
-| `predicted_class`, `probabilities`, `uncertainty_flag`, `warnings`, `estimated_caffeine_mg`, `estimated_stress_level` | Identical to `/predict` for identical input. `predicted_class` is the **model's actual prediction**. |
+| `predicted_class`, `probabilities`, `uncertainty_flag`, `warnings`, `estimated_caffeine_mg`, `estimated_stress_level`, `confidence`, `confidence_label`, `borderline_reasons`, `borderline_between` | Identical to `/predict` for identical input. `predicted_class` is the **model's actual prediction**. |
 | `estimated_severity_tier` | One of `Minimal (1-2)`, `Mild (3-4)`, `Moderate (5-6)`, `High (7-8)`, `Severe (9-10)`. **An estimate, not a model prediction** (see below). |
 | `severity_tier_basis` | How the tier was chosen: `method`, `share_of_matching_patients` (how often this tier was right for dataset patients with the same predicted level and stress level; `null` if there were none) and `matching_patients`. |
 | `recommendation_bundle` | `exercises`, `sleep_schedule`, `nutrition`: the dataset's fixed template text for the estimated tier, with the patient's Sleep Hours, caffeine (over/under 200 mg), alcohol (0 or not) and protein (by Gender) filled in. |
@@ -381,6 +405,10 @@ answers 3/1/1/3, plus `"Gender": "Female"` and `"Alcohol Consumption (drinks/wee
   "warnings": [],
   "estimated_caffeine_mg": 284.0,
   "estimated_stress_level": 8,
+  "confidence": 0.8181824088096619,
+  "confidence_label": "confident",
+  "borderline_reasons": [],
+  "borderline_between": null,
   "estimated_severity_tier": "Moderate (5-6)",
   "severity_tier_basis": {
     "method": "most common tier for this predicted level and stress level in the data",

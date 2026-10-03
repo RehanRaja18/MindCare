@@ -722,6 +722,32 @@ Not yet done for the 5-class Severity target (`CLAUDE.md`, Pipeline Status).
 
 ---
 
+## Confident / Borderline Label (added 2026-10-02 — `reports/confidence_label_11feature_v2.md`)
+
+Each prediction now carries a `confidence_label`. **It changes no prediction and does not raise
+accuracy.** It separates the predictions that are usually right from the ones close to a
+coin-flip, so the reviewing psychologist knows where their own judgement matters most.
+
+- **Why:** 75% of the model's validation errors are at the class borders (Anxiety Level 3 vs 4, and
+  6 vs 7), where the inputs can't tell patients apart. Away from the borders it is 88.9% accurate.
+  No model tried (logistic regression, Random Forest, XGBoost, ensembles) gets past about 77–79%
+  overall, so the limit is in the data.
+- **Rule** (`src/inference/confidence.py`): **confident** only if the top probability is ≥ 0.70 **and**
+  the prediction is not a flagged non-High one (P(High) ≥ 0.025 while predicting Low or Medium).
+  Otherwise **borderline**.
+- **Evidence, out-of-fold over the 9,350 train + validation rows:** 56.2% of predictions are
+  confident, and 85.8% of those are correct. Borderline predictions are 70.2% correct. On the
+  validation split: 54.8% confident at 85.3%, borderline at 67.9%. Ages 18–49: 57.1% confident at
+  87.0%.
+- **Why the flag is part of the rule:** with a plain 0.70 cut-off, 108 of 968 true-High patients
+  were labelled a confident Medium. With the flag condition, 33 remain, the ones the review flag
+  also misses.
+- **Limit:** "confident" means the model is sure of its top class, not that the patient is safe.
+  The cut-off was chosen on the same rows it is reported on, so the confident-group accuracy may be
+  slightly optimistic. The test set was not used.
+
+---
+
 ## Uncertainty / Abstention Mechanism (Phase 16 — `src/models/uncertainty_flagging.py`, `reports/uncertainty_flagging.md`)
 
 > **Current rule (since 2026-09-28): P(High) ≥ 0.025 on the XGBoost model.** Unchanged for the
