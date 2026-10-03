@@ -1,9 +1,10 @@
 """Smoke tests for the FastAPI service (src/api/main.py), using FastAPI's
 TestClient.
 
-The API's request shape (serving counts for caffeine, 12 features - the
-11-feature reduced set plus Age, re-added 2026-09-22,
-reports/feature_addition_age_3class.md) differs from
+The API's request shape (serving counts for caffeine, 11 features - the
+"11-feature v2" set: Age re-added 2026-09-22,
+reports/feature_addition_age_3class.md, and Sweating Level removed
+2026-10-02, reports/feature_reduction_sweatlevel_3class.md) differs from
 src/inference/predict_single.py's EXAMPLE_PATIENTS (which speaks raw
 "Caffeine Intake (mg/day)" directly, since it's an internal debug script,
 not the API's patient-facing form) - so patients here are built by taking
@@ -77,7 +78,7 @@ def test_serves_xgboost_with_its_review_threshold(client: TestClient) -> None:
 
     from src.api.main import HIGH_PROBA_THRESHOLD, MODEL_PATH, ml_artifacts
 
-    assert MODEL_PATH.name == "mindcare_final_model_12feature_xgb.pkl"
+    assert MODEL_PATH.name == "mindcare_final_model_11feature_v2_xgb.pkl"  # Sweating Level removed 2026-10-02
     assert isinstance(ml_artifacts["model"], XGBClassifier)
     assert HIGH_PROBA_THRESHOLD == 0.025
 
@@ -270,6 +271,23 @@ def test_dropped_fields_still_ignored_by_schema(client: TestClient) -> None:
     assert response.status_code == 200
 
 
+def test_sweating_level_is_no_longer_an_input(client: TestClient) -> None:
+    """Sweating Level (1-5) was removed on 2026-10-02
+    (reports/feature_reduction_sweatlevel_3class.md). It is not required, and a caller that
+    still sends it gets exactly the same prediction - the value is ignored, whatever it is."""
+    from src.inference.input_validation import ALL_FEATURES
+
+    assert "Sweating Level (1-5)" not in ALL_FEATURES and len(ALL_FEATURES) == 11
+    patient = API_PATIENTS["ambiguous_moderate"]
+    assert "Sweating Level (1-5)" not in patient
+    without = client.post("/predict", json=patient)
+    assert without.status_code == 200
+    for value in (1, 5, 250):
+        with_field = client.post("/predict", json={**patient, "Sweating Level (1-5)": value})
+        assert with_field.status_code == 200
+        assert with_field.json() == without.json()
+
+
 def test_age_is_required(client: TestClient) -> None:
     """Age is a required field again (re-added 2026-09-22) - omitting it
     should fail Pydantic validation (422), not silently default or 200."""
@@ -434,3 +452,4 @@ def test_estimate_tier_lookup_and_fallback() -> None:
     unseen = estimate_tier("High", 1)  # High with stress 1-4 never occurs -> band rule, anxiety midpoint 8.5
     assert unseen["n"] == 0 and unseen["share"] is None
     assert unseen["tier"] == severity_band(8.5, 1) == "Moderate (5-6)"
+
