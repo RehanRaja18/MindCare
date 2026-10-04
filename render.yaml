@@ -1,0 +1,21 @@
+# Render Blueprint for the MindCare anxiety-risk API (FastAPI, src/api/main.py).
+# Setup, environment variables and redeploys: docs/deployment.md.
+services:
+  - type: web
+    name: mindcare-api
+    runtime: python
+    plan: free
+    # The branch Render builds from. Change it if the work is merged into another branch.
+    branch: mindcare-anxiety-model
+    autoDeploy: true
+    # The model artifacts are gitignored, so every build regenerates them from the raw CSV with the
+    # same 7 scripts as docs/setup.md. Any step that doesn't reproduce its documented numbers fails
+    # the build, and Render keeps serving the previous deploy.
+    buildCommand: pip install -r requirements.txt && bash scripts/build_model_artifacts.sh
+    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      # Matches the interpreter the project is developed and tested with (and the version the
+      # pinned scikit-learn==1.9.1 / xgboost==3.4.1 pickles are built with).
+      - key: PYTHON_VERSION
+        value: 3.13.13
