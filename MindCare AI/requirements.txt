@@ -1,0 +1,12 @@
+pandas
+scikit-learn==1.9.1
+xgboost==3.4.1
+joblib
+matplotlib
+seaborn
+shap
+pytest
+fastapi
+uvicorn
+pydantic
+httpx

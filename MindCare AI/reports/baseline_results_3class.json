@@ -1,0 +1,128 @@
+{
+  "seed": 42,
+  "evaluation_split": "validation",
+  "class_labels": [
+    0,
+    1,
+    2
+  ],
+  "class_names": [
+    "Low",
+    "Medium",
+    "High"
+  ],
+  "models": {
+    "majority_dummy": {
+      "accuracy": 0.4715151515151515,
+      "balanced_accuracy": 0.3333333333333333,
+      "macro_f1": 0.21361889071938497,
+      "confusion_matrix": [
+        [
+          778,
+          0,
+          0
+        ],
+        [
+          707,
+          0,
+          0
+        ],
+        [
+          165,
+          0,
+          0
+        ]
+      ],
+      "per_class_recall": {
+        "Low": 1.0,
+        "Medium": 0.0,
+        "High": 0.0
+      },
+      "high_class_recall": 0.0
+    },
+    "logistic_regression": {
+      "accuracy": 0.7775757575757576,
+      "balanced_accuracy": 0.8076103901245798,
+      "macro_f1": 0.818579851663798,
+      "confusion_matrix": [
+        [
+          616,
+          162,
+          0
+        ],
+        [
+          185,
+          519,
+          3
+        ],
+        [
+          0,
+          17,
+          148
+        ]
+      ],
+      "per_class_recall": {
+        "Low": 0.7917737789203085,
+        "Medium": 0.7340876944837341,
+        "High": 0.896969696969697
+      },
+      "high_class_recall": 0.896969696969697
+    },
+    "random_forest": {
+      "accuracy": 0.7703030303030303,
+      "balanced_accuracy": 0.8024259752453394,
+      "macro_f1": 0.8150135645186074,
+      "confusion_matrix": [
+        [
+          605,
+          173,
+          0
+        ],
+        [
+          188,
+          518,
+          1
+        ],
+        [
+          0,
+          17,
+          148
+        ]
+      ],
+      "per_class_recall": {
+        "Low": 0.7776349614395887,
+        "Medium": 0.7326732673267327,
+        "High": 0.896969696969697
+      },
+      "high_class_recall": 0.896969696969697
+    },
+    "xgboost": {
+      "accuracy": 0.7709090909090909,
+      "balanced_accuracy": 0.8025962640333075,
+      "macro_f1": 0.8144277058350718,
+      "confusion_matrix": [
+        [
+          612,
+          166,
+          0
+        ],
+        [
+          193,
+          512,
+          2
+        ],
+        [
+          0,
+          17,
+          148
+        ]
+      ],
+      "per_class_recall": {
+        "Low": 0.7866323907455013,
+        "Medium": 0.7241867043847242,
+        "High": 0.896969696969697
+      },
+      "high_class_recall": 0.896969696969697
+    }
+  }
+}

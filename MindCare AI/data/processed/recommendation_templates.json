@@ -1,0 +1,175 @@
+{
+  "source": "data/raw/mindcare_dataset_final.csv, train + validation rows only",
+  "rows": 9350,
+  "built_by": "src/build_recommendation_templates.py",
+  "caffeine_threshold_mg": 200,
+  "protein_by_gender": {
+    "Female": 50,
+    "Male": 58,
+    "Other": 54
+  },
+  "tiers": {
+    "Minimal (1-2)": {
+      "exercises": "Diaphragmatic Breathing 5 min/day; Brisk Walking 30 min/day 5x/week; Light Stretching 10 min/day; PMR 10 min/day",
+      "sleep_base": "Target: 7-9 hrs/night; Fixed sleep/wake time; No screens 30 min before bed",
+      "sleep_reference_hours": 7.0,
+      "nutrition_base": "Omega-3: 250-500 mg EPA+DHA/day; Magnesium: 310-420 mg/day; Fruits & vegetables 5 portions/day; Whole grains; <CAFFEINE>; <ALCOHOL>"
+    },
+    "Mild (3-4)": {
+      "exercises": "4-7-8 Breathing 2x/day 5 min each; Box Breathing 5 min/day; Brisk Walking/Jogging 30 min/day 5x/week; Yoga 2x/week 30 min; PMR 15 min/day",
+      "sleep_base": "Target: 7-9 hrs/night; No caffeine after 14:00; Wind-down routine 1 hr before bed; Dim lights after 21:00",
+      "sleep_reference_hours": 7.5,
+      "nutrition_base": "Omega-3: 500 mg EPA+DHA/day; Magnesium: 400 mg/day; Vitamin B-complex daily; Free sugar <10% total energy; Whole grains + legumes; <CAFFEINE>; <ALCOHOL>"
+    },
+    "Moderate (5-6)": {
+      "exercises": "4-7-8 Breathing 3x/day 5 min each; Alternate Nostril Breathing 10 min/day; Walking/Swimming 30 min/day 5x/week; Yoga or Tai Chi 3x/week 45 min; PMR 20 min/day; Mindfulness Meditation 15 min/day",
+      "sleep_base": "Target: 8 hrs/night; Fixed wake time daily; No screens 1 hr before bed; Blue-light filter from 20:00; No caffeine after 13:00; Magnesium 200 mg before bed (consult physician)",
+      "sleep_reference_hours": 8.0,
+      "nutrition_base": "Omega-3: 1000 mg EPA+DHA/day; Magnesium: 400-420 mg/day; Zinc: 8-11 mg/day; Probiotics daily (yogurt/kefir); Free sugar <5% total energy; Eliminate ultra-processed foods; <CAFFEINE>; <ALCOHOL>"
+    },
+    "High (7-8)": {
+      "exercises": "4-7-8 Breathing 3x/day 5 min each; Pursed-Lip Breathing during acute episodes; Coherent Breathing 6 breaths/min 15 min/day; Gentle Walking 20-30 min/day; Gentle Yoga 3-4x/week 30 min; PMR 20 min/day; MBSR 30 min/day; 5-4-3-2-1 Grounding Technique as needed",
+      "sleep_base": "Target: 8-9 hrs/night; Bedtime 22:30 Wake 06:30; No alcohol 3 hrs before sleep; No screens 1.5 hrs before bed; Room temp 18-20C; No caffeine after 12:00",
+      "sleep_reference_hours": 8.5,
+      "nutrition_base": "Omega-3: 1500 mg EPA+DHA/day; Magnesium: 420 mg/day; L-Theanine: 100-200 mg/day; Mediterranean diet strictly; Meals every 3-4 hrs; Eliminate refined sugar + processed foods; <CAFFEINE>; <ALCOHOL>"
+    },
+    "Severe (9-10)": {
+      "exercises": "Pursed-Lip + Diaphragmatic Breathing combo during panic; Controlled Breathing 6 breaths/min 20 min 3x/day; Supervised Light Walking 15-20 min/day; Chair Yoga or Stretching supervised; PMR 20 min 2x/day; 5-4-3-2-1 Grounding as needed; Biofeedback Therapy recommended",
+      "sleep_base": "Target: 9 hrs/night; Rigid sleep schedule strictly enforced; No stimulants after 12:00; Digital blackout from 21:00; Sleep study referral if insomnia >2 weeks",
+      "sleep_reference_hours": 9.0,
+      "nutrition_base": "Omega-3: 2000 mg EPA+DHA/day; Magnesium glycinate: 400 mg/day (physician-supervised); Eliminate all caffeine + alcohol + sugar + processed foods; Mediterranean diet strictly; Small meals every 3 hrs; Water: 2.5 L/day minimum; Dietitian referral required; <CAFFEINE>; <ALCOHOL>"
+    }
+  },
+  "tier_lookup": {
+    "High|5": {
+      "tier": "Moderate (5-6)",
+      "share": 1.0,
+      "n": 1
+    },
+    "High|6": {
+      "tier": "Moderate (5-6)",
+      "share": 1.0,
+      "n": 3
+    },
+    "High|7": {
+      "tier": "High (7-8)",
+      "share": 1.0,
+      "n": 10
+    },
+    "High|8": {
+      "tier": "High (7-8)",
+      "share": 0.7004,
+      "n": 267
+    },
+    "High|9": {
+      "tier": "Severe (9-10)",
+      "share": 0.6098,
+      "n": 328
+    },
+    "High|10": {
+      "tier": "Severe (9-10)",
+      "share": 0.8496,
+      "n": 359
+    },
+    "Low|1": {
+      "tier": "Minimal (1-2)",
+      "share": 1.0,
+      "n": 781
+    },
+    "Low|2": {
+      "tier": "Minimal (1-2)",
+      "share": 1.0,
+      "n": 754
+    },
+    "Low|3": {
+      "tier": "Minimal (1-2)",
+      "share": 0.642,
+      "n": 662
+    },
+    "Low|4": {
+      "tier": "Mild (3-4)",
+      "share": 0.8682,
+      "n": 584
+    },
+    "Low|5": {
+      "tier": "Mild (3-4)",
+      "share": 1.0,
+      "n": 571
+    },
+    "Low|6": {
+      "tier": "Mild (3-4)",
+      "share": 1.0,
+      "n": 377
+    },
+    "Low|7": {
+      "tier": "Moderate (5-6)",
+      "share": 0.7055,
+      "n": 292
+    },
+    "Low|8": {
+      "tier": "Moderate (5-6)",
+      "share": 0.9754,
+      "n": 203
+    },
+    "Low|9": {
+      "tier": "Moderate (5-6)",
+      "share": 1.0,
+      "n": 116
+    },
+    "Low|10": {
+      "tier": "Moderate (5-6)",
+      "share": 1.0,
+      "n": 81
+    },
+    "Medium|1": {
+      "tier": "Minimal (1-2)",
+      "share": 0.9574,
+      "n": 47
+    },
+    "Medium|2": {
+      "tier": "Mild (3-4)",
+      "share": 1.0,
+      "n": 100
+    },
+    "Medium|3": {
+      "tier": "Mild (3-4)",
+      "share": 1.0,
+      "n": 143
+    },
+    "Medium|4": {
+      "tier": "Mild (3-4)",
+      "share": 0.9793,
+      "n": 241
+    },
+    "Medium|5": {
+      "tier": "Mild (3-4)",
+      "share": 0.7055,
+      "n": 326
+    },
+    "Medium|6": {
+      "tier": "Moderate (5-6)",
+      "share": 1.0,
+      "n": 461
+    },
+    "Medium|7": {
+      "tier": "Moderate (5-6)",
+      "share": 1.0,
+      "n": 554
+    },
+    "Medium|8": {
+      "tier": "Moderate (5-6)",
+      "share": 0.8493,
+      "n": 657
+    },
+    "Medium|9": {
+      "tier": "High (7-8)",
+      "share": 0.6323,
+      "n": 699
+    },
+    "Medium|10": {
+      "tier": "High (7-8)",
+      "share": 1.0,
+      "n": 733
+    }
+  }
+}

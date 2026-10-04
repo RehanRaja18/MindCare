@@ -1,0 +1,52 @@
+{
+  "seed": 42,
+  "cv_folds": 5,
+  "n_iter": 20,
+  "cv_scoring": "balanced_accuracy",
+  "search_training_split": "train",
+  "evaluation_split": "validation",
+  "class_names": [
+    "Low",
+    "Medium",
+    "High"
+  ],
+  "tuning_time_seconds": 69.53202986717224,
+  "mlp": {
+    "best_cv_score": 0.8104095693464515,
+    "best_params": {
+      "learning_rate_init": 0.001,
+      "hidden_layer_sizes": [
+        100
+      ],
+      "alpha": 0.001,
+      "activation": "tanh"
+    },
+    "actual_training_iterations": 56,
+    "tuned_validation": {
+      "accuracy": 0.7733333333333333,
+      "balanced_accuracy": 0.8041379532738437,
+      "macro_f1": 0.8160157528552467,
+      "high_class_recall": 0.896969696969697
+    }
+  },
+  "comparison": {
+    "random_forest_tuned": {
+      "accuracy": 0.7733333333333333,
+      "balanced_accuracy": 0.8055578345201395,
+      "macro_f1": 0.8177090962684819,
+      "high_class_recall": 0.896969696969697
+    },
+    "xgboost_tuned": {
+      "accuracy": 0.776969696969697,
+      "balanced_accuracy": 0.8074401013366118,
+      "macro_f1": 0.8175027507537123,
+      "high_class_recall": 0.896969696969697
+    },
+    "mlp_tuned": {
+      "accuracy": 0.7733333333333333,
+      "balanced_accuracy": 0.8041379532738437,
+      "macro_f1": 0.8160157528552467,
+      "high_class_recall": 0.896969696969697
+    }
+  }
+}
