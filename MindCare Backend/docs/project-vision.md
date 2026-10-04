@@ -122,12 +122,18 @@ Contains the AI/ML work, including:
 
 * dataset preparation
 * model training
-* recommendation models
-* trigger SOS in emergency
+* anxiety-risk prediction (Low / Medium / High) for psychologist review
+* a confident / borderline label on each prediction, so psychologists know which predictions the model is unsure of
+* a patient-summary estimate: an estimated severity tier and the matching recommendation bundle from the
+  dataset's templates. This is an estimate, not a trained recommendation model (see
+  `MindCare AI/reports/recommendation_mapping_investigation.md`)
 * inference
 * AI services
 * model evaluation
 * AI-specific experimentation
+
+The emergency/SOS mechanism (§27) and the AI chat assistants (§14) are not part of MindCare AI's
+current deliverables.
 
 ### MindCare App
 
@@ -1309,9 +1315,10 @@ Feature engineering
 Model selection
 Training
 Evaluation
+Anxiety-risk prediction
+Confident/borderline prediction label
+Patient-summary estimate
 Recommendation system
-AI feedback
-AI assistants
 Inference
 AI/backend integration
 ```

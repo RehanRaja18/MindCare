@@ -1,0 +1,992 @@
+{
+  "rf_current": {
+    "validation": {
+      "accuracy": 0.7739393939393939,
+      "balanced_accuracy": 0.8061583903524395,
+      "macro_f1": 0.8182090026857564,
+      "high_recall": 0.896969696969697
+    },
+    "per_class": {
+      "Low": {
+        "precision": 0.7838926174496644,
+        "recall": 0.7506426735218509,
+        "auroc": 0.8752594278436829,
+        "auprc": 0.8553280031272181
+      },
+      "Medium": {
+        "precision": 0.7208994708994709,
+        "recall": 0.7708628005657708,
+        "auroc": 0.8512856587885724,
+        "auprc": 0.7644572628864577
+      },
+      "High": {
+        "precision": 0.9932885906040269,
+        "recall": 0.896969696969697,
+        "auroc": 0.9865564738292011,
+        "auprc": 0.9529799517901846
+      }
+    },
+    "macro_auroc": 0.9043671868204854,
+    "macro_auprc": 0.85758840593462,
+    "confusion": [
+      [
+        584,
+        194,
+        0
+      ],
+      [
+        161,
+        545,
+        1
+      ],
+      [
+        0,
+        17,
+        148
+      ]
+    ],
+    "cv": {
+      "accuracy": [
+        0.7876623376623376,
+        0.012934960621287002
+      ],
+      "balanced_accuracy": [
+        0.8092881015838005,
+        0.01539501648089031
+      ],
+      "macro_f1": [
+        0.8241591256323518,
+        0.012847337891077202
+      ],
+      "high_recall": [
+        0.8717857142857144,
+        0.024181179506881898
+      ]
+    },
+    "seed_balanced_accuracy": [
+      0.8071181888662607,
+      0.0010665099999500514,
+      0.8061583903524395,
+      0.8088151378487095
+    ],
+    "calibration": {
+      "log_loss": 0.5202173109016518,
+      "brier_Low": 0.1470279806423855,
+      "brier_Medium": 0.1598462040056492,
+      "brier_High": 0.01321461875011586,
+      "ece_Low": 0.06081943915361595,
+      "ece_Medium": 0.06028216265501173,
+      "ece_High": 0.03317837354092449
+    },
+    "flag": {
+      "flagged": 363,
+      "true_high_caught": 158,
+      "true_high_total": 165,
+      "false_flag_rate": 0.5647382920110193,
+      "high_predicted_medium_misses": 17,
+      "misses_caught_by_flag": 10,
+      "flags_needed_for_high_recall": {
+        "150": 169,
+        "155": 236,
+        "158": 360,
+        "160": 400,
+        "163": 527,
+        "165": 772
+      },
+      "union_misses_total": 17,
+      "union_misses_caught": 10
+    },
+    "shap": {
+      "Stress Level (1-10)": 0.3755710894847026,
+      "Therapy Sessions (per month)": 0.13195336273052813,
+      "Sleep Hours": 0.12521246056709806,
+      "Caffeine Intake (mg/day)": 0.11041208850368849,
+      "Diet Quality (1-10)": 0.05903431022354118,
+      "Physical Activity (hrs/week)": 0.039168982154518,
+      "Heart Rate (bpm)": 0.037833049721742014,
+      "Family History of Anxiety": 0.02788169959055157,
+      "Breathing Rate (breaths/min)": 0.025272038626152755,
+      "Occupation": 0.024776157185815034,
+      "Age": 0.022529410160472434,
+      "Sweating Level (1-5)": 0.02035535105118978
+    },
+    "fairness": {
+      "occupation": {
+        "groups": {
+          "Artist": {
+            "n": 128,
+            "balanced_accuracy": 0.8191438191438191,
+            "high_n": 10,
+            "high_recall": 1.0
+          },
+          "Athlete": {
+            "n": 100,
+            "balanced_accuracy": 0.8699102829537612,
+            "high_n": 12,
+            "high_recall": 1.0
+          },
+          "Chef": {
+            "n": 131,
+            "balanced_accuracy": 0.7976448155019584,
+            "high_n": 16,
+            "high_recall": 0.875
+          },
+          "Doctor": {
+            "n": 140,
+            "balanced_accuracy": 0.8264355887643559,
+            "high_n": 12,
+            "high_recall": 0.9166666666666666
+          },
+          "Engineer": {
+            "n": 117,
+            "balanced_accuracy": 0.7860557053009883,
+            "high_n": 14,
+            "high_recall": 0.7857142857142857
+          },
+          "Freelancer": {
+            "n": 132,
+            "balanced_accuracy": 0.8149530127142067,
+            "high_n": 9,
+            "high_recall": 0.8888888888888888
+          },
+          "Lawyer": {
+            "n": 115,
+            "balanced_accuracy": 0.8217283950617285,
+            "high_n": 11,
+            "high_recall": 1.0
+          },
+          "Musician": {
+            "n": 122,
+            "balanced_accuracy": 0.8095238095238096,
+            "high_n": 10,
+            "high_recall": 1.0
+          },
+          "Nurse": {
+            "n": 145,
+            "balanced_accuracy": 0.7878300803673938,
+            "high_n": 13,
+            "high_recall": 0.8461538461538461
+          },
+          "Other": {
+            "n": 135,
+            "balanced_accuracy": 0.8105130941265394,
+            "high_n": 18,
+            "high_recall": 0.9444444444444444
+          },
+          "Scientist": {
+            "n": 132,
+            "balanced_accuracy": 0.7619721808246398,
+            "high_n": 16,
+            "high_recall": 0.75
+          },
+          "Student": {
+            "n": 118,
+            "balanced_accuracy": 0.804748999870951,
+            "high_n": 14,
+            "high_recall": 0.8571428571428571
+          },
+          "Teacher": {
+            "n": 135,
+            "balanced_accuracy": 0.8064004096262161,
+            "high_n": 10,
+            "high_recall": 0.9
+          }
+        },
+        "balanced_accuracy_range": 0.10793810212912136,
+        "high_recall_range_reliable": 0.19444444444444442
+      },
+      "age_band": {
+        "groups": {
+          "18-29": {
+            "n": 422,
+            "balanced_accuracy": 0.8185282191009798,
+            "high_n": 48,
+            "high_recall": 0.8958333333333334
+          },
+          "30-40": {
+            "n": 415,
+            "balanced_accuracy": 0.8070344944486821,
+            "high_n": 60,
+            "high_recall": 0.9
+          },
+          "41-49": {
+            "n": 332,
+            "balanced_accuracy": 0.812497773251946,
+            "high_n": 53,
+            "high_recall": 0.9622641509433962
+          },
+          "50-64": {
+            "n": 481,
+            "balanced_accuracy": 0.506440713757787,
+            "high_n": 4,
+            "high_recall": 0.0
+          }
+        },
+        "balanced_accuracy_range": 0.31208750534319285,
+        "high_recall_range_reliable": 0.06643081761006286
+      },
+      "gender": {
+        "groups": {
+          "Female": {
+            "n": 564,
+            "balanced_accuracy": 0.7911243707711747,
+            "high_n": 47,
+            "high_recall": 0.8723404255319149
+          },
+          "Male": {
+            "n": 549,
+            "balanced_accuracy": 0.7999008752685223,
+            "high_n": 64,
+            "high_recall": 0.90625
+          },
+          "Other": {
+            "n": 537,
+            "balanced_accuracy": 0.8269750646562241,
+            "high_n": 54,
+            "high_recall": 0.9074074074074074
+          }
+        },
+        "balanced_accuracy_range": 0.035850693885049356,
+        "high_recall_range_reliable": 0.03506698187549251
+      }
+    },
+    "robustness": {
+      "baseline_balanced_accuracy": 0.8061583903524395,
+      "knockout": {
+        "Age": {
+          "balanced_accuracy": 0.803587696265036,
+          "high_recall": 0.896969696969697
+        },
+        "Sleep Hours": {
+          "balanced_accuracy": 0.7859615891813198,
+          "high_recall": 0.8424242424242424
+        },
+        "Physical Activity (hrs/week)": {
+          "balanced_accuracy": 0.8044445942941705,
+          "high_recall": 0.896969696969697
+        },
+        "Caffeine Intake (mg/day)": {
+          "balanced_accuracy": 0.5232010274108572,
+          "high_recall": 0.048484848484848485
+        },
+        "Stress Level (1-10)": {
+          "balanced_accuracy": 0.3570483195950884,
+          "high_recall": 0.0
+        },
+        "Heart Rate (bpm)": {
+          "balanced_accuracy": 0.80662986607144,
+          "high_recall": 0.896969696969697
+        },
+        "Breathing Rate (breaths/min)": {
+          "balanced_accuracy": 0.8065007859581405,
+          "high_recall": 0.896969696969697
+        },
+        "Sweating Level (1-5)": {
+          "balanced_accuracy": 0.8065007859581405,
+          "high_recall": 0.896969696969697
+        },
+        "Therapy Sessions (per month)": {
+          "balanced_accuracy": 0.5067830690524066,
+          "high_recall": 0.0
+        },
+        "Diet Quality (1-10)": {
+          "balanced_accuracy": 0.7477446385843138,
+          "high_recall": 0.7212121212121212
+        },
+        "Occupation": {
+          "balanced_accuracy": 0.8057711500125407,
+          "high_recall": 0.896969696969697
+        },
+        "Family History of Anxiety": {
+          "balanced_accuracy": 0.8020029803200664,
+          "high_recall": 0.896969696969697
+        }
+      },
+      "noise_balanced_accuracy": {
+        "0.25": 0.76078325056156,
+        "0.5": 0.6886536762379873,
+        "1.0": 0.5557511278120101
+      },
+      "stress_shift_predicted_high_fraction": {
+        "0": 0.0903030303030303,
+        "-3": 0.0,
+        "-2": 0.03090909090909091,
+        "-1": 0.06545454545454546,
+        "1": 0.0903030303030303,
+        "2": 0.0903030303030303,
+        "3": 0.0903030303030303
+      },
+      "age_sensitivity_mean_p_high": {
+        "18": 0.909522562194784,
+        "30": 0.9156954314862122,
+        "40": 0.9168342761411402,
+        "49": 0.9034626221020526,
+        "55": 0.6280876839538894
+      }
+    },
+    "practical": {
+      "predict_ms": 37.21765100000084,
+      "pickle_mb": 9.157602
+    }
+  },
+  "rf_retuned": {
+    "validation": {
+      "accuracy": 0.7757575757575758,
+      "balanced_accuracy": 0.8073576839872749,
+      "macro_f1": 0.8194963068792219,
+      "high_recall": 0.896969696969697
+    },
+    "per_class": {
+      "Low": {
+        "precision": 0.7832446808510638,
+        "recall": 0.7570694087403599,
+        "auroc": 0.8775058371264829,
+        "auprc": 0.8594748948383268
+      },
+      "Medium": {
+        "precision": 0.7249666221628839,
+        "recall": 0.768033946251768,
+        "auroc": 0.8533510524208003,
+        "auprc": 0.7706752382656025
+      },
+      "High": {
+        "precision": 0.9932885906040269,
+        "recall": 0.896969696969697,
+        "auroc": 0.9848423630241812,
+        "auprc": 0.949668108227962
+      }
+    },
+    "macro_auroc": 0.905233084190488,
+    "macro_auprc": 0.8599394137772971,
+    "confusion": [
+      [
+        589,
+        189,
+        0
+      ],
+      [
+        163,
+        543,
+        1
+      ],
+      [
+        0,
+        17,
+        148
+      ]
+    ],
+    "cv": {
+      "accuracy": [
+        0.7877922077922077,
+        0.012499957834302317
+      ],
+      "balanced_accuracy": [
+        0.8093034476549013,
+        0.015078764115738491
+      ],
+      "macro_f1": [
+        0.8242160932659264,
+        0.01252569571055941
+      ],
+      "high_recall": [
+        0.8717857142857144,
+        0.024181179506881898
+      ]
+    },
+    "seed_balanced_accuracy": [
+      0.8071949097223345,
+      0.0011243255937748158,
+      0.8050433320967058,
+      0.8082145820164094
+    ],
+    "calibration": {
+      "log_loss": 0.5096425339223828,
+      "brier_Low": 0.14441532299547652,
+      "brier_Medium": 0.15671631204940267,
+      "brier_High": 0.013276056532921736,
+      "ece_Low": 0.044273382159417514,
+      "ece_Medium": 0.05494502703520268,
+      "ece_High": 0.030230214399999233
+    },
+    "flag": {
+      "flagged": 352,
+      "true_high_caught": 156,
+      "true_high_total": 165,
+      "false_flag_rate": 0.5568181818181818,
+      "high_predicted_medium_misses": 17,
+      "misses_caught_by_flag": 8,
+      "flags_needed_for_high_recall": {
+        "150": 176,
+        "155": 301,
+        "158": 373,
+        "160": 423,
+        "163": 548,
+        "165": 780
+      },
+      "union_misses_total": 17,
+      "union_misses_caught": 8
+    },
+    "shap": {
+      "Stress Level (1-10)": 0.3679791414859028,
+      "Therapy Sessions (per month)": 0.13458716538872992,
+      "Sleep Hours": 0.13359631005554112,
+      "Caffeine Intake (mg/day)": 0.10119949971692792,
+      "Diet Quality (1-10)": 0.06070400161987652,
+      "Physical Activity (hrs/week)": 0.04109422840729224,
+      "Heart Rate (bpm)": 0.03643907013568504,
+      "Occupation": 0.029220972109432617,
+      "Family History of Anxiety": 0.027140391571880564,
+      "Breathing Rate (breaths/min)": 0.02335137203802238,
+      "Age": 0.022816150550792273,
+      "Sweating Level (1-5)": 0.021871696919916608
+    },
+    "fairness": {
+      "occupation": {
+        "groups": {
+          "Artist": {
+            "n": 128,
+            "balanced_accuracy": 0.8410774410774411,
+            "high_n": 10,
+            "high_recall": 1.0
+          },
+          "Athlete": {
+            "n": 100,
+            "balanced_accuracy": 0.862663906142167,
+            "high_n": 12,
+            "high_recall": 1.0
+          },
+          "Chef": {
+            "n": 131,
+            "balanced_accuracy": 0.7908420944135229,
+            "high_n": 16,
+            "high_recall": 0.875
+          },
+          "Doctor": {
+            "n": 140,
+            "balanced_accuracy": 0.8279299847792999,
+            "high_n": 12,
+            "high_recall": 0.9166666666666666
+          },
+          "Engineer": {
+            "n": 117,
+            "balanced_accuracy": 0.7797663971248877,
+            "high_n": 14,
+            "high_recall": 0.7857142857142857
+          },
+          "Freelancer": {
+            "n": 132,
+            "balanced_accuracy": 0.8199281370923162,
+            "high_n": 9,
+            "high_recall": 0.8888888888888888
+          },
+          "Lawyer": {
+            "n": 115,
+            "balanced_accuracy": 0.8083950617283951,
+            "high_n": 11,
+            "high_recall": 1.0
+          },
+          "Musician": {
+            "n": 122,
+            "balanced_accuracy": 0.8142857142857144,
+            "high_n": 10,
+            "high_recall": 1.0
+          },
+          "Nurse": {
+            "n": 145,
+            "balanced_accuracy": 0.7827018752391887,
+            "high_n": 13,
+            "high_recall": 0.8461538461538461
+          },
+          "Other": {
+            "n": 135,
+            "balanced_accuracy": 0.8086123338224178,
+            "high_n": 18,
+            "high_recall": 0.9444444444444444
+          },
+          "Scientist": {
+            "n": 132,
+            "balanced_accuracy": 0.7729011425732737,
+            "high_n": 16,
+            "high_recall": 0.75
+          },
+          "Student": {
+            "n": 118,
+            "balanced_accuracy": 0.804748999870951,
+            "high_n": 14,
+            "high_recall": 0.8571428571428571
+          },
+          "Teacher": {
+            "n": 135,
+            "balanced_accuracy": 0.8116914149172213,
+            "high_n": 10,
+            "high_recall": 0.9
+          }
+        },
+        "balanced_accuracy_range": 0.08976276356889334,
+        "high_recall_range_reliable": 0.19444444444444442
+      },
+      "age_band": {
+        "groups": {
+          "18-29": {
+            "n": 422,
+            "balanced_accuracy": 0.8251288791669865,
+            "high_n": 48,
+            "high_recall": 0.8958333333333334
+          },
+          "30-40": {
+            "n": 415,
+            "balanced_accuracy": 0.8087083651156878,
+            "high_n": 60,
+            "high_recall": 0.9
+          },
+          "41-49": {
+            "n": 332,
+            "balanced_accuracy": 0.8004127662138028,
+            "high_n": 53,
+            "high_recall": 0.9622641509433962
+          },
+          "50-64": {
+            "n": 481,
+            "balanced_accuracy": 0.5106817301939254,
+            "high_n": 4,
+            "high_recall": 0.0
+          }
+        },
+        "balanced_accuracy_range": 0.31444714897306114,
+        "high_recall_range_reliable": 0.06643081761006286
+      },
+      "gender": {
+        "groups": {
+          "Female": {
+            "n": 564,
+            "balanced_accuracy": 0.7859409815630011,
+            "high_n": 47,
+            "high_recall": 0.8723404255319149
+          },
+          "Male": {
+            "n": 549,
+            "balanced_accuracy": 0.8039344234197175,
+            "high_n": 64,
+            "high_recall": 0.90625
+          },
+          "Other": {
+            "n": 537,
+            "balanced_accuracy": 0.8322451568828381,
+            "high_n": 54,
+            "high_recall": 0.9074074074074074
+          }
+        },
+        "balanced_accuracy_range": 0.04630417531983699,
+        "high_recall_range_reliable": 0.03506698187549251
+      }
+    },
+    "robustness": {
+      "baseline_balanced_accuracy": 0.8073576839872749,
+      "knockout": {
+        "Age": {
+          "balanced_accuracy": 0.8075297908050079,
+          "high_recall": 0.896969696969697
+        },
+        "Sleep Hours": {
+          "balanced_accuracy": 0.7775313484341456,
+          "high_recall": 0.8121212121212121
+        },
+        "Physical Activity (hrs/week)": {
+          "balanced_accuracy": 0.8080372561677761,
+          "high_recall": 0.8909090909090909
+        },
+        "Caffeine Intake (mg/day)": {
+          "balanced_accuracy": 0.7043633706007398,
+          "high_recall": 0.5818181818181818
+        },
+        "Stress Level (1-10)": {
+          "balanced_accuracy": 0.3611158581888303,
+          "high_recall": 0.0
+        },
+        "Heart Rate (bpm)": {
+          "balanced_accuracy": 0.8086000043265437,
+          "high_recall": 0.896969696969697
+        },
+        "Breathing Rate (breaths/min)": {
+          "balanced_accuracy": 0.8090714800455441,
+          "high_recall": 0.896969696969697
+        },
+        "Sweating Level (1-5)": {
+          "balanced_accuracy": 0.8077431062974091,
+          "high_recall": 0.896969696969697
+        },
+        "Therapy Sessions (per month)": {
+          "balanced_accuracy": 0.5089253141252429,
+          "high_recall": 0.0
+        },
+        "Diet Quality (1-10)": {
+          "balanced_accuracy": 0.6745388530773754,
+          "high_recall": 0.49696969696969695
+        },
+        "Occupation": {
+          "balanced_accuracy": 0.8041415893333733,
+          "high_recall": 0.896969696969697
+        },
+        "Family History of Anxiety": {
+          "balanced_accuracy": 0.8045306477030368,
+          "high_recall": 0.896969696969697
+        }
+      },
+      "noise_balanced_accuracy": {
+        "0.25": 0.7609052936141943,
+        "0.5": 0.686149742407219,
+        "1.0": 0.5520891090210748
+      },
+      "stress_shift_predicted_high_fraction": {
+        "0": 0.0903030303030303,
+        "-3": 0.0,
+        "-2": 0.03090909090909091,
+        "-1": 0.06545454545454546,
+        "1": 0.0903030303030303,
+        "2": 0.0903030303030303,
+        "3": 0.0903030303030303
+      },
+      "age_sensitivity_mean_p_high": {
+        "18": 0.9011688526162046,
+        "30": 0.913966582477804,
+        "40": 0.9151523283156352,
+        "49": 0.9048280434854494,
+        "55": 0.6152076685981749
+      }
+    },
+    "practical": {
+      "predict_ms": 82.87286750000021,
+      "pickle_mb": 44.906246
+    }
+  },
+  "xgb_retuned": {
+    "validation": {
+      "accuracy": 0.7775757575757576,
+      "balanced_accuracy": 0.8077824969423126,
+      "macro_f1": 0.817067088055991,
+      "high_recall": 0.896969696969697
+    },
+    "per_class": {
+      "Low": {
+        "precision": 0.7737041719342604,
+        "recall": 0.7866323907455013,
+        "auroc": 0.8804907313506758,
+        "auprc": 0.867477093134785
+      },
+      "Medium": {
+        "precision": 0.7407932011331445,
+        "recall": 0.7397454031117398,
+        "auroc": 0.8584537896298341,
+        "auprc": 0.7799375649818359
+      },
+      "High": {
+        "precision": 0.9673202614379085,
+        "recall": 0.896969696969697,
+        "auroc": 0.9858136924803591,
+        "auprc": 0.9498804118935775
+      }
+    },
+    "macro_auroc": 0.9082527378202897,
+    "macro_auprc": 0.8657650233367328,
+    "confusion": [
+      [
+        612,
+        166,
+        0
+      ],
+      [
+        179,
+        523,
+        5
+      ],
+      [
+        0,
+        17,
+        148
+      ]
+    ],
+    "cv": {
+      "accuracy": [
+        0.7875324675324676,
+        0.012275303790563206
+      ],
+      "balanced_accuracy": [
+        0.808460844699313,
+        0.014411309453826966
+      ],
+      "macro_f1": [
+        0.8215515316191115,
+        0.012580260087454985
+      ],
+      "high_recall": [
+        0.8717779503105589,
+        0.02220695056961507
+      ]
+    },
+    "seed_balanced_accuracy": [
+      0.806659560557598,
+      0.0007474414446487388,
+      0.8054681450517435,
+      0.8077824969423126
+    ],
+    "calibration": {
+      "log_loss": 0.48355230689048767,
+      "brier_Low": 0.1408156007528305,
+      "brier_Medium": 0.1514287292957306,
+      "brier_High": 0.012370636686682701,
+      "ece_Low": 0.016149355552413244,
+      "ece_Medium": 0.019910489149165878,
+      "ece_High": 0.006935276676420915
+    },
+    "flag": {
+      "flagged": 199,
+      "true_high_caught": 152,
+      "true_high_total": 165,
+      "false_flag_rate": 0.23618090452261306,
+      "high_predicted_medium_misses": 17,
+      "misses_caught_by_flag": 4,
+      "flags_needed_for_high_recall": {
+        "150": 170,
+        "155": 326,
+        "158": 384,
+        "160": 442,
+        "163": 523,
+        "165": 619
+      },
+      "union_misses_total": 17,
+      "union_misses_caught": 4
+    },
+    "shap": {
+      "Stress Level (1-10)": 0.4431980054827286,
+      "Sleep Hours": 0.16172060309624198,
+      "Therapy Sessions (per month)": 0.1469706882207031,
+      "Caffeine Intake (mg/day)": 0.10234717393797785,
+      "Physical Activity (hrs/week)": 0.048834980333828354,
+      "Diet Quality (1-10)": 0.022213250013479846,
+      "Heart Rate (bpm)": 0.01810701072517442,
+      "Age": 0.017132499808947474,
+      "Occupation": 0.013958760879187678,
+      "Family History of Anxiety": 0.0109790477976959,
+      "Breathing Rate (breaths/min)": 0.010449147809396006,
+      "Sweating Level (1-5)": 0.004088831894638785
+    },
+    "fairness": {
+      "occupation": {
+        "groups": {
+          "Artist": {
+            "n": 128,
+            "balanced_accuracy": 0.8448292448292448,
+            "high_n": 10,
+            "high_recall": 1.0
+          },
+          "Athlete": {
+            "n": 100,
+            "balanced_accuracy": 0.870600414078675,
+            "high_n": 12,
+            "high_recall": 1.0
+          },
+          "Chef": {
+            "n": 131,
+            "balanced_accuracy": 0.7974386724386724,
+            "high_n": 16,
+            "high_recall": 0.875
+          },
+          "Doctor": {
+            "n": 140,
+            "balanced_accuracy": 0.8218693787186937,
+            "high_n": 12,
+            "high_recall": 0.9166666666666666
+          },
+          "Engineer": {
+            "n": 117,
+            "balanced_accuracy": 0.7915902964959569,
+            "high_n": 14,
+            "high_recall": 0.7857142857142857
+          },
+          "Freelancer": {
+            "n": 132,
+            "balanced_accuracy": 0.78918897575614,
+            "high_n": 9,
+            "high_recall": 0.8888888888888888
+          },
+          "Lawyer": {
+            "n": 115,
+            "balanced_accuracy": 0.8032098765432099,
+            "high_n": 11,
+            "high_recall": 1.0
+          },
+          "Musician": {
+            "n": 122,
+            "balanced_accuracy": 0.8031746031746031,
+            "high_n": 10,
+            "high_recall": 1.0
+          },
+          "Nurse": {
+            "n": 145,
+            "balanced_accuracy": 0.7923459624952162,
+            "high_n": 13,
+            "high_recall": 0.8461538461538461
+          },
+          "Other": {
+            "n": 135,
+            "balanced_accuracy": 0.8282201769596726,
+            "high_n": 18,
+            "high_recall": 0.9444444444444444
+          },
+          "Scientist": {
+            "n": 132,
+            "balanced_accuracy": 0.7504470938897169,
+            "high_n": 16,
+            "high_recall": 0.75
+          },
+          "Student": {
+            "n": 118,
+            "balanced_accuracy": 0.8206220157439669,
+            "high_n": 14,
+            "high_recall": 0.8571428571428571
+          },
+          "Teacher": {
+            "n": 135,
+            "balanced_accuracy": 0.8120327700972862,
+            "high_n": 10,
+            "high_recall": 0.9
+          }
+        },
+        "balanced_accuracy_range": 0.12015332018895808,
+        "high_recall_range_reliable": 0.19444444444444442
+      },
+      "age_band": {
+        "groups": {
+          "18-29": {
+            "n": 422,
+            "balanced_accuracy": 0.8114862358328856,
+            "high_n": 48,
+            "high_recall": 0.8958333333333334
+          },
+          "30-40": {
+            "n": 415,
+            "balanced_accuracy": 0.812193829985592,
+            "high_n": 60,
+            "high_recall": 0.9
+          },
+          "41-49": {
+            "n": 332,
+            "balanced_accuracy": 0.8191239276791099,
+            "high_n": 53,
+            "high_recall": 0.9622641509433962
+          },
+          "50-64": {
+            "n": 481,
+            "balanced_accuracy": 0.5086228135008622,
+            "high_n": 4,
+            "high_recall": 0.0
+          }
+        },
+        "balanced_accuracy_range": 0.31050111417824766,
+        "high_recall_range_reliable": 0.06643081761006286
+      },
+      "gender": {
+        "groups": {
+          "Female": {
+            "n": 564,
+            "balanced_accuracy": 0.7960084304774327,
+            "high_n": 47,
+            "high_recall": 0.8723404255319149
+          },
+          "Male": {
+            "n": 549,
+            "balanced_accuracy": 0.8022147378765027,
+            "high_n": 64,
+            "high_recall": 0.90625
+          },
+          "Other": {
+            "n": 537,
+            "balanced_accuracy": 0.8247352754599131,
+            "high_n": 54,
+            "high_recall": 0.9074074074074074
+          }
+        },
+        "balanced_accuracy_range": 0.02872684498248035,
+        "high_recall_range_reliable": 0.03506698187549251
+      }
+    },
+    "robustness": {
+      "baseline_balanced_accuracy": 0.8077824969423126,
+      "knockout": {
+        "Age": {
+          "balanced_accuracy": 0.8079115770556123,
+          "high_recall": 0.896969696969697
+        },
+        "Sleep Hours": {
+          "balanced_accuracy": 0.7151131822693837,
+          "high_recall": 0.6181818181818182
+        },
+        "Physical Activity (hrs/week)": {
+          "balanced_accuracy": 0.7965252199109004,
+          "high_recall": 0.8666666666666667
+        },
+        "Caffeine Intake (mg/day)": {
+          "balanced_accuracy": 0.7878921017331261,
+          "high_recall": 0.8484848484848485
+        },
+        "Stress Level (1-10)": {
+          "balanced_accuracy": 0.3765569909910565,
+          "high_recall": 0.0
+        },
+        "Heart Rate (bpm)": {
+          "balanced_accuracy": 0.8040915255682748,
+          "high_recall": 0.8909090909090909
+        },
+        "Breathing Rate (breaths/min)": {
+          "balanced_accuracy": 0.8061959629675784,
+          "high_recall": 0.896969696969697
+        },
+        "Sweating Level (1-5)": {
+          "balanced_accuracy": 0.8077824969423126,
+          "high_recall": 0.896969696969697
+        },
+        "Therapy Sessions (per month)": {
+          "balanced_accuracy": 0.5485188842057177,
+          "high_recall": 0.12727272727272726
+        },
+        "Diet Quality (1-10)": {
+          "balanced_accuracy": 0.8027078690241408,
+          "high_recall": 0.8787878787878788
+        },
+        "Occupation": {
+          "balanced_accuracy": 0.8076928074739168,
+          "high_recall": 0.896969696969697
+        },
+        "Family History of Anxiety": {
+          "balanced_accuracy": 0.810912538187348,
+          "high_recall": 0.896969696969697
+        }
+      },
+      "noise_balanced_accuracy": {
+        "0.25": 0.772898773535084,
+        "0.5": 0.7148211589429233,
+        "1.0": 0.615141767573746
+      },
+      "stress_shift_predicted_high_fraction": {
+        "0": 0.09272727272727273,
+        "-3": 0.02484848484848485,
+        "-2": 0.055757575757575756,
+        "-1": 0.08363636363636363,
+        "1": 0.09333333333333334,
+        "2": 0.09333333333333334,
+        "3": 0.09454545454545454
+      },
+      "age_sensitivity_mean_p_high": {
+        "18": 0.8885050415992737,
+        "30": 0.8861658573150635,
+        "40": 0.8866122364997864,
+        "49": 0.88450026512146,
+        "55": 0.8627578020095825
+      }
+    },
+    "practical": {
+      "predict_ms": 1.080206999999973,
+      "pickle_mb": 1.042727
+    }
+  }
+}
