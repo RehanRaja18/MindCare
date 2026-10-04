@@ -3,7 +3,11 @@
 
 ## What this is
 The AI/ML component of MindCare, an FYP mental-health platform connecting patients and
-psychologists. This repo trains a model to predict anxiety risk from patient
+psychologists. **Location:** the `MindCare AI/` folder of the MindCare monorepo (which also holds
+`MindCare Backend/`, `MindCare App/` and `MindCare Web/`). It replaced a placeholder scaffold there
+on the `ai/anxiety-model-into-mindcare-ai` branch, via `git subtree add`, keeping this project's
+history. Paths in this file are relative to `MindCare AI/`, except `render.yaml` and
+`.github/workflows/keep-alive.yml`, which must be at the repository root. This repo trains a model to predict anxiety risk from patient
 lifestyle/physiological data. **As of 2026-09-14, the primary target is a 3-class
 Low/Medium/High Anxiety Level bucket** (see "Target change" section below); the original
 5-class Anxiety Severity target is kept as a secondary/reference target for comparison.

@@ -4,6 +4,9 @@ Trained models, preprocessors, label encoders and processed splits
 (`data/processed/*.pkl`, `data/processed/*.npz`) are **not stored in git** (see `.gitignore`).
 After a fresh clone, rebuild them with the scripts below before running the API or the tests.
 
+This project lives in the `MindCare AI/` folder of the MindCare monorepo. **Run every command in
+this document from inside `MindCare AI/`**, which is the project root for all paths below.
+
 **One exception is tracked on purpose:** `data/processed/mindcare_processed_splits.npz`, the
 original train/val/test split. No script in this repo can create it from nothing —
 `src/rebuild_preprocessor.py` re-splits the raw CSV but refuses to write unless its result
@@ -24,7 +27,7 @@ preprocessors are only reliably loadable by the version that wrote them. On macO
 
 ## Regenerate, in this order
 
-Run from the repository root. Each step reads the output of the steps before it.
+Run from inside `MindCare AI/`. Each step reads the output of the steps before it.
 
 | # | Command | Writes | Needed by |
 |---|---|---|---|

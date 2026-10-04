@@ -3,13 +3,17 @@
 How to run the MindCare API (`src/api/main.py`) on [Render](https://render.com)'s free tier, and keep it
 awake for a demo. Deployment config only: nothing here changes the model or its features.
 
+**Where things are.** This project lives in the `MindCare AI/` folder of the MindCare monorepo. Paths
+in this document are relative to that folder, except the two files Render and GitHub require at the
+**repository root**, marked "(repo root)" below.
+
 **Files involved**
 
 | File | What it does |
 |---|---|
-| `render.yaml` | Render Blueprint: one Python web service, its build and start commands, and the Python version |
+| `render.yaml` (repo root) | Render Blueprint: one Python web service with `rootDir: "MindCare AI"`, its build and start commands, and the Python version |
 | `scripts/build_model_artifacts.sh` | Rebuilds every model artifact during the Render build (the 7 steps of `docs/setup.md`) |
-| `.github/workflows/keep-alive.yml` | Calls `/health` every 10 minutes so the free instance doesn't fall asleep |
+| `.github/workflows/keep-alive.yml` (repo root) | Calls `/health` every 10 minutes so the free instance doesn't fall asleep |
 
 ## How the build works
 
@@ -58,8 +62,9 @@ Changing them is a code change, with tests and a decision-log entry in `CLAUDE.m
 1. **Sign in to Render** and connect your GitHub account (Render asks for access to the
    repository; it's public, so read access is enough).
 2. **Create the service from the Blueprint:** New → **Blueprint** → choose the
-   `m-bilal-Ibrahim/MindCare` repository. Render reads `render.yaml` from the branch it names
-   (`mindcare-anxiety-model`) and shows one web service, `mindcare-api`, on the **Free** plan.
+   `m-bilal-Ibrahim/MindCare` repository and the **`main`** branch. Render reads `render.yaml` from
+   the repository root and shows one web service, `mindcare-api`, on the **Free** plan, with root
+   directory `MindCare AI`, so the build and start commands run inside that folder.
 3. **Apply.** The first build installs the requirements and runs the 7 build steps; expect several
    minutes. In the build log, every step prints `=== Step N/7 done`, and the last line is
    `=== All 7 steps passed; the API's artifacts are in place.`
@@ -75,27 +80,26 @@ data to it.
 
 ## Redeploying
 
-- **Automatic:** with `autoDeploy: true`, every push to `mindcare-anxiety-model` triggers a new
-  build and deploy.
+- **Automatic:** with `autoDeploy: true`, every push to `main` that changes files under
+  `MindCare AI/` triggers a new build and deploy. Changes elsewhere in the monorepo (Backend, App,
+  Web) don't.
 - **Manual:** on the service page, **Manual Deploy → Deploy latest commit**. Use **Clear build cache &
   deploy** if a dependency seems stale.
 - **If a build fails:** open the build log and find the last `=== Step N/7` line. A
   `MISMATCH` or `STOP:` message means that step didn't reproduce its documented numbers. The
   previous deploy keeps running meanwhile.
-- **If the work moves to another branch** (for example `main`), change `branch:` in `render.yaml`
-  and push.
+- **To build from another branch,** change `branch:` in the root `render.yaml` and push.
 
 ## Keep-alive
 
 Render's free web services **go to sleep after about 15 minutes without traffic**. The next request
 then waits for a cold start, which can take a minute or more, which is bad in a live demo.
-`.github/workflows/keep-alive.yml` calls `/health` every 10 minutes to prevent that.
+`.github/workflows/keep-alive.yml` (at the repository root) calls `/health` every 10 minutes to
+prevent that.
 
-**The workflow does nothing until it is on the default branch.** GitHub runs a workflow, on its
-schedule **or** from the manual **Run workflow** button, only if the workflow file is on the
-repository's default branch (currently `main`). While it exists only on `mindcare-anxiety-model`,
-neither works. Put it there first, by merging `mindcare-anxiety-model` into `main` or by making
-`mindcare-anxiety-model` the default branch (Settings → General → Default branch).
+**The workflow only runs from the default branch.** GitHub runs a workflow, on its schedule **or**
+from the manual **Run workflow** button, only if the workflow file is on the repository's default
+branch (`main`). On any other branch, neither works.
 
 **After the first deploy, set the URL** (it doesn't exist until Render assigns it):
 
@@ -158,7 +162,8 @@ artifacts) with a new Python 3.13.13 virtual environment installed from `require
 
 ## Verify locally
 
-The build and start commands can be run on any machine before relying on Render:
+The build and start commands can be run on any machine before relying on Render. Run these from
+inside `MindCare AI/`, as Render does:
 
 ```bash
 python -m venv .venv_deploy_check
