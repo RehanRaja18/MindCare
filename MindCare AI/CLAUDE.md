@@ -21,8 +21,17 @@ Do not build or suggest anything that bypasses psychologist review.
   follows (Phases 0-35). From now on, if a phase number is referenced that you can't find
   details for elsewhere, check this file before saying it doesn't exist.
 - `docs/setup.md` — model artifacts (`data/processed/*.pkl`/`*.npz`) are not in git; this lists
-  the exact scripts to regenerate them, in order. `mindcare_processed_splits.npz` is the one
-  tracked exception (no script can recreate it from scratch) — never delete it.
+  the exact scripts to regenerate them, in order. Tracked exceptions:
+  - `mindcare_processed_splits.npz`: no script can recreate it from scratch — never delete it.
+  - **Deployment exception (2026-10-04):** the three served files
+    (`mindcare_label_encoder_3class.pkl`, `mindcare_preprocessor_11feature_v2.pkl`,
+    `mindcare_final_model_11feature_v2_xgb.pkl`) plus their manifest
+    `data/processed/deploy_artifacts.json`. Render serves these and only checks them
+    (`scripts/deploy_artifacts.py verify`), because retraining XGBoost on Render's Linux machine
+    failed step 6's exact-match check: cross-platform multi-threaded tree building isn't
+    bit-reproducible.
+  - Changing the served model means: rebuild, run `python scripts/deploy_artifacts.py write`, and
+    commit the three files and the manifest together (`docs/deployment.md`).
 - `reports/recommendation_mapping_investigation.md` — evidence base for `POST /patient-summary` (2026-09-30), which returns the prediction plus an **estimated** Severity tier (3-class prediction + PSS Stress Level → most common tier; 88.0% ceiling with the true label per this report, 78.3% measured with the current model's own predictions) and the matching dataset recommendation bundle, always under a fixed clinician-review caveat; `/predict` returns none of this.
 
 ## Dataset

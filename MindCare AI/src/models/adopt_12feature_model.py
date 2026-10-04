@@ -286,7 +286,7 @@ instruction will not be, evaluated against the test set (X_test/y_test), which i
 as fully spent for the 3-class target after its two prior uses (17-feature, 11-feature).
 """
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REPORT_PATH.write_text(content, encoding="utf-8")
+    REPORT_PATH.write_text(content, encoding="utf-8", newline="\n")
 
 
 if __name__ == "__main__":

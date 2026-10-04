@@ -1,0 +1,55 @@
+{
+  "purpose": "Deployment-only exception: these are the validated files the API serves on Render. See docs/deployment.md, 'Why the served model is committed'.",
+  "built_with": {
+    "python": "3.13.13",
+    "scikit-learn": "1.9.1",
+    "xgboost": "3.4.1"
+  },
+  "artifacts": {
+    "data/processed/mindcare_label_encoder_3class.pkl": {
+      "sha256": "35b1656f80f819ec6bc3f16f09a10a0e4b950bd3bbd67a67ff0381f77d2dfaa9",
+      "bytes": 399
+    },
+    "data/processed/mindcare_preprocessor_11feature_v2.pkl": {
+      "sha256": "33fb704613a27060a03c4b8d8fd5986ad91f0847608b3ff311fabbb5c3025c72",
+      "bytes": 3548
+    },
+    "data/processed/mindcare_final_model_11feature_v2_xgb.pkl": {
+      "sha256": "9532224b3269f6b8183ac22758d3531bf52a5799ab253004c87507bac0f48182",
+      "bytes": 1043137
+    }
+  },
+  "example_request": {
+    "Age": 34,
+    "Sleep Hours": 8.2,
+    "Physical Activity (hrs/week)": 5.5,
+    "cups_of_coffee": 1,
+    "cups_of_tea": 0,
+    "energy_drinks": 0,
+    "cans_of_soda": 0,
+    "pss_uncontrollable": 0,
+    "pss_confident": 3,
+    "pss_going_your_way": 4,
+    "pss_difficulties_piling_up": 0,
+    "Heart Rate (bpm)": 68,
+    "Breathing Rate (breaths/min)": 14,
+    "Therapy Sessions (per month)": 0,
+    "Diet Quality (1-10)": 9,
+    "Occupation": "Teacher",
+    "Family History of Anxiety": "No"
+  },
+  "expected_prediction": {
+    "predicted_class": "Low",
+    "probabilities": {
+      "Low": 0.9660267233848572,
+      "Medium": 0.03331087529659271,
+      "High": 0.0006624316447414458
+    },
+    "uncertainty_flag": false,
+    "estimated_caffeine_mg": 95.0,
+    "estimated_stress_level": 2,
+    "confidence_label": "confident",
+    "borderline_between": null
+  },
+  "expected_summary_tier": "Minimal (1-2)"
+}
