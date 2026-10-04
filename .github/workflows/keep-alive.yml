@@ -1,10 +1,10 @@
 # Keeps the Render free-tier service awake by calling /health on a schedule.
 # A workaround for Render's free-tier sleep (idle after ~15 minutes), not a guarantee:
-# see docs/deployment.md, "Keep-alive".
+# see "MindCare AI/docs/deployment.md", "Keep-alive".
 #
 # Needs the repository variable RENDER_SERVICE_URL (Settings -> Secrets and variables -> Actions ->
-# Variables), e.g. https://mindcare-api.onrender.com. GitHub only runs scheduled workflows from the
-# repository's DEFAULT branch.
+# Variables), e.g. https://mindcare-api.onrender.com. GitHub runs this workflow, on schedule or from the
+# manual "Run workflow" button, only from the repository's DEFAULT branch.
 name: Keep Render service awake
 
 on:
@@ -30,7 +30,7 @@ jobs:
           SERVICE_URL: ${{ vars.RENDER_SERVICE_URL }}
         run: |
           if [ -z "${SERVICE_URL}" ]; then
-            echo "::error::Repository variable RENDER_SERVICE_URL is not set. See docs/deployment.md."
+            echo "::error::Repository variable RENDER_SERVICE_URL is not set. See MindCare AI/docs/deployment.md."
             exit 1
           fi
           url="${SERVICE_URL%/}/health"

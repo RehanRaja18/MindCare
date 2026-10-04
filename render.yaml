@@ -1,12 +1,16 @@
-# Render Blueprint for the MindCare anxiety-risk API (FastAPI, src/api/main.py).
-# Setup, environment variables and redeploys: docs/deployment.md.
+# Render Blueprint for the MindCare anxiety-risk API (FastAPI, "MindCare AI/src/api/main.py").
+# Setup, environment variables and redeploys: "MindCare AI/docs/deployment.md".
+# This file must stay at the repository root: Render looks for render.yaml there.
 services:
   - type: web
     name: mindcare-api
     runtime: python
     plan: free
-    # The branch Render builds from. Change it if the work is merged into another branch.
-    branch: mindcare-anxiety-model
+    # The branch Render builds from.
+    branch: main
+    # The project lives in this monorepo folder. Render runs the build and start commands from it,
+    # and auto-deploys only when files under it change.
+    rootDir: "MindCare AI"
     autoDeploy: true
     # The model artifacts are gitignored, so every build regenerates them from the raw CSV with the
     # same 7 scripts as docs/setup.md. Any step that doesn't reproduce its documented numbers fails
