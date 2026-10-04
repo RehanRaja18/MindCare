@@ -4,6 +4,14 @@ Trained models, preprocessors, label encoders and processed splits
 (`data/processed/*.pkl`, `data/processed/*.npz`) are **not stored in git** (see `.gitignore`).
 After a fresh clone, rebuild them with the scripts below before running the API or the tests.
 
+**Deployment exception:** the three files the API serves (`mindcare_label_encoder_3class.pkl`,
+`mindcare_preprocessor_11feature_v2.pkl`, `mindcare_final_model_11feature_v2_xgb.pkl`) **are**
+committed, so Render can serve the validated model without retraining it; see `docs/deployment.md`,
+"Why the served model is committed". Steps 2 and 7 below still rebuild them for local development,
+byte-identically on the platform and library versions that built them. The build script's final
+check (`scripts/deploy_artifacts.py verify`) tells you if yours differ. If they do, don't commit
+them.
+
 This project lives in the `MindCare AI/` folder of the MindCare monorepo. **Run every command in
 this document from inside `MindCare AI/`**, which is the project root for all paths below.
 
@@ -45,6 +53,9 @@ membership). Steps 3, 4 and 6 do not feed step 7.
 **Two different "11-feature" sets exist.** Step 4's `*_11feature.*` files are the superseded 2026-09-22
 Random Forest set (no Age, with Sweating Level). Step 7's `*_11feature_v2*` files are the current set
 (with Age, without Sweating Level). Don't mix them up.
+
+After step 7, `scripts/build_model_artifacts.sh` also runs `python scripts/deploy_artifacts.py verify`,
+which compares the rebuilt served files with the committed, deployed ones.
 
 Steps 6 and 7 read their hyperparameters from `reports/tuning_results_12feature.json`, which is committed,
 so the roughly 9-minute re-tuning (`src.models.tune_models_12feature`) doesn't need re-running.

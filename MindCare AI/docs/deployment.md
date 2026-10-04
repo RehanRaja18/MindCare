@@ -12,28 +12,32 @@ in this document are relative to that folder, except the two files Render and Gi
 | File | What it does |
 |---|---|
 | `render.yaml` (repo root) | Render Blueprint: one Python web service with `rootDir: "MindCare AI"`, its build and start commands, and the Python version |
-| `scripts/build_model_artifacts.sh` | Rebuilds every model artifact during the Render build (the 7 steps of `docs/setup.md`) |
+| `scripts/deploy_artifacts.py` | Render's build check (`verify`): proves the committed served artifacts are the validated ones and serve the documented prediction |
+| `data/processed/deploy_artifacts.json` | Manifest of the three committed served artifacts: hashes, library versions, expected example output |
+| `scripts/build_model_artifacts.sh` | **Local development only:** rebuilds every model artifact (the 7 steps of `docs/setup.md`). Render does not run it |
 | `.github/workflows/keep-alive.yml` (repo root) | Calls `/health` every 10 minutes so the free instance doesn't fall asleep |
 
 ## How the build works
 
-The trained artifacts (`data/processed/*.pkl`, `*.npz`) are gitignored, so Render's fresh clone has
-none of them. The build regenerates them from the raw CSV with exactly the scripts and order in
-`docs/setup.md`:
+**Render does not retrain the model.** The three files the API serves are committed to git, and the
+build only checks them:
 
 ```
-pip install -r requirements.txt && bash scripts/build_model_artifacts.sh
+pip install -r requirements.txt && python scripts/deploy_artifacts.py verify
 ```
 
-- **Everything the build needs is in git:** `data/raw/mindcare_dataset_final.csv`,
-  `data/processed/mindcare_processed_splits.npz` (the one tracked split, which no script can recreate),
-  `reports/tuning_results_3class.json` and `reports/tuning_results_12feature.json`. Nothing is
-  downloaded from elsewhere.
-- **The build fails loudly.** Each step checks its own output against documented numbers and exits
-  non-zero on a mismatch. A failed build never replaces the running deploy: Render keeps serving the
-  previous one.
-- **All 7 steps run,** although the API only needs steps 2, 5 and 7. Steps 3, 4 and 6 add about
-  half a minute and keep the build identical to `docs/setup.md`.
+The check fails the build (non-zero exit) unless all of these hold:
+
+1. **The committed files are the validated ones.** Each served file exists and matches the SHA-256
+   recorded in `data/processed/deploy_artifacts.json`.
+2. **The library versions match.** The installed `scikit-learn` and `xgboost` equal the versions
+   that wrote the pickles (`1.9.1` and `3.4.1`, both pinned in `requirements.txt`).
+3. **The app serves the documented example.** It starts the real app in-process (FastAPI's
+   `TestClient`). `/health` must report `"ok"`. `/predict` must return the worked example from
+   `docs/api_usage.md`: same class and labels, probabilities within 1e-6 of the manifest.
+   `/patient-summary` must return 200 with its caveat.
+
+A failed build never replaces the running deploy: Render keeps serving the previous one.
 
 The service then starts with:
 
@@ -42,6 +46,51 @@ uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
 ```
 
 Render sets `$PORT` itself.
+
+## Why the served model is committed
+
+**Most model artifacts are still kept out of git.** That policy is unchanged:
+`data/processed/*.pkl` and `*.npz` are gitignored and regenerated with `docs/setup.md`. This is a
+**deployment-only exception for exactly three files**, the ones the API loads:
+
+| File | Size |
+|---|---:|
+| `data/processed/mindcare_label_encoder_3class.pkl` | 399 bytes |
+| `data/processed/mindcare_preprocessor_11feature_v2.pkl` | 3.5 KB |
+| `data/processed/mindcare_final_model_11feature_v2_xgb.pkl` | 1.0 MB |
+
+Each has a `!` exception in `.gitignore`. Their manifest, `data/processed/deploy_artifacts.json`, is
+committed beside them.
+
+**Why:** the first deploy rebuilt every artifact on Render with the 7 regeneration scripts, and
+failed at step 6 (`adopt_xgboost_12feature_model`). Steps 1–5 reproduced their documented numbers
+exactly. The retrained XGBoost model did not: multi-threaded tree building on Render's Linux machine
+gives slightly different floating-point results from the Windows machine the model was validated
+on. That's not a data or logic bug, but it means **retraining XGBoost isn't bit-reproducible across
+platforms**, so a deploy can't be guaranteed to serve the validated model by retraining it. Committing
+the validated files guarantees it, and the build check proves it on every deploy.
+
+**Local development still uses the regeneration scripts**, exactly as before:
+`bash scripts/build_model_artifacts.sh` (docs/setup.md). Its last step runs the same check, so you
+know at once whether your rebuilt served files still match the deployed ones.
+- On the machine and library versions that built them (Windows, Python 3.13.13, scikit-learn 1.9.1,
+  xgboost 3.4.1), regeneration reproduces them **byte for byte**; this was checked by SHA-256, so
+  they don't show as modified.
+- Anywhere else they may differ. That's fine for local work, but **don't commit them**; restore the
+  committed versions with
+  `git checkout -- data/processed/mindcare_label_encoder_3class.pkl data/processed/mindcare_preprocessor_11feature_v2.pkl data/processed/mindcare_final_model_11feature_v2_xgb.pkl`.
+
+### Updating the deployed model
+
+Only when deliberately adopting a new served model (a decision recorded in `CLAUDE.md`, like every
+model change):
+
+1. Rebuild and validate it locally (docs/setup.md); every step's own check must pass.
+2. Run `python scripts/deploy_artifacts.py write` to record its hashes, library versions and the
+   new expected example output in `data/processed/deploy_artifacts.json`.
+3. Update the worked example in `docs/api_usage.md` if its numbers changed.
+4. Commit the three files and the manifest **together**, then push. The Render build checks them
+   against the new manifest.
 
 ## Environment variables
 
@@ -65,9 +114,10 @@ Changing them is a code change, with tests and a decision-log entry in `CLAUDE.m
    `m-bilal-Ibrahim/MindCare` repository and the **`main`** branch. Render reads `render.yaml` from
    the repository root and shows one web service, `mindcare-api`, on the **Free** plan, with root
    directory `MindCare AI`, so the build and start commands run inside that folder.
-3. **Apply.** The first build installs the requirements and runs the 7 build steps; expect several
-   minutes. In the build log, every step prints `=== Step N/7 done`, and the last line is
-   `=== All 7 steps passed; the API's artifacts are in place.`
+3. **Apply.** The first build installs the requirements and runs the artifact check; expect a few
+   minutes. The build log should end with
+   `=== Deployment artifacts verified: the committed model loads and serves the documented prediction.`
+   (An existing service redeploys automatically when this reaches `main`.)
 4. **Check it.** When the deploy shows **Live**, open:
    - `https://<your-service>.onrender.com/health` — should return `{"status":"ok",...}`
    - `https://<your-service>.onrender.com/docs` — the interactive API docs
@@ -85,9 +135,9 @@ data to it.
   Web) don't.
 - **Manual:** on the service page, **Manual Deploy → Deploy latest commit**. Use **Clear build cache &
   deploy** if a dependency seems stale.
-- **If a build fails:** open the build log and find the last `=== Step N/7` line. A
-  `MISMATCH` or `STOP:` message means that step didn't reproduce its documented numbers. The
-  previous deploy keeps running meanwhile.
+- **If a build fails:** open the build log and find the `VERIFY FAILED` block. It lists exactly what
+  didn't match: a committed file's hash, a library version, or the example prediction. The previous
+  deploy keeps running meanwhile.
 - **To build from another branch,** change `branch:` in the root `render.yaml` and push.
 
 ## Keep-alive
@@ -135,40 +185,49 @@ branch (`main`). On any other branch, neither works.
 
 ## What has been verified, and what hasn't
 
-Verified on 2026-10-04 in a clean copy of the repository (tracked files only, so no model
-artifacts) with a new Python 3.13.13 virtual environment installed from `requirements.txt`:
+**The committed-artifact build (current), verified on 2026-10-04** in a clean copy of the repository
+with a new Python 3.13.13 virtual environment from `requirements.txt`, and **no build step**, as on
+Render:
 
-- **The build command works:** all 7 steps passed and every step's own check matched (27 seconds
-  locally).
-- **The start command works:** `uvicorn src.api.main:app` from the clean copy served `/health` with
-  `"status":"ok"`, plus `/form` and `/docs`. The project's own model file was hidden during startup,
-  to prove the server loaded the freshly built one. `/predict` returned the documented worked example
-  in `docs/api_usage.md` to every digit.
-- **The keep-alive script works:** run locally against a healthy server, a stopped server, a server
-  answering 200 with `"status":"not_ready"`, and with the URL unset. Only the healthy case passed;
-  the other three failed with an error.
+- **The build command passes.** `python scripts/deploy_artifacts.py verify` matched all three
+  hashes and both library versions, loaded the files through the real app, and reproduced the
+  documented `/predict` example with a difference of 0.0 from the manifest.
+- **It fails when it should.** In the clean copy it exited non-zero, with a clear message, for:
+  - the model file altered by one byte (SHA-256 mismatch);
+  - the model file missing;
+  - a scikit-learn version different from the one that wrote the pickles.
+- **The start command works with no build step.** `uvicorn src.api.main:app` from the clean copy
+  served `/health` (`"ok"`), `/predict` (the documented example to every digit), `/form` and
+  `/docs`. The working copy's model file was hidden during startup, to prove the server loaded the
+  committed one.
+- **Local regeneration still works.** `bash scripts/build_model_artifacts.sh` passed all 7 steps
+  and then its final check, with the three served files byte-identical to the committed ones.
+- **Render accepts `rootDir: "MindCare AI"`.** Its first deploy got through steps 1–5 inside that
+  folder before failing at step 6, the failure that led to this approach.
+- **The keep-alive script works** (2026-10-04): run locally against a healthy server, a stopped
+  server, a server answering 200 with `"status":"not_ready"`, and with the URL unset. Only the
+  healthy case passed; the other three failed with an error.
 
-**Not verified locally:**
-- **Render's Linux build machine.** No Linux environment was available, so a difference between
-  the Windows and Linux builds of the same package versions can't be ruled out. If one exists, a
-  step's check fails and the build stops, rather than serving a different model.
+**Not verified yet:**
+- **A Render deploy with the committed artifacts.** The next deploy from `main` is the first real
+  run of this build on Render's Linux machine. Inference on Linux may differ from Windows in the
+  last bits of a float; the check allows 1e-6 for that. If it fails anyway, the build log shows
+  the actual difference.
 - **Unpinned packages.** Only `scikit-learn` and `xgboost` are pinned in `requirements.txt`. Others
   (pandas, numpy, fastapi, uvicorn, ...) install at whatever version is newest when Render builds.
-  This matters: with scikit-learn 1.8.0 instead of the pinned 1.9.1, step 4's check fails. If a
-  future Render build fails a check after an upstream release, pin the affected package to the
-  version in the project's working environment.
-- **The GitHub Actions run itself** (the script was run locally, not on GitHub's runners). Both the
-  scheduled and the manual trigger need the workflow on the default branch first.
+  The check would catch a newer version that changes the served prediction; pin the affected package
+  to the version in the project's working environment if that happens.
+- **The GitHub Actions run itself** (the script was run locally, not on GitHub's runners).
 
 ## Verify locally
 
-The build and start commands can be run on any machine before relying on Render. Run these from
-inside `MindCare AI/`, as Render does:
+Before relying on Render, run its build and start commands from inside `MindCare AI/`, in a fresh
+virtual environment, as Render does:
 
 ```bash
 python -m venv .venv_deploy_check
 .venv_deploy_check/Scripts/python -m pip install -r requirements.txt
-PATH="$PWD/.venv_deploy_check/Scripts:$PATH" bash scripts/build_model_artifacts.sh
+.venv_deploy_check/Scripts/python scripts/deploy_artifacts.py verify
 .venv_deploy_check/Scripts/uvicorn src.api.main:app --host 127.0.0.1 --port 8010
 ```
 
