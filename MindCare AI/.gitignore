@@ -8,3 +8,9 @@ data/processed/*.pkl
 data/processed/*.npz
 # ...except the base train/val/test split, which no script can recreate from scratch
 !data/processed/mindcare_processed_splits.npz
+# ...and the three files the deployed API serves. Deployment-only exception: Render can't retrain
+# them bit-for-bit (see docs/deployment.md, "Why the served model is committed"). Every other
+# model artifact stays out of git and is regenerated with docs/setup.md.
+!data/processed/mindcare_label_encoder_3class.pkl
+!data/processed/mindcare_preprocessor_11feature_v2.pkl
+!data/processed/mindcare_final_model_11feature_v2_xgb.pkl
