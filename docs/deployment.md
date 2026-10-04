@@ -91,6 +91,12 @@ Render's free web services **go to sleep after about 15 minutes without traffic*
 then waits for a cold start, which can take a minute or more, which is bad in a live demo.
 `.github/workflows/keep-alive.yml` calls `/health` every 10 minutes to prevent that.
 
+**The workflow does nothing until it is on the default branch.** GitHub runs a workflow, on its
+schedule **or** from the manual **Run workflow** button, only if the workflow file is on the
+repository's default branch (currently `main`). While it exists only on `mindcare-anxiety-model`,
+neither works. Put it there first, by merging `mindcare-anxiety-model` into `main` or by making
+`mindcare-anxiety-model` the default branch (Settings → General → Default branch).
+
 **After the first deploy, set the URL** (it doesn't exist until Render assigns it):
 
 1. On GitHub: repository **Settings → Secrets and variables → Actions → Variables** tab →
@@ -98,17 +104,14 @@ then waits for a cold start, which can take a minute or more, which is bad in a 
 2. Name `RENDER_SERVICE_URL`, value your service URL, e.g. `https://mindcare-api.onrender.com`
    (no trailing `/health`). A variable, not a secret, is right here: the URL is public anyway, and
    it shows up readably in the run logs.
-3. Test it: **Actions → Keep Render service awake → Run workflow**. The run should go green and log
-   `Healthy on attempt 1: {"status":"ok",...}`.
+3. Test it, once the workflow is on the default branch: **Actions → Keep Render service awake →
+   Run workflow**. The run should go green and log `Healthy on attempt 1: {"status":"ok",...}`.
+   After that, the 10-minute schedule runs on its own.
 
 **It fails loudly.** A run fails (red, and GitHub emails you about failed scheduled runs) if:
 - `RENDER_SERVICE_URL` isn't set;
 - `/health` doesn't return HTTP 200 within three attempts, 20 seconds apart, each allowed 90 seconds;
 - `/health` returns 200 but without `"status":"ok"`, meaning the model didn't load.
-
-**GitHub only runs scheduled workflows from the repository's default branch.** Until this workflow
-is on the default branch (currently `main`), only the manual **Run workflow** button works. To make the
-schedule run, merge it into `main`, or make `mindcare-anxiety-model` the default branch.
 
 ### This is a workaround, not a guarantee
 
@@ -150,8 +153,8 @@ artifacts) with a new Python 3.13.13 virtual environment installed from `require
   This matters: with scikit-learn 1.8.0 instead of the pinned 1.9.1, step 4's check fails. If a
   future Render build fails a check after an upstream release, pin the affected package to the
   version in the project's working environment.
-- **The GitHub Actions run itself** (the script was run locally, not on GitHub's runners), and the
-  scheduled trigger, which needs the workflow on the default branch.
+- **The GitHub Actions run itself** (the script was run locally, not on GitHub's runners). Both the
+  scheduled and the manual trigger need the workflow on the default branch first.
 
 ## Verify locally
 
