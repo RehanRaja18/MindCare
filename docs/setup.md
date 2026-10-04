@@ -74,6 +74,10 @@ in code, by `estimate_stress_level()` (`src/inference/stress_scale.py`) and
 `estimate_caffeine_mg()` (`src/api/main.py`). No extra artifact or build step is needed for
 them. See `docs/api_usage.md` for the conversion details and their validation caveats.
 
+## Deploying
+
+To run the API on Render, with the same 7 steps as its build command, see `docs/deployment.md`.
+
 ## Verify
 
 ```bash
