@@ -12,10 +12,13 @@ services:
     # and auto-deploys only when files under it change.
     rootDir: "MindCare AI"
     autoDeploy: true
-    # The model artifacts are gitignored, so every build regenerates them from the raw CSV with the
-    # same 7 scripts as docs/setup.md. Any step that doesn't reproduce its documented numbers fails
-    # the build, and Render keeps serving the previous deploy.
-    buildCommand: pip install -r requirements.txt && bash scripts/build_model_artifacts.sh
+    # The build does NOT retrain: XGBoost retrained on Render's Linux machine isn't bit-identical to
+    # the validated Windows build, so the three served artifacts are committed instead
+    # ("MindCare AI/docs/deployment.md", "Why the served model is committed"). The build checks
+    # their hashes and library versions against data/processed/deploy_artifacts.json, starts the
+    # app in-process and requires the documented example prediction. Any failure fails the build,
+    # and Render keeps serving the previous deploy.
+    buildCommand: pip install -r requirements.txt && python scripts/deploy_artifacts.py verify
     startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
