@@ -3,18 +3,24 @@
 from zoneinfo import ZoneInfo
 
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.http import Http404
 from django.utils import timezone
 
 from apps.accounts.models import ApprovalStatus, Role
 from apps.patients.models import PatientProfile
-from apps.psychologists.models import PsychologistProfile
+from apps.psychologists.models import NotAcceptingReason, PsychologistProfile
 from apps.relationships.models import (
     DECLINE_COOLDOWN,
     OPEN_STATUSES,
+    PATIENT_END_REASONS,
+    PSYCHOLOGIST_END_REASONS,
     REQUEST_EXPIRY,
+    SYSTEM_END_REASONS,
     CareRelationship,
     DeclineReason,
+    EndedBy,
+    EndReason,
     RelationshipStatus,
 )
 from core.audit import log_relationship_event
@@ -30,6 +36,17 @@ ALREADY_OPEN = "You already have a psychologist or a pending request."
 NOT_PENDING = "This request is no longer pending."
 INVALID_REASON = "Choose a valid reason."
 NOT_A_PATIENT = "Only patients can request a psychologist."
+NO_PSYCHOLOGIST = "You don't have a psychologist right now."
+REASON_REQUIRED = "Choose a reason."
+CONFIRM_REQUIRED = "Confirm that you want to end this relationship."
+ACCEPTING_REASON_REQUIRED = "Choose a reason when you're not accepting new patients."
+NOT_ACTIVE = "This relationship isn't active."
+
+_ALLOWED_END_REASONS = {
+    EndedBy.PATIENT: PATIENT_END_REASONS,
+    EndedBy.PSYCHOLOGIST: PSYCHOLOGIST_END_REASONS,
+    EndedBy.SYSTEM: SYSTEM_END_REASONS,
+}
 
 
 def _log_after_commit(**fields):
@@ -217,3 +234,117 @@ def decline_request(*, psychologist_user, relationship_id, reason=None):
         reason=reason,
     )
     return rel
+
+
+def end_relationship(*, relationship, ended_by, reason, actor_id=None):
+    """The ONLY way an accepted relationship ends (Phase 9 calls this with
+    ended_by="system", reason="subscription_lapsed")."""
+    if reason not in _ALLOWED_END_REASONS.get(ended_by, ()):
+        raise DomainValidationError({"reason": [INVALID_REASON]})
+    with transaction.atomic():
+        rel = _lock(pk=relationship.pk)
+        if rel.status != RelationshipStatus.ACCEPTED:
+            raise DomainValidationError({"relationship": [NOT_ACTIVE]})
+        rel.status = RelationshipStatus.ENDED
+        rel.ended_at = timezone.now()
+        rel.ended_by = ended_by
+        rel.end_reason = reason
+        rel.save(
+            update_fields=["status", "ended_at", "ended_by", "end_reason", "updated_at"]
+        )
+        _log_after_commit(
+            event="ended",
+            relationship_id=rel.pk,
+            actor_id=actor_id,
+            actor_role=ended_by,
+            reason=reason,
+        )
+    return rel
+
+
+def patient_end_relationship(*, patient_user, confirm):
+    if confirm is not True:
+        raise DomainValidationError({"confirm": [CONFIRM_REQUIRED]})
+    rel = CareRelationship.objects.filter(
+        patient__user=patient_user, status=RelationshipStatus.ACCEPTED
+    ).first()
+    if rel is None:
+        raise DomainValidationError({"relationship": [NO_PSYCHOLOGIST]})
+    try:
+        return end_relationship(
+            relationship=rel,
+            ended_by=EndedBy.PATIENT,
+            reason=EndReason.PATIENT_ENDED,
+            actor_id=patient_user.pk,
+        )
+    except DomainValidationError as exc:
+        if "relationship" in exc.errors:  # ended concurrently
+            raise DomainValidationError({"relationship": [NO_PSYCHOLOGIST]}) from exc
+        raise
+
+
+def psychologist_end_relationship(*, psychologist_user, relationship_id, reason):
+    _require_visible_psychologist_user(psychologist_user)
+    if not reason:
+        raise DomainValidationError({"reason": [REASON_REQUIRED]})
+    if reason not in PSYCHOLOGIST_END_REASONS:
+        raise DomainValidationError({"reason": [INVALID_REASON]})
+    rel = CareRelationship.objects.filter(
+        pk=relationship_id,
+        psychologist__user=psychologist_user,
+        status=RelationshipStatus.ACCEPTED,
+    ).first()
+    if rel is None:
+        raise Http404
+    return end_relationship(
+        relationship=rel,
+        ended_by=EndedBy.PSYCHOLOGIST,
+        reason=reason,
+        actor_id=psychologist_user.pk,
+    )
+
+
+def end_for_unavailable_account(*, user):
+    """Called when a user is DEACTIVATED or REJECTED (never when a psychologist
+    becomes pending: that is a pause). Accepted rows end, pending rows expire."""
+    with transaction.atomic():
+        rows = list(
+            CareRelationship.objects.select_for_update(of=("self",)).filter(
+                Q(patient__user=user) | Q(psychologist__user=user),
+                status__in=OPEN_STATUSES,
+            )
+        )
+        for rel in rows:
+            if rel.status == RelationshipStatus.ACCEPTED:
+                end_relationship(
+                    relationship=rel,
+                    ended_by=EndedBy.SYSTEM,
+                    reason=EndReason.ACCOUNT_UNAVAILABLE,
+                )
+            else:
+                rel.status = RelationshipStatus.EXPIRED
+                rel.save(update_fields=["status", "updated_at"])
+                _log_after_commit(
+                    event="expired",
+                    relationship_id=rel.pk,
+                    actor_id=None,
+                    actor_role="system",
+                )
+
+
+def set_accepting_status(*, psychologist_user, accepting, reason=None):
+    profile = PsychologistProfile.objects.get(user=psychologist_user)
+    if accepting:
+        profile.is_accepting_patients = True
+        profile.not_accepting_reason = None
+    else:
+        if not reason:
+            raise DomainValidationError({"reason": [ACCEPTING_REASON_REQUIRED]})
+        if reason not in NotAcceptingReason.values:
+            raise DomainValidationError({"reason": [INVALID_REASON]})
+        profile.is_accepting_patients = False
+        profile.not_accepting_reason = reason
+    profile.save(
+        update_fields=["is_accepting_patients", "not_accepting_reason", "updated_at"]
+    )
+    return profile

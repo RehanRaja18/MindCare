@@ -11,11 +11,14 @@ Deliberately NOT editable here:
 
 Users cannot be added through this interface; users are created only through
 accounts.services.register_user(). Admin accounts come from manage.py createsuperuser.
+
+Deactivating or rejecting a user here ends their care relationships (moving a
+psychologist back to pending only pauses them).
 """
 
 from django.contrib import admin
 
-from apps.accounts.models import User
+from apps.accounts.models import ApprovalStatus, User
 
 
 @admin.register(User)
@@ -60,3 +63,13 @@ class UserAdmin(admin.ModelAdmin):
         # creates the role's profile in the same transaction ("every user has a
         # profile"). Admin accounts come from `manage.py createsuperuser`.
         return False
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if change and {"is_active", "approval_status"} & set(form.changed_data):
+            if not obj.is_active or obj.approval_status == ApprovalStatus.REJECTED:
+                # Deactivated or rejected: end their relationships. Becoming
+                # pending (re-review) is a pause and ends nothing.
+                from apps.relationships.services import end_for_unavailable_account
+
+                end_for_unavailable_account(user=obj)
