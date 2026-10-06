@@ -83,6 +83,7 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | `apps/psychologists/services.py` | `create_psychologist_profile()` | Creates the profile at registration; normalizes license; generic duplicate-license error | via `POST /api/v1/accounts/register/` | MindCare Web |
 | `apps/psychologists/services.py` | `update_psychologist_profile()` | Owner edits; rejects changed credential fields (`credential_field_locked`), accepts unchanged ones; validates `gender` at the service layer (invalid value raises `DomainValidationError`, `None` clears it) | `PATCH /api/v1/psychologists/me/` | MindCare Web |
 | `apps/psychologists/selectors.py` | `get_psychologist_profile_for_user()` | Loads the requesting psychologist's own profile | `GET /api/v1/psychologists/me/` | MindCare Web |
+| `apps/psychologists/selectors.py` | `visible_psychologists()`, `list_directory()`, `get_directory_entry()` | Approved, active psychologists only; filters (specialization, language, gender, country, city, accepting, name search) combined with AND; accepting first, then most recently active (never active last), then name | `GET /api/v1/psychologists/directory/` | MindCare App |
 | `apps/psychologists/admin.py` | `PsychologistProfileAdmin` | Django-admin corrections; add disabled and `user` read-only; license/authority/qualifications edits normalized like the service layer | `/admin/psychologists/psychologistprofile/` | neither (Django admin) |
 | `apps/psychologists/api/views.py` | `MyPsychologistProfileView` | Owner-only read/update of the psychologist profile | `GET`/`PATCH /api/v1/psychologists/me/` | MindCare Web |
 
@@ -130,7 +131,7 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 
 | File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
 |------|-------------------|---------|--------------|--------------------|
-| `apps/stats/selectors.py` | `get_public_platform_stats()` | Cached (5 min) aggregate counts: active patients (TEMPORARY until Phase 3), approved psychologists, distinct cities of vetted profiles only (active patients; active AND approved psychologists and NGOs; not NGO service areas) | `GET /api/v1/stats/public/` | MindCare Web |
+| `apps/stats/selectors.py` | `get_public_platform_stats()` | Cached (5 min) aggregate counts: `people_in_care` = patients with an accepted relationship to an approved, active psychologist (Phase 3; no longer temporary), approved psychologists, distinct cities of vetted profiles only (active patients; active AND approved psychologists and NGOs; not NGO service areas) | `GET /api/v1/stats/public/` | MindCare Web |
 | `apps/stats/api/views.py` | `PublicStatsView` | Unauthenticated, rate-limited (`public_stats`, 60/min) public counts; exact contract `{people_in_care, verified_therapists, cities}` | `GET /api/v1/stats/public/` | MindCare Web |
 
 ---

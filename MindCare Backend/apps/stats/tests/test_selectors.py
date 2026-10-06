@@ -51,8 +51,8 @@ class PublicStatsTests(TestCase):
 
     def test_counts(self):
         stats = get_public_platform_stats()
-        # TEMPORARY definition: active patients (Phase 3 switches to accepted patients).
-        self.assertEqual(stats["people_in_care"], 2)
+        # Patients with an accepted relationship; none here.
+        self.assertEqual(stats["people_in_care"], 0)
         self.assertEqual(stats["verified_therapists"], 1)
         # Lahore (patient + approved psychologist, counted once) and Karachi (approved
         # NGO). Not Islamabad (pending psychologist), Faisalabad (deactivated
@@ -63,4 +63,46 @@ class PublicStatsTests(TestCase):
         get_public_platform_stats()
         self.assertIsNotNone(cache.get(CACHE_KEY))
         create_patient_profile(user=make_user(role=Role.PATIENT), timezone="UTC")
-        self.assertEqual(get_public_platform_stats()["people_in_care"], 2)
+        # Patients with an accepted relationship; none here.
+        self.assertEqual(get_public_platform_stats()["people_in_care"], 0)
+
+
+class PeopleInCareTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_counts_patients_with_accepted_relationship_to_visible_psychologist(self):
+        from apps.relationships import services
+        from core.testing import make_patient, make_psychologist
+
+        psych = make_psychologist()
+        in_care = make_patient()
+        rel = services.request_psychologist(
+            patient_user=in_care.user, psychologist_id=psych.pk
+        )
+        services.accept_request(psychologist_user=psych.user, relationship_id=rel.pk)
+        make_patient()  # registered, no psychologist
+        waiting = make_patient()
+        services.request_psychologist(
+            patient_user=waiting.user, psychologist_id=make_psychologist().pk
+        )
+        self.assertEqual(get_public_platform_stats()["people_in_care"], 1)
+
+        psych.user.approval_status = "pending"  # paused: not counted
+        psych.user.save()
+        cache.clear()
+        self.assertEqual(get_public_platform_stats()["people_in_care"], 0)
+
+    def test_reflects_new_relationships_once_cache_cleared(self):
+        from apps.relationships import services
+        from core.testing import make_patient, make_psychologist
+
+        self.assertEqual(get_public_platform_stats()["people_in_care"], 0)
+        psych, patient = make_psychologist(), make_patient()
+        rel = services.request_psychologist(
+            patient_user=patient.user, psychologist_id=psych.pk
+        )
+        services.accept_request(psychologist_user=psych.user, relationship_id=rel.pk)
+        self.assertEqual(get_public_platform_stats()["people_in_care"], 0)  # cached
+        cache.clear()
+        self.assertEqual(get_public_platform_stats()["people_in_care"], 1)
