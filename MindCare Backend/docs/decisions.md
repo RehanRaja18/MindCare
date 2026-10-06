@@ -391,9 +391,15 @@ Patients over 50 register normally and use the whole platform, but get
 entirely**, not just deprioritised.
 
 **Eligibility requires positive evidence.** It depends on `date_of_birth`, which
-stays **optional** (Phase 2 decision, not reopened here). A patient with no
-`date_of_birth` on file gets the manual-only flow, the same as a patient confirmed
-to be outside 18–50. Unknown age is **never** treated as AI-eligible.
+stays optional at registration. A patient with no `date_of_birth` on file gets the
+manual-only flow, the same as a patient confirmed to be outside 18–50. Unknown age
+is **never** treated as AI-eligible.
+
+**Updated 2026-10-06 (Phase 3):** a patient must have a `date_of_birth` before they
+can request a psychologist, and once set it can be corrected but never cleared (see
+the Phase 3 entries below). So **every patient who has a psychologist always has a
+date of birth**. The manual-only fallback for a missing date of birth now covers
+only patients who never requested a psychologist.
 
 **How Phase 6 must apply this:**
 - **The check runs in the backend before any call to the AI service.** An
@@ -650,3 +656,125 @@ recorded so they're resolved deliberately rather than by accident):
 **Alternatives considered:** An NGO dashboard (case management, incident inbox) —
 not part of the product; an NGO's role is to be found and contacted in an emergency,
 not to operate in the app.
+
+## 2026-10-06 - Phase 3: one psychologist at a time, request lifecycle, and limits
+**Decision:** (Full design: `docs/superpowers/specs/2026-10-05-phase3-relationships-design.md`.)
+- A patient has **at most one open row**: one pending request *or* one accepted
+  psychologist, enforced by a conditional unique constraint. To switch, the patient
+  ends the current relationship from their profile (with a confirmation step), then
+  requests someone else.
+- One `CareRelationship` row per request in a new `apps/relationships` app; statuses
+  `pending → accepted → ended`, or `pending → declined / cancelled / expired`. Every
+  ending goes through one service, `end_relationship()`.
+- **Requests expire after 3 days** unanswered (evaluated on read; no job). The
+  patient can cancel a pending request.
+- A psychologist can **decline** with an optional reason from a fixed list
+  (`outside_specializations`, `language_or_timezone_mismatch`,
+  `case_type_not_taken`, `other`). A decline starts a **30-day cooldown** before that
+  patient can request that psychologist again. Cancel, expiry and endings start no
+  cooldown: a psychologist who doesn't want a returning patient can simply decline,
+  which starts the cooldown, so a separate post-ending cooldown adds nothing.
+- A psychologist can **end** a relationship with a required reason
+  (`treatment_completed`, `referred_elsewhere`, `other`). `patient_unresponsive` was
+  considered and removed: a vanished patient's care ends through Phase 9's
+  subscription lapse.
+- Psychologists set **"accepting new patients" on/off** themselves, with a required
+  reason (`fully_booked`, `away`, `other`) when off; it never changes on its own.
+  Patients see only on/off; the reason stays private. Pending requests are
+  unaffected and can still be answered.
+- Accounts: deactivated or rejected → their relationships end (`system /
+  account_unavailable`) and pending requests expire. A psychologist moved back to
+  `pending` (Phase 2.5 re-review) is **paused, not ended**: the row stays accepted,
+  they lose access (selectors require approved and active), the patient can still end
+  it. Phase 2.5 decides what the patient sees during a pause.
+- **Relationships are free until Phase 9.**
+**Why:** "The patient's psychologist" must mean exactly one person for Phases 4–6 and
+9. Short expiry suits patients who need help soon; the cooldown stops repeated
+requests to someone who said no; ending on deactivation keeps patients from being
+stuck with an unreachable psychologist, while a re-review shouldn't cut off care.
+**Alternatives considered:** several psychologists at once (every later phase would
+have to pick one); several parallel pending requests (auto-cancel complexity); a
+7-day expiry (too slow); ending care whenever a psychologist stops being approved
+(too harsh for a temporary re-review).
+
+## 2026-10-06 - Phase 3: who sees what, date of birth at request time, last active
+**Decision:**
+- **Before accepting**, a psychologist sees only the requester's pseudonym, preferred
+  language, timezone, country, gender and **age in whole years** — through a narrow
+  selector, never the general display-identity selector. A declined or expired
+  request never reveals who the patient was.
+- **After accepting**, the assigned psychologist (accepted row, psychologist approved
+  and active) sees the real name and profile, but **age, never the exact date of
+  birth**. This is the assigned-psychologist exception in
+  `get_patient_display_identity()`, unlogged.
+- **When care ends, access ends immediately**; the former psychologist sees the
+  pseudonym only in their history. Defence wording: "Access ends when care ends;
+  psychologists remain bound by their professional confidentiality duties."
+- **Date of birth is required to send a request** (400 `{"date_of_birth": ["Add your
+  date of birth to your profile before requesting a psychologist."]}`), not at
+  registration (the register body stays `{timezone}`). Once set it can be corrected
+  but **never cleared**. It stays a field on `PatientProfile`; no new table.
+- **Psychologists' "last active"** is shown to patients as bands (`today`,
+  `this_week`, `this_month`, `over_a_month`, `never` = "Not active yet"), recorded
+  from any authenticated request at most every 15 minutes, for psychologists only.
+- The directory is for logged-in patients only and never shows the license number.
+**Why:** age, gender, language, timezone and country answer "can I serve this
+person?" without identifying them; an exact birth date adds little to that decision
+and is a strong identifier. Requiring the date of birth only at request time keeps
+signup quick and avoids another breaking change.
+**Alternatives considered:** showing the full profile on request (every psychologist
+asked, including those who decline, learns who the patient is); exact date of birth
+(re-identification risk); requiring date of birth at registration (breaks the
+just-reviewed signup contract).
+
+## 2026-10-06 - No free-text notes on requests or declines (for now); rules for any future note
+**Decision:** Phase 3 stores **no free text** on relationships: no patient note with a
+request, no psychologist note with a decline. If a note is ever added, it must be
+**hidden on read once `cooldown_until` passes** (not rely on a background job),
+**never logged**, and **never shown in Django admin**.
+**Why:** patients would write symptoms in a note, which is health data, and the
+2026-09-26 rule says no health data before Phase 5's audit trail. Dropping the notes
+means Phase 3 needs no exception to that rule.
+**Alternatives considered:** a 500-character patient note with safeguards; a
+300-character decline note wiped after the cooldown.
+
+## 2026-10-06 - Phase 9 forward-note: subscriptions plug into the relationship; pro-rata refunds
+**Decision (record only):**
+- Phase 9 adds `Subscription → CareRelationship` (additive). Lapse calls
+  `end_relationship(…, ended_by="system", reason="subscription_lapsed")`; the reason
+  exists already. `get_active_relationship()` gains "and paid".
+- **Patient ends:** a warning that money already paid isn't refunded; no refund.
+- **Psychologist ends:** pro-rata refund for every plan (weekly, monthly, yearly) and
+  every end reason: `refund = amount paid for the current period × days left ÷ days
+  in the period`. The psychologist is paid for every day worked. A vanished patient's
+  subscription simply lapses; an abusive patient is handled by reporting messages
+  (admin ban) or ending with the pro-rata refund.
+- Mechanism: Stripe partial refunds (`amount`) with Stripe Connect and
+  `reverse_transfer=true`, so the psychologist's share is pulled back automatically
+  and no "didn't pay back" reporting is needed.
+- **Stripe is test mode only for this prototype.** Whether Stripe supports payouts to
+  psychologists in Pakistan is a **launch-time check, not a blocker.**
+**Why recorded now:** Phase 3's relationship is designed around these hooks so Phase
+9 integrates without schema changes to relationships or a restart.
+
+## 2026-10-06 - Forward-notes: misconduct reports, erasure, Phase 5 notes, Phase 10 emails
+**Decided direction (record only, build nothing now):**
+- **Misconduct reports (both directions):** a patient can report a psychologist for
+  misconduct; a psychologist can report a patient's messages. The **moderation app**
+  owns report records and submission; **Phase 2.5 admin tools** own review, dismiss
+  and ban. A ban calls `end_for_unavailable_account`. Scheduled after Phase 3.
+- **Erasure requests:** when a patient asks to be deleted, **anonymise rather than
+  delete**: blank the name, email and profile, keep a bare relationship row with dates
+  and status. Erasure has legal exceptions, and the row is referenced by psychologist
+  history, reports and Phase 9 financial records. We do not delete data completely.
+  **Needs legal review before launch.**
+- **Phase 5 clinical notes belong to the patient–psychologist pair,** shared across
+  all `CareRelationship` rows for that pair (each request creates a new row, so a
+  returning patient continues the same notes). Patient X with Dr A and with Dr B have
+  separate notes; Dr B never sees Dr A's notes. After care ends, the psychologist
+  keeps read access to their **own** notes about the former patient, identified by
+  pseudonym; access to the real name and profile ends. Phase 5 decides the details;
+  Phase 3 needs no schema change for this.
+- **Phase 10:** email the psychologist on each new request and a reminder 3–5 hours
+  before it expires (`expires_at` is stored for this; the scheduler comes with Phase
+  7); notify the patient when a psychologist ends the relationship.
