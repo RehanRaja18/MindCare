@@ -2,12 +2,13 @@
 
 from zoneinfo import ZoneInfo
 
+from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.http import Http404
 from django.utils import timezone
 
-from apps.accounts.models import ApprovalStatus, Role
+from apps.accounts.models import ApprovalStatus, Role, User
 from apps.patients.models import PatientProfile
 from apps.psychologists.models import NotAcceptingReason, PsychologistProfile
 from apps.relationships.models import (
@@ -355,3 +356,22 @@ def set_accepting_status(*, psychologist_user, accepting, reason=None):
         update_fields=["is_accepting_patients", "not_accepting_reason", "updated_at"]
     )
     return profile
+
+
+ACTIVITY_CACHE_SECONDS = 15 * 60
+
+
+def record_activity(*, user):
+    """Psychologists only. At most one write per 15 minutes; a cache outage skips
+    the update and never breaks authentication."""
+    if getattr(user, "role", None) != Role.PSYCHOLOGIST:
+        return None
+    key = f"last_active:{user.pk}"
+    try:
+        if cache.get(key):
+            return None
+        cache.set(key, 1, ACTIVITY_CACHE_SECONDS)
+    except Exception:  # any cache failure must not affect authentication
+        return None
+    User.objects.filter(pk=user.pk).update(last_active_at=timezone.now())
+    return None
