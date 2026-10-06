@@ -1,7 +1,7 @@
 # Design: Phase 3 — Psychologist ↔ Patient Relationships
 
 **Date:** 2026-10-05 (decisions finalised 2026-10-06)
-**Status:** Draft — awaiting user review
+**Status:** Approved for planning (2026-10-06)
 **Branch:** `phase-3-relationships`
 **Apps:** new `apps/relationships`; changes to `apps/psychologists`, `apps/patients`,
 `apps/accounts`, `apps/stats`, `core/audit.py`, `config/`.
@@ -286,6 +286,12 @@ format. The `relationships` app is mounted at `/api/v1/relationships/`.
 | `GET /api/v1/relationships/patients/<relationship_id>/` | One current patient; 404 unless own and active |
 | `POST /api/v1/relationships/patients/<relationship_id>/end/` | Body `{"reason": "<code>"}` (required) → 200 |
 | `GET /api/v1/relationships/history/` | Ended relationships, pseudonym only |
+
+**Two "history" endpoints, by design:** the App's patient history screen uses
+`GET /api/v1/relationships/requests/` (the patient's own requests and relationships,
+with the minimal card when a psychologist is no longer approved and active).
+`GET /api/v1/relationships/history/` is the **psychologist's** pseudonym-only list of
+ended relationships. The names are kept as they are.
 | `GET` / `PUT /api/v1/psychologists/me/availability/` | `{"accepting": bool, "reason": "<code>" or null}` |
 
 ## 9. Request and response fields
