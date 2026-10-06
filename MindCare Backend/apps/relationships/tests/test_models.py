@@ -1,6 +1,7 @@
 """Model-level tests for CareRelationship (constraint and codes)."""
 
 from django.db import IntegrityError, transaction
+from django.db.models import ProtectedError
 from django.test import TestCase
 from django.utils import timezone
 
@@ -46,6 +47,13 @@ class OneOpenRowConstraintTests(TestCase):
             CareRelationship.objects.filter(patient=self.patient).count(), 5
         )
 
+    def test_accepted_row_also_blocks_a_second_open_row(self):
+        _row(self.patient, self.a, RelationshipStatus.ACCEPTED)
+        for status in (RelationshipStatus.PENDING, RelationshipStatus.ACCEPTED):
+            with self.subTest(status=status):
+                with self.assertRaises(IntegrityError), transaction.atomic():
+                    _row(self.patient, self.b, status)
+
 
 class CodeListTests(TestCase):
     def test_psychologist_end_reasons(self):
@@ -62,3 +70,20 @@ class CodeListTests(TestCase):
         self.assertTrue(psych.is_accepting_patients)
         self.assertIsNone(psych.not_accepting_reason)
         self.assertIsNone(psych.user.last_active_at)
+
+
+class ProtectTests(TestCase):
+    def setUp(self):
+        self.patient = make_patient()
+        self.psych = make_psychologist()
+        _row(self.patient, self.psych, RelationshipStatus.ENDED)
+
+    def test_patient_profile_with_relationship_cannot_be_deleted(self):
+        with self.assertRaises(ProtectedError), transaction.atomic():
+            self.patient.delete()
+        self.assertTrue(type(self.patient).objects.filter(pk=self.patient.pk).exists())
+
+    def test_psychologist_profile_with_relationship_cannot_be_deleted(self):
+        with self.assertRaises(ProtectedError), transaction.atomic():
+            self.psych.delete()
+        self.assertTrue(type(self.psych).objects.filter(pk=self.psych.pk).exists())
