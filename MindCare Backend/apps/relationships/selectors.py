@@ -74,6 +74,8 @@ def requester_summary(*, relationship):
 
 
 def psychologist_inbox(*, psychologist_user):
+    if not _user_is_visible_psychologist(psychologist_user):
+        return CareRelationship.objects.none()
     return (
         CareRelationship.objects.filter(
             psychologist__user=psychologist_user,

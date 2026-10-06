@@ -1,6 +1,7 @@
 """Selector tests for relationships."""
 
 from datetime import timedelta
+from unittest import mock
 
 from django.test import TestCase
 from django.utils import timezone
@@ -148,6 +149,39 @@ class ListSelectorTests(TestCase):
         self.assertNotIn(psychs[10], recent)
         self.assertNotIn(psychs[11], recent)
 
+    def test_recent_psychologists_caps_at_ten_newest_first(self):
+        psychs = [make_psychologist() for _ in range(11)]
+        base = timezone.now() - timedelta(days=100)
+        for i, p in enumerate(psychs):
+            _row(
+                self.patient,
+                p,
+                RelationshipStatus.ENDED,
+                ended_at=base + timedelta(days=i),
+            )
+        recent = selectors.recent_psychologists(patient_user=self.patient.user)
+        # newest ending first; the oldest (psychs[0]) is the one dropped
+        self.assertEqual(recent, list(reversed(psychs[1:])))
+
+    def test_inbox_empty_unless_psychologist_approved_and_active(self):
+        _row(self.patient, self.psych, RelationshipStatus.PENDING)
+        deactivated = make_psychologist(is_active=False)
+        pending = make_psychologist(approval_status=ApprovalStatus.PENDING)
+        for psych in (deactivated, pending):
+            _row(make_patient(), psych, RelationshipStatus.PENDING)
+        for psych in (deactivated, pending):
+            with self.subTest(
+                psychologist=psych.user.approval_status, active=psych.user.is_active
+            ):
+                self.assertEqual(
+                    list(selectors.psychologist_inbox(psychologist_user=psych.user)),
+                    [],
+                )
+        # control: the approved, active psychologist still sees theirs
+        self.assertEqual(
+            len(selectors.psychologist_inbox(psychologist_user=self.psych.user)), 1
+        )
+
 
 class LastActiveBandTests(TestCase):
     def test_bands(self):
@@ -162,3 +196,68 @@ class LastActiveBandTests(TestCase):
         for dt, band in cases:
             with self.subTest(band=band):
                 self.assertEqual(selectors.last_active_band(dt, now=now), band)
+
+    def test_band_cut_offs(self):
+        now = timezone.now()
+        cases = [
+            (None, "never"),
+            (now, "today"),
+            (now - timedelta(hours=24) + timedelta(seconds=1), "today"),
+            (now - timedelta(hours=24), "this_week"),
+            (now - timedelta(days=7) + timedelta(seconds=1), "this_week"),
+            (now - timedelta(days=7), "this_month"),
+            (now - timedelta(days=30) + timedelta(seconds=1), "this_month"),
+            (now - timedelta(days=30), "over_a_month"),
+        ]
+        for dt, band in cases:
+            with self.subTest(dt=dt, band=band):
+                self.assertEqual(selectors.last_active_band(dt, now=now), band)
+
+
+class ExpiryCutOffTests(TestCase):
+    """A pending request is live while now < expires_at, expired once
+    now >= expires_at."""
+
+    def setUp(self):
+        self.fixed = timezone.now()
+        self.psych = make_psychologist()
+
+    def _pending(self, expires_at):
+        return _row(
+            make_patient(),
+            self.psych,
+            RelationshipStatus.PENDING,
+            requested_at=expires_at - REQUEST_EXPIRY,
+            expires_at=expires_at,
+        )
+
+    def _frozen(self):
+        return mock.patch("django.utils.timezone.now", return_value=self.fixed)
+
+    def test_inbox_live_one_second_before_expiry(self):
+        rel = self._pending(self.fixed + timedelta(seconds=1))
+        with self._frozen():
+            inbox = list(
+                selectors.psychologist_inbox(psychologist_user=self.psych.user)
+            )
+        self.assertEqual(inbox, [rel])
+
+    def test_inbox_expired_at_expires_at(self):
+        self._pending(self.fixed)
+        with self._frozen():
+            inbox = list(
+                selectors.psychologist_inbox(psychologist_user=self.psych.user)
+            )
+        self.assertEqual(inbox, [])
+
+    def test_patient_current_live_one_second_before_expiry(self):
+        rel = self._pending(self.fixed + timedelta(seconds=1))
+        with self._frozen():
+            current = selectors.patient_current(patient_user=rel.patient.user)
+        self.assertEqual(current, rel)
+
+    def test_patient_current_expired_at_expires_at(self):
+        rel = self._pending(self.fixed)
+        with self._frozen():
+            current = selectors.patient_current(patient_user=rel.patient.user)
+        self.assertIsNone(current)
