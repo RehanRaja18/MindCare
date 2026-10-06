@@ -3,7 +3,7 @@
 from zoneinfo import ZoneInfo
 
 from django.core.cache import cache
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import Q
 from django.http import Http404
 from django.utils import timezone
@@ -368,10 +368,17 @@ def record_activity(*, user):
         return None
     key = f"last_active:{user.pk}"
     try:
-        if cache.get(key):
+        # Atomic set-if-absent: only the first request in a window writes.
+        if not cache.add(key, 1, ACTIVITY_CACHE_SECONDS):
             return None
-        cache.set(key, 1, ACTIVITY_CACHE_SECONDS)
     except Exception:  # any cache failure must not affect authentication
         return None
-    User.objects.filter(pk=user.pk).update(last_active_at=timezone.now())
+    try:
+        User.objects.filter(pk=user.pk).update(last_active_at=timezone.now())
+    except DatabaseError:
+        # Don't suppress the next attempt for a whole window.
+        try:
+            cache.delete(key)
+        except Exception:
+            pass
     return None

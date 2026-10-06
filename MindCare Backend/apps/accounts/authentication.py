@@ -11,6 +11,6 @@ UNTRACKED_PATHS = frozenset({"/api/v1/accounts/refresh/", "/api/v1/accounts/logo
 class ActivityTrackingJWTAuthentication(JWTAuthentication):
     def authenticate(self, request):
         result = super().authenticate(request)
-        if result is not None and request.path not in UNTRACKED_PATHS:
+        if result is not None and request.path_info not in UNTRACKED_PATHS:
             record_activity(user=result[0])
         return result
