@@ -96,3 +96,37 @@ def test_authenticated_endpoint_requires_jwt(paths):
 )
 def test_public_endpoint_does_not_require_jwt(paths, path, method):
     assert {"jwtAuth": []} not in paths[path][method].get("security", [])
+
+
+PHASE3_PATHS = {
+    "/api/v1/psychologists/directory/": {"get"},
+    "/api/v1/psychologists/directory/{id}/": {"get"},
+    "/api/v1/psychologists/me/availability/": {"get", "put"},
+    "/api/v1/relationships/requests/": {"get", "post"},
+    "/api/v1/relationships/requests/{id}/cancel/": {"post"},
+    "/api/v1/relationships/requests/{id}/accept/": {"post"},
+    "/api/v1/relationships/requests/{id}/decline/": {"post"},
+    "/api/v1/relationships/current/": {"get"},
+    "/api/v1/relationships/current/end/": {"post"},
+    "/api/v1/relationships/recent/": {"get"},
+    "/api/v1/relationships/inbox/": {"get"},
+    "/api/v1/relationships/patients/": {"get"},
+    "/api/v1/relationships/patients/{id}/": {"get"},
+    "/api/v1/relationships/patients/{id}/end/": {"post"},
+    "/api/v1/relationships/history/": {"get"},
+}
+
+
+@pytest.mark.parametrize("path,methods", sorted(PHASE3_PATHS.items()))
+def test_phase3_paths_present(paths, path, methods):
+    assert path in paths
+    assert methods <= set(paths[path])
+
+
+def test_request_create_documents_201(paths):
+    assert "201" in paths["/api/v1/relationships/requests/"]["post"]["responses"]
+
+
+def test_schema_generates_without_warnings(generated):
+    _, warnings = generated
+    assert warnings == []

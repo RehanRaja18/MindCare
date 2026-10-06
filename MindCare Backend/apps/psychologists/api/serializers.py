@@ -4,7 +4,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from apps.psychologists.models import PsychologistProfile
+from apps.psychologists.models import NotAcceptingReason, PsychologistProfile
 from apps.reference.api.serializers import (
     CitySerializer,
     CountrySerializer,
@@ -149,3 +149,13 @@ class DirectoryQuerySerializer(serializers.Serializer):
     city = serializers.IntegerField(required=False, min_value=1)
     accepting = serializers.BooleanField(required=False, allow_null=True, default=None)
     search = serializers.CharField(required=False, max_length=120, allow_blank=True)
+
+
+class AvailabilitySerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    """GET/PUT /psychologists/me/availability/. A reason is required (by the
+    service) when accepting is false, and cleared when it is true."""
+
+    accepting = serializers.BooleanField()
+    reason = serializers.ChoiceField(
+        choices=NotAcceptingReason.choices, required=False, allow_null=True
+    )

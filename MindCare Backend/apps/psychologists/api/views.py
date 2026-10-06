@@ -13,14 +13,16 @@ from rest_framework.views import APIView
 
 from apps.psychologists import selectors, services
 from apps.psychologists.api.serializers import (
+    AvailabilitySerializer,
     DirectoryCardSerializer,
     DirectoryQuerySerializer,
     PsychologistProfileOwnerSerializer,
     PsychologistRegistrationProfileSerializer,
 )
+from apps.relationships import services as relationship_services
 from core.exceptions import DomainValidationError
 from core.pagination import StandardPagination
-from core.permissions import IsPatient, IsPsychologist
+from core.permissions import IsApprovedPsychologist, IsPatient, IsPsychologist
 
 
 class MyPsychologistProfileView(APIView):
@@ -89,3 +91,38 @@ class DirectoryDetailView(APIView):
         if profile is None:
             raise NotFound()
         return Response(DirectoryCardSerializer(profile).data)
+
+
+class AvailabilityView(APIView):
+    """The psychologist's "accepting new patients" switch. Approved, active
+    psychologists only (unlike /me/, which a pending psychologist still needs)."""
+
+    permission_classes = [IsAuthenticated, IsPsychologist, IsApprovedPsychologist]
+
+    @staticmethod
+    def _payload(profile):
+        return {
+            "accepting": profile.is_accepting_patients,
+            "reason": profile.not_accepting_reason,
+        }
+
+    @extend_schema(responses=AvailabilitySerializer)
+    def get(self, request):
+        profile = selectors.get_psychologist_profile_for_user(user=request.user)
+        if profile is None:
+            raise NotFound("Profile not found.")
+        return Response(self._payload(profile))
+
+    @extend_schema(request=AvailabilitySerializer, responses=AvailabilitySerializer)
+    def put(self, request):
+        body = AvailabilitySerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        try:
+            profile = relationship_services.set_accepting_status(
+                psychologist_user=request.user,
+                accepting=body.validated_data["accepting"],
+                reason=body.validated_data.get("reason"),
+            )
+        except DomainValidationError as exc:
+            raise ValidationError(exc.errors, code=exc.code) from exc
+        return Response(self._payload(profile))

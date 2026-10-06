@@ -171,6 +171,17 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Unified backend serving MindCare Web and MindCare App.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Several request bodies have a `reason` field with different choice sets;
+    # name each enum explicitly so the schema has no naming collisions.
+    "ENUM_NAME_OVERRIDES": {
+        "DeclineReasonEnum": "apps.relationships.models.DeclineReason",
+        "NotAcceptingReasonEnum": "apps.psychologists.models.NotAcceptingReason",
+        "PsychologistEndReasonEnum": [
+            "other",
+            "referred_elsewhere",
+            "treatment_completed",
+        ],
+    },
 }
 
 # Cache (also backs DRF throttling — must be shared across worker processes)
