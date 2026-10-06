@@ -65,7 +65,7 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 |------|-------------------|---------|--------------|--------------------|
 | `apps/patients/models.py` | `PatientProfile` | Patient demographics/preferences, immutable pseudonym, `is_profile_public` (default False); no health data | — | MindCare App |
 | `apps/patients/services.py` | `create_patient_profile()` | Creates the profile at registration with a unique pseudonym (retries collisions) | via `POST /api/v1/accounts/register/` | MindCare App |
-| `apps/patients/services.py` | `update_patient_profile()` | Owner edits; rejects pseudonym changes, under-18 DOB, bad timezone/phone; resolves city | `PATCH /api/v1/patients/me/` | MindCare App |
+| `apps/patients/services.py` | `update_patient_profile()` | Owner edits; rejects pseudonym changes, under-18 DOB, bad timezone/phone; resolves city; date of birth can be corrected but never cleared once set (Phase 3) | `PATCH /api/v1/patients/me/` | MindCare App |
 | `apps/patients/selectors.py` | `get_patient_profile_for_user()` | Loads the requesting patient's own profile | `GET /api/v1/patients/me/` | MindCare App |
 | `apps/patients/selectors.py` | `get_patient_display_identity()` | Single rule for real name vs pseudonym; an admin reveal of a private profile logs `identity_reveal`; the assigned-psychologist exception is now live (accepted relationship to an approved, active psychologist, not logged); Phase 11 must use it | — (no endpoint in Phase 2) | MindCare Web, MindCare App (Phase 3+) |
 | `apps/patients/admin.py` | `PatientProfileAdmin` | Django-admin view/edit; add disabled and `user` read-only | `/admin/patients/patientprofile/` | neither (Django admin) |
@@ -114,6 +114,8 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | `apps/relationships/selectors.py` | `is_assigned_psychologist()` | True only for an accepted row to a currently approved, active psychologist; used by `get_patient_display_identity()` | — | neither (internal) |
 | `apps/relationships/selectors.py` | `requester_summary()` | Pre-acceptance view of a requester: pseudonym, language, timezone, country, gender, age (never name/city/phone/date of birth) | `GET /api/v1/relationships/inbox/` | MindCare Web |
 | `apps/relationships/selectors.py` | `psychologist_inbox()`, `psychologist_patients()`, `psychologist_patient()`, `psychologist_history()`, `patient_current()`, `patient_requests()`, `recent_psychologists()`, `last_active_band()` | Ownership-scoped reads for both sides | see Tasks 7–8 endpoints | MindCare Web, MindCare App |
+| `apps/relationships/services.py` | `request_psychologist()` | Date of birth required; generic "isn't available" for unapproved/inactive/unknown psychologists; accepting check; stale pending expired in the same transaction; one open row; 30-day decline cooldown | `POST /api/v1/relationships/requests/` | MindCare App |
+| `apps/relationships/services.py` | `cancel_request()`, `accept_request()`, `decline_request()` | Row-locked, ownership-checked (404), expiry-aware state changes; decline sets the 30-day cooldown | `POST /api/v1/relationships/requests/<id>/{cancel,accept,decline}/` | MindCare App, MindCare Web |
 
 ---
 
