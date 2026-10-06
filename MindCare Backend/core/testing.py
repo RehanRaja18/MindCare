@@ -1,6 +1,9 @@
 """Test factories shared across apps' test suites. Not used by runtime code."""
 
+import importlib
 import uuid
+
+from django.test import TransactionTestCase
 
 from apps.accounts.models import ApprovalStatus, Role, User
 
@@ -191,3 +194,42 @@ def make_psychologist(
     return create_psychologist_profile(
         user=user, **psychologist_profile_data(**profile_overrides)
     )
+
+
+def reseed_reference_data():
+    """A TransactionTestCase flushes every table after it runs, including the
+    reference data seeded by the RunPython migrations (countries, cities,
+    languages, specializations) that make_psychologist and friends need, so the
+    next test would start with no countries. Re-run the seed migrations if that
+    happened; a no-op when the data is present.
+    (serialized_rollback clashes with the content types post_migrate recreates.)"""
+    from django.apps import apps
+
+    from apps.reference.models import Country
+
+    if Country.objects.exists():
+        return
+    seed = importlib.import_module("apps.reference.migrations.0002_seed_reference_data")
+    verify = importlib.import_module(
+        "apps.reference.migrations.0003_city_is_verified_and_turkiye"
+    )
+    seed.seed(apps, None)
+    verify.verify_seeded_cities_and_rename_turkiye(apps, None)
+
+
+class ReferenceDataTransactionTestCase(TransactionTestCase):
+    """TransactionTestCase that never leaves the reference tables empty: seeds them
+    before each test if a previous flush emptied them, and re-seeds them after its own
+    flush, so later tests don't depend on running order.
+
+    Overrides Django's internal ``TransactionTestCase._fixture_teardown()`` hook
+    (called from ``_post_teardown()``, after ``tearDown()``), which is where the
+    flush happens; re-seeding after ``super()`` is the only point that runs after it."""
+
+    def setUp(self):
+        super().setUp()
+        reseed_reference_data()
+
+    def _fixture_teardown(self):
+        super()._fixture_teardown()  # the flush
+        reseed_reference_data()

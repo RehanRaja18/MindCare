@@ -1,35 +1,20 @@
 """Concurrency: row locks make conflicting actions mutually exclusive."""
 
-import importlib
 import threading
 
 from django.db import connection
 from django.http import Http404
-from django.test import TransactionTestCase
+from django.test import TestCase, TransactionTestCase
 
 from apps.relationships import services
 from apps.relationships.models import RelationshipStatus
 from core.exceptions import DomainValidationError
-from core.testing import make_patient, make_psychologist
-
-
-def _reseed_reference_data():
-    """A TransactionTestCase flushes every table after it runs, including the
-    migration-seeded reference data make_psychologist needs, so a second one
-    starts with no countries. Re-run the seed migrations if that happened.
-    (serialized_rollback clashes with the content types post_migrate recreates.)"""
-    from django.apps import apps
-
-    from apps.reference.models import Country
-
-    if Country.objects.exists():
-        return
-    seed = importlib.import_module("apps.reference.migrations.0002_seed_reference_data")
-    verify = importlib.import_module(
-        "apps.reference.migrations.0003_city_is_verified_and_turkiye"
-    )
-    seed.seed(apps, None)
-    verify.verify_seeded_cities_and_rename_turkiye(apps, None)
+from core.testing import (
+    ReferenceDataTransactionTestCase,
+    make_patient,
+    make_psychologist,
+    reseed_reference_data,
+)
 
 
 def _run_concurrently(*funcs):
@@ -56,10 +41,7 @@ def _run_concurrently(*funcs):
     return results
 
 
-class AcceptVsCancelRaceTests(TransactionTestCase):
-    def setUp(self):
-        _reseed_reference_data()
-
+class AcceptVsCancelRaceTests(ReferenceDataTransactionTestCase):
     def test_exactly_one_wins(self):
         patient = make_patient()
         psych = make_psychologist()
@@ -84,10 +66,7 @@ class AcceptVsCancelRaceTests(TransactionTestCase):
         self.assertEqual(rel.status, expected)
 
 
-class PatientEndVsPsychologistEndRaceTests(TransactionTestCase):
-    def setUp(self):
-        _reseed_reference_data()
-
+class PatientEndVsPsychologistEndRaceTests(ReferenceDataTransactionTestCase):
     def test_exactly_one_ends_it(self):
         patient = make_patient()
         psych = make_psychologist()
@@ -108,3 +87,39 @@ class PatientEndVsPsychologistEndRaceTests(TransactionTestCase):
         self.assertEqual(rel.status, RelationshipStatus.ENDED)
         expected_by = "patient" if results[0] == "ok" else "psychologist"
         self.assertEqual(rel.ended_by, expected_by)
+
+
+class ReseedReferenceDataTests(TestCase):
+    def test_reseeds_empty_tables_and_is_a_no_op_otherwise(self):
+        from apps.reference.models import City, Country, Language, Specialization
+
+        # Mirror a post-flush state: the seed recreates all four tables.
+        City.objects.all().delete()
+        Country.objects.all().delete()
+        Language.objects.all().delete()
+        Specialization.objects.all().delete()
+
+        reseed_reference_data()
+        self.assertTrue(Country.objects.filter(code="PK").exists())
+        self.assertTrue(
+            City.objects.filter(country__code="PK", is_verified=True).exists()
+        )
+
+        counts = [m.objects.count() for m in (Country, City, Language, Specialization)]
+        reseed_reference_data()
+        self.assertEqual(
+            [m.objects.count() for m in (Country, City, Language, Specialization)],
+            counts,
+        )
+
+
+# Must stay LAST in this file. pytest-django runs transactional tests after plain
+# TestCases but keeps file order among them, so this runs after the race classes
+# above. It does no reseeding of its own: it proves their teardown restored the
+# migration-seeded reference data that their flush wiped.
+class ZZReferenceDataSurvivesRaceTestsTests(TransactionTestCase):
+    def test_reference_data_is_present_after_race_tests(self):
+        from apps.reference.models import City, Country
+
+        self.assertTrue(Country.objects.filter(code="PK").exists())
+        self.assertTrue(City.objects.filter(is_verified=True).exists())

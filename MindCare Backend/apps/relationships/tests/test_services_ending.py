@@ -307,3 +307,22 @@ class AvailabilityTests(TestCase):
             services.set_accepting_status(
                 psychologist_user=self.psych.user, accepting=False, reason="sick"
             )
+
+    def test_switching_off_leaves_pending_requests_answerable(self):
+        patient = make_patient()
+        rel = services.request_psychologist(
+            patient_user=patient.user, psychologist_id=self.psych.pk
+        )
+        expires_at = rel.expires_at
+        services.set_accepting_status(
+            psychologist_user=self.psych.user, accepting=False, reason="fully_booked"
+        )
+        rel.refresh_from_db()
+        self.assertEqual(rel.status, RelationshipStatus.PENDING)
+        self.assertEqual(rel.expires_at, expires_at)
+        self.assertIsNone(rel.responded_at)
+        self.assertIsNone(rel.cooldown_until)
+        accepted = services.accept_request(
+            psychologist_user=self.psych.user, relationship_id=rel.pk
+        )
+        self.assertEqual(accepted.status, RelationshipStatus.ACCEPTED)
