@@ -484,6 +484,16 @@ once a date of birth is set.
 4. **`NUM_PROXIES` is unset on Render**, affecting anonymous throttles (register,
    login, reference, stats); Phase 3's throttles are per-user.
 5. **App registration from a real device is untested** (Flutter build stalled).
-6. **The pasted AI-pipeline prompt** says approved AI output must never reach the
-   patient, which contradicts project-vision §12 and CLAUDE.md (approved
-   recommendations do reach the patient); to be resolved when Phase 6 is designed.
+6. **The pasted AI-pipeline prompt conflicts with project-vision §12 on approved
+   diet/exercise/sleep suggestions.** The prompt: *"No patient-facing endpoint,
+   response payload, or UI should ever return a prediction, a probability, a
+   review_flag, a risk class, a suggested diet/exercise plan, or anything derived
+   from them — not even after psychologist approval."* Vision §12 lists exercises,
+   diet plans and sleep schedules as what the AI recommends, and its workflow ends
+   *"Approved Recommendation → Patient App → Patient Follows Recommendation"*.
+   The prompt's ban on showing predictions, probabilities, review flags and risk
+   classes to patients does **not** conflict (vision §12 doesn't say those reach the
+   patient). CLAUDE.md only requires the approval gate ("NEVER let AI-generated
+   patient recommendations reach a patient without going through the psychologist
+   approval workflow"), which implies approved recommendations may reach the
+   patient. **Not resolved here; a Phase 6 item.**
