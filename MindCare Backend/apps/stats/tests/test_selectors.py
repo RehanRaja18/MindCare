@@ -106,3 +106,90 @@ class PeopleInCareTests(TestCase):
         self.assertEqual(get_public_platform_stats()["people_in_care"], 0)  # cached
         cache.clear()
         self.assertEqual(get_public_platform_stats()["people_in_care"], 1)
+
+
+class PeopleInCareExclusionTests(TestCase):
+    """Each case starts from one patient in active care (positive control, so
+    the count can't pass by always being 0), adds one excluded case, and checks
+    the count stays exactly 1."""
+
+    def setUp(self):
+        from core.testing import make_psychologist
+
+        cache.clear()
+        self.control_psych = make_psychologist()
+        self._in_care(self.control_psych)
+        self.assertEqual(get_public_platform_stats()["people_in_care"], 1)
+
+    def _in_care(self, psych):
+        """A new patient with an accepted relationship to psych."""
+        from apps.relationships import services
+        from core.testing import make_patient
+
+        patient = make_patient()
+        rel = services.request_psychologist(
+            patient_user=patient.user, psychologist_id=psych.pk
+        )
+        services.accept_request(psychologist_user=psych.user, relationship_id=rel.pk)
+        return patient, rel
+
+    def _assert_count_still_one(self):
+        cache.clear()
+        self.assertEqual(get_public_platform_stats()["people_in_care"], 1)
+
+    def _assert_still_accepted(self, rel):
+        from apps.relationships.models import RelationshipStatus
+
+        rel.refresh_from_db()
+        self.assertEqual(rel.status, RelationshipStatus.ACCEPTED)
+
+    def test_excludes_inactive_patient_with_accepted_relationship(self):
+        from core.testing import make_psychologist
+
+        p2, rel = self._in_care(make_psychologist())
+        cache.clear()
+        self.assertEqual(get_public_platform_stats()["people_in_care"], 2)
+        p2.user.is_active = False
+        p2.user.save()
+        self._assert_still_accepted(rel)
+        self._assert_count_still_one()
+
+    def test_excludes_deactivated_psychologist(self):
+        from core.testing import make_psychologist
+
+        d = make_psychologist()
+        _, rel = self._in_care(d)
+        d.user.is_active = False
+        d.user.save()
+        self._assert_still_accepted(rel)
+        self._assert_count_still_one()
+
+    def test_excludes_rejected_psychologist(self):
+        from core.testing import make_psychologist
+
+        r = make_psychologist()
+        _, rel = self._in_care(r)
+        r.user.approval_status = ApprovalStatus.REJECTED
+        r.user.save()
+        self._assert_still_accepted(rel)
+        self._assert_count_still_one()
+
+    def test_excludes_ended_relationship(self):
+        from apps.relationships import services
+
+        p5, _ = self._in_care(self.control_psych)
+        services.patient_end_relationship(patient_user=p5.user, confirm=True)
+        self._assert_count_still_one()
+
+    def test_excludes_declined_relationship(self):
+        from apps.relationships import services
+        from core.testing import make_patient
+
+        p6 = make_patient()
+        rel = services.request_psychologist(
+            patient_user=p6.user, psychologist_id=self.control_psych.pk
+        )
+        services.decline_request(
+            psychologist_user=self.control_psych.user, relationship_id=rel.pk
+        )
+        self._assert_count_still_one()
