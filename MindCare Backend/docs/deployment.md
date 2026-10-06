@@ -85,6 +85,28 @@ done. **Still open before merging:** `NUM_PROXIES` on Render.
 - [ ] **After deploy:** re-run the CORS preflight check (see CORS section) and
       check `/api/docs/` shows the register and `/me/` contracts.
 
+## Removing test data (Phase 3 onwards)
+
+`CareRelationship` rows reference profiles with `on_delete=PROTECT`, so a user who
+has relationship rows **can't be deleted from Django admin**. To remove test
+accounts, delete in this order, scoped to the test users' ids (replace `<ids>`):
+
+```sql
+-- 1. relationship rows first (PROTECT blocks everything else otherwise)
+DELETE FROM relationships_carerelationship
+ WHERE patient_id IN (SELECT id FROM patients_patientprofile WHERE user_id IN (<ids>))
+    OR psychologist_id IN (SELECT id FROM psychologists_psychologistprofile WHERE user_id IN (<ids>));
+-- 2. profiles (psychologist M2M rows and NGO service areas cascade)
+DELETE FROM patients_patientprofile WHERE user_id IN (<ids>);
+DELETE FROM psychologists_psychologistprofile WHERE user_id IN (<ids>);
+DELETE FROM ngo_ngoprofile WHERE user_id IN (<ids>);
+-- 3. users
+DELETE FROM accounts_user WHERE id IN (<ids>);
+```
+
+Check the ids with a `SELECT` first, and run it inside a transaction
+(`BEGIN; … COMMIT;`) so a mistake can be rolled back.
+
 ## TODO
 
 - [ ] **Supabase heartbeat workflow**: a scheduled GitHub Actions job that makes a

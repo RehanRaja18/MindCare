@@ -42,7 +42,7 @@ recommendations) and Phase 9 (subscriptions) build on this relationship.
 - Misconduct reports in both directions (moderation app + Phase 2.5 admin tools;
   scheduled after Phase 3).
 - What the patient sees while their psychologist is paused for re-review
-  (Phase 2.5).
+  (**left to Phase 2.5**).
 - Automatic "fully booked" capacity cap; several psychologists per patient;
   sorting the directory by years of experience; background expiry sweep.
 - No new third-party packages.
@@ -75,7 +75,7 @@ No other transitions; no row is ever reopened.
   every selector already requires the psychologist to be approved and active, so
   they get no access, the patient isn't counted in `people_in_care`, and the
   patient's views show a minimal card. The patient can still end the relationship.
-  Phase 2.5 decides what the patient is told during a pause.
+  What the patient sees during a pause is **left to Phase 2.5**.
 - **Automatic ending happens only when an account is deactivated
   (`is_active=False`) or rejected (`approval_status="rejected"`).**
 
@@ -134,7 +134,6 @@ from Django admin. Test accounts must have their relationship rows deleted first
 | `EndedBy` | `patient`, `psychologist`, `system` |
 | `NotAcceptingReason` (on `PsychologistProfile`) | `fully_booked` (Fully booked), `away` (Away / on leave), `other` (Other) |
 
-`patient_unresponsive` is **not** an end reason (removed during the interview).
 
 ### 5.3 Changes to existing models
 
