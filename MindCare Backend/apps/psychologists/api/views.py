@@ -8,15 +8,19 @@ from drf_spectacular.utils import extend_schema
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
 from apps.psychologists import selectors, services
 from apps.psychologists.api.serializers import (
+    DirectoryCardSerializer,
+    DirectoryQuerySerializer,
     PsychologistProfileOwnerSerializer,
     PsychologistRegistrationProfileSerializer,
 )
 from core.exceptions import DomainValidationError
-from core.permissions import IsPsychologist
+from core.pagination import StandardPagination
+from core.permissions import IsPatient, IsPsychologist
 
 
 class MyPsychologistProfileView(APIView):
@@ -50,3 +54,38 @@ class MyPsychologistProfileView(APIView):
             raise ValidationError(exc.errors, code=exc.code) from exc
         profile = selectors.get_psychologist_profile_for_user(user=request.user)
         return Response(PsychologistProfileOwnerSerializer(profile).data)
+
+
+class DirectoryRateThrottle(UserRateThrottle):
+    scope = "directory"
+
+
+class DirectoryListView(APIView):
+    permission_classes = [IsAuthenticated, IsPatient]
+    throttle_classes = [DirectoryRateThrottle]
+
+    @extend_schema(
+        parameters=[DirectoryQuerySerializer],
+        responses=DirectoryCardSerializer(many=True),
+    )
+    def get(self, request):
+        query = DirectoryQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        qs = selectors.list_directory(**query.validated_data)
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(qs, request, view=self)
+        return paginator.get_paginated_response(
+            DirectoryCardSerializer(page, many=True).data
+        )
+
+
+class DirectoryDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsPatient]
+    throttle_classes = [DirectoryRateThrottle]
+
+    @extend_schema(responses=DirectoryCardSerializer)
+    def get(self, request, pk):
+        profile = selectors.get_directory_entry(profile_id=pk)
+        if profile is None:
+            raise NotFound()
+        return Response(DirectoryCardSerializer(profile).data)

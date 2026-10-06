@@ -135,6 +135,8 @@ REST_FRAMEWORK = {
         "register": "10/hour",
         "reference": "120/min",
         "public_stats": "60/min",
+        "directory": "60/min",
+        "relationship_requests": "10/hour",
     },
     "NUM_PROXIES": env.int("NUM_PROXIES", default=0),
 }

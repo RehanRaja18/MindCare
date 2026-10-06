@@ -86,6 +86,8 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | `apps/psychologists/selectors.py` | `visible_psychologists()`, `list_directory()`, `get_directory_entry()` | Approved, active psychologists only; filters (specialization, language, gender, country, city, accepting, name search) combined with AND; accepting first, then most recently active (never active last), then name | `GET /api/v1/psychologists/directory/` | MindCare App |
 | `apps/psychologists/admin.py` | `PsychologistProfileAdmin` | Django-admin corrections; add disabled and `user` read-only; license/authority/qualifications edits normalized like the service layer | `/admin/psychologists/psychologistprofile/` | neither (Django admin) |
 | `apps/psychologists/api/views.py` | `MyPsychologistProfileView` | Owner-only read/update of the psychologist profile | `GET`/`PATCH /api/v1/psychologists/me/` | MindCare Web |
+| `apps/psychologists/api/serializers.py` | `DIRECTORY_CARD_FIELDS`, `DirectoryCardSerializer`, `MinimalCardSerializer`, `DirectoryQuerySerializer` | Patient-facing psychologist card with an explicit field list (never `license_number`, `last_active_at`, `not_accepting_reason`); `last_active` as a band; minimal `{id, full_name}` card when the psychologist is no longer approved and active; directory query params validated (bad `city`/`accepting`/`gender` give 400; whitespace-only `search` means no filter) | `GET /api/v1/psychologists/directory/` | MindCare App |
+| `apps/psychologists/api/views.py` | `DirectoryListView`, `DirectoryDetailView`, `DirectoryRateThrottle` | Logged-in patients only; paginated directory (20 per page, max 50) and single card (404 if not approved and active); throttled (`directory`, 60/min) | `GET /api/v1/psychologists/directory/`, `GET /api/v1/psychologists/directory/<id>/` | MindCare App |
 
 ---
 
@@ -124,6 +126,12 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | `apps/relationships/services.py` | `end_for_unavailable_account()` | On deactivation or rejection: accepted rows end (system/account_unavailable), pending rows expire; not on pending (pause) | — (called from `UserAdmin.save_model`) | neither (internal) |
 | `apps/relationships/services.py` | `set_accepting_status()` | Accepting switch; reason required when off, cleared when on | `PUT /api/v1/psychologists/me/availability/` | MindCare Web |
 | `apps/relationships/services.py` | `record_activity()` | Psychologist `last_active_at`, at most every 15 min via cache key; cache errors skip silently; a failed DB write clears the key and logs one warning with the exception type only (no user id, message or traceback) | — | neither (internal) |
+| `apps/relationships/api/serializers.py` | `RequestCreateSerializer`, `PatientEndSerializer`, `RelationshipPatientViewSerializer` | Request body (`psychologist` id, unknown keys rejected); end confirmation via `StrictTrueField`; the patient's view of a relationship with the full card or the minimal card | — | MindCare App |
+| `apps/relationships/api/views.py` | `RequestListCreateView`, `RelationshipRequestRateThrottle` | GET: the patient's paginated request history (the App's history screen); POST: send a request (only POST throttled, `relationship_requests`, 10/hour) | `GET`/`POST /api/v1/relationships/requests/` | MindCare App |
+| `apps/relationships/api/views.py` | `CancelRequestView` | Patient cancels their own pending request (another patient's gives 404) | `POST /api/v1/relationships/requests/<id>/cancel/` | MindCare App |
+| `apps/relationships/api/views.py` | `CurrentRelationshipView` | The patient's pending (unexpired) or accepted relationship, or `{"relationship": null}` | `GET /api/v1/relationships/current/` | MindCare App |
+| `apps/relationships/api/views.py` | `EndCurrentRelationshipView` | Patient ends their psychologist; body `{"confirm": true}` (JSON true only) | `POST /api/v1/relationships/current/end/` | MindCare App |
+| `apps/relationships/api/views.py` | `RecentPsychologistsView` | Up to 10 past psychologists (approved, active, no open row) as directory cards | `GET /api/v1/relationships/recent/` | MindCare App |
 
 ---
 
@@ -148,6 +156,7 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | `core/choices.py` | `Gender` | Shared gender choices for patient/psychologist profiles | — | MindCare Web, MindCare App |
 | `core/serializers.py` | `RejectUnknownFieldsMixin` | Makes serializers reject undeclared keys (e.g. `pseudonym`) with a 400; checked in `to_internal_value`, so nested and `many=True` children (e.g. each NGO `service_areas` item) are covered too | — | neither (internal) |
 | `core/serializers.py` | `StrictTrueField` | Custom DRF field that accepts **only** the JSON boolean `true`, rejecting coerced truthy values like `"true"`, `1`, `"yes"` (used for legal declarations like the 18+ confirmation); documented as a boolean in the OpenAPI schema | — | neither (internal) |
+| `core/pagination.py` | `StandardPagination` | Shared page-number pagination: 20 per page by default, `page_size` query param capped at 50 | all paginated list endpoints | MindCare Web, MindCare App |
 | `core/audit.py` | `log_identity_reveal()` | Logs `identity_reveal` (viewer id, patient id only) when an admin resolves a private patient's real name | — | neither (internal) |
 | `core/audit.py` | `log_relationship_event()` | Relationship state changes (requested/cancelled/accepted/declined/expired/ended) with relationship id, actor id/role and reason only | — | neither (internal) |
 

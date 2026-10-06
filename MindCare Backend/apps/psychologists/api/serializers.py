@@ -1,5 +1,7 @@
 """DRF serializers for the psychologists API."""
 
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.psychologists.models import PsychologistProfile
@@ -10,6 +12,7 @@ from apps.reference.api.serializers import (
     SpecializationSerializer,
 )
 from apps.reference.models import Country, Language, Specialization
+from apps.relationships.selectors import last_active_band
 from core.choices import Gender
 from core.serializers import RejectUnknownFieldsMixin
 from core.validators import validate_iana_timezone
@@ -80,3 +83,69 @@ class PsychologistProfileOwnerSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+
+DIRECTORY_CARD_FIELDS = [
+    "id",
+    "full_name",
+    "gender",
+    "bio",
+    "qualifications",
+    "license_issuing_country",
+    "license_issuing_authority",
+    "specializations",
+    "languages",
+    "years_of_experience",
+    "country",
+    "city",
+    "timezone",
+    "is_accepting_patients",
+    "last_active",
+]
+
+
+class DirectoryCardSerializer(serializers.ModelSerializer):
+    """What patients see. Never license_number, last_active_at,
+    not_accepting_reason or other admin-only fields."""
+
+    full_name = serializers.CharField(source="user.full_name", read_only=True)
+    license_issuing_country = CountrySerializer(read_only=True)
+    specializations = SpecializationSerializer(many=True, read_only=True)
+    languages = LanguageSerializer(many=True, read_only=True)
+    country = CountrySerializer(read_only=True)
+    city = CitySerializer(read_only=True)
+    last_active = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PsychologistProfile
+        fields = DIRECTORY_CARD_FIELDS
+        read_only_fields = DIRECTORY_CARD_FIELDS
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_last_active(self, obj):
+        return last_active_band(obj.user.last_active_at)
+
+
+class MinimalCardSerializer(serializers.ModelSerializer):
+    """Shown when a psychologist is no longer approved and active."""
+
+    full_name = serializers.CharField(source="user.full_name", read_only=True)
+
+    class Meta:
+        model = PsychologistProfile
+        fields = ["id", "full_name"]
+        read_only_fields = fields
+
+
+class DirectoryQuerySerializer(serializers.Serializer):
+    """Query parameters of GET /psychologists/directory/. CharFields coerce to
+    str, `city` to int; malformed values are a 400. A whitespace-only `search`
+    is trimmed to "" and means no filter."""
+
+    specialization = serializers.CharField(required=False, max_length=50)
+    language = serializers.CharField(required=False, max_length=2)
+    gender = serializers.ChoiceField(choices=Gender.choices, required=False)
+    country = serializers.CharField(required=False, max_length=2)
+    city = serializers.IntegerField(required=False, min_value=1)
+    accepting = serializers.BooleanField(required=False, allow_null=True, default=None)
+    search = serializers.CharField(required=False, max_length=120, allow_blank=True)

@@ -1,8 +1,9 @@
-"""
-Shared DRF pagination classes.
+"""Shared DRF pagination: page-number, default 20 per page, at most 50."""
 
-Eventually this module will define the default pagination class(es)
-used across list endpoints (e.g. a standard page-number or cursor
-paginator with a sane default/max page size) so every app's API
-paginates consistently instead of configuring it per view.
-"""
+from rest_framework.pagination import PageNumberPagination
+
+
+class StandardPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 50
