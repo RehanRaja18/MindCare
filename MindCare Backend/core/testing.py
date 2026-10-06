@@ -154,3 +154,40 @@ def admin_change_form_data(response):
         for form in formset.forms:
             collect(form, data)
     return data
+
+
+def make_patient(*, date_of_birth=None, timezone="Asia/Karachi", **user_extra):
+    """A patient user + profile. Pass date_of_birth=False for a profile without
+    one; by default the patient is born 1995-01-01."""
+    from datetime import date
+
+    from apps.patients.services import create_patient_profile
+
+    user = make_user(role=Role.PATIENT, **user_extra)
+    profile = create_patient_profile(user=user, timezone=timezone)
+    if date_of_birth is not False:
+        profile.date_of_birth = date_of_birth or date(1995, 1, 1)
+        profile.save(update_fields=["date_of_birth", "updated_at"])
+    return profile
+
+
+def make_psychologist(
+    *,
+    approval_status=ApprovalStatus.APPROVED,
+    is_active=True,
+    full_name=None,
+    **profile_overrides,
+):
+    """An approved, active psychologist user + profile with a unique license."""
+    from apps.psychologists.services import create_psychologist_profile
+
+    extra = {"approval_status": approval_status, "is_active": is_active}
+    if full_name:
+        extra["full_name"] = full_name
+    user = make_user(role=Role.PSYCHOLOGIST, **extra)
+    profile_overrides.setdefault(
+        "license_number", f"LIC-{uuid.uuid4().hex[:8].upper()}"
+    )
+    return create_psychologist_profile(
+        user=user, **psychologist_profile_data(**profile_overrides)
+    )

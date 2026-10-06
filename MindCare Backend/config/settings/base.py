@@ -28,6 +28,7 @@ LOCAL_APPS = [
     "apps.stats",
     "apps.patients",
     "apps.psychologists",
+    "apps.relationships",
     "apps.appointments",
     "apps.clinical_notes",
     "apps.journals",

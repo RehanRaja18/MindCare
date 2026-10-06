@@ -61,6 +61,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Set when the user declared "I am 18 or older" at public registration
     # (docs/decisions.md, 2026-09-26). NULL for createsuperuser accounts.
     adult_confirmed_at = models.DateTimeField(null=True, blank=True)
+    # Written only for psychologists (Phase 3 activity tracking, at most every
+    # 15 minutes); shown to patients only as a band, never as a timestamp.
+    last_active_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
