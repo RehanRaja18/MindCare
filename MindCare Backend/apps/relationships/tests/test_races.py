@@ -115,9 +115,16 @@ class ReseedReferenceDataTests(TestCase):
 
 # Must stay LAST in this file. pytest-django runs transactional tests after plain
 # TestCases but keeps file order among them, so this runs after the race classes
-# above. It does no reseeding of its own: it proves their teardown restored the
-# migration-seeded reference data that their flush wiped.
-class ZZReferenceDataSurvivesRaceTestsTests(TransactionTestCase):
+# above. It does no reseeding before its assertion: it proves their teardown
+# restored the migration-seeded reference data that their flush wiped. It still
+# uses the base class so its own flush is followed by a reseed, leaving nothing
+# for later tests to depend on.
+class ZZReferenceDataSurvivesRaceTestsTests(ReferenceDataTransactionTestCase):
+    def setUp(self):
+        # Skip the base class's reseed on purpose (bypass its setUp); a reseed
+        # here would hide a missing restore by the race classes' teardown.
+        TransactionTestCase.setUp(self)
+
     def test_reference_data_is_present_after_race_tests(self):
         from apps.reference.models import City, Country
 
