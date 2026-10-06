@@ -29,6 +29,13 @@ COOLDOWN = "You can request this psychologist again on {date}."
 ALREADY_OPEN = "You already have a psychologist or a pending request."
 NOT_PENDING = "This request is no longer pending."
 INVALID_REASON = "Choose a valid reason."
+NOT_A_PATIENT = "Only patients can request a psychologist."
+
+
+def _log_after_commit(**fields):
+    """Audit lines describe committed changes only: if the surrounding transaction
+    rolls back, nothing is logged. Outside a transaction it runs immediately."""
+    transaction.on_commit(lambda: log_relationship_event(**fields))
 
 
 def _lock(**filters):
@@ -47,7 +54,7 @@ def _expire_if_stale(rel, now):
     if rel.status == RelationshipStatus.PENDING and rel.expires_at <= now:
         rel.status = RelationshipStatus.EXPIRED
         rel.save(update_fields=["status", "updated_at"])
-        log_relationship_event(
+        _log_after_commit(
             event="expired", relationship_id=rel.pk, actor_id=None, actor_role="system"
         )
         return True
@@ -60,7 +67,9 @@ def _require_visible_psychologist_user(user):
 
 
 def request_psychologist(*, patient_user, psychologist_id):
-    patient = PatientProfile.objects.get(user=patient_user)
+    patient = PatientProfile.objects.filter(user=patient_user).first()
+    if patient is None:
+        raise DomainValidationError({"patient": [NOT_A_PATIENT]})
     if patient.date_of_birth is None:
         raise DomainValidationError({"date_of_birth": [DOB_REQUIRED]})
     psychologist = (
@@ -117,7 +126,7 @@ def request_psychologist(*, patient_user, psychologist_id):
                 )
         except IntegrityError as exc:
             raise DomainValidationError({"relationship": [ALREADY_OPEN]}) from exc
-    log_relationship_event(
+    _log_after_commit(
         event="requested",
         relationship_id=rel.pk,
         actor_id=patient_user.pk,
@@ -146,7 +155,7 @@ def cancel_request(*, patient_user, relationship_id):
         rel.save(update_fields=["status", "updated_at"])
 
     rel = _answer({"pk": relationship_id, "patient__user": patient_user}, now, apply)
-    log_relationship_event(
+    _log_after_commit(
         event="cancelled",
         relationship_id=rel.pk,
         actor_id=patient_user.pk,
@@ -167,7 +176,7 @@ def accept_request(*, psychologist_user, relationship_id):
     rel = _answer(
         {"pk": relationship_id, "psychologist__user": psychologist_user}, now, apply
     )
-    log_relationship_event(
+    _log_after_commit(
         event="accepted",
         relationship_id=rel.pk,
         actor_id=psychologist_user.pk,
@@ -200,7 +209,7 @@ def decline_request(*, psychologist_user, relationship_id, reason=None):
     rel = _answer(
         {"pk": relationship_id, "psychologist__user": psychologist_user}, now, apply
     )
-    log_relationship_event(
+    _log_after_commit(
         event="declined",
         relationship_id=rel.pk,
         actor_id=psychologist_user.pk,

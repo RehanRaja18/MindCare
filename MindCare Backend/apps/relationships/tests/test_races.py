@@ -53,6 +53,9 @@ class AcceptVsCancelRaceTests(TransactionTestCase):
         )
         self.assertEqual(sorted(results), ["ok", "rejected"])
         rel.refresh_from_db()
-        self.assertIn(
-            rel.status, {RelationshipStatus.ACCEPTED, RelationshipStatus.CANCELLED}
+        expected = (
+            RelationshipStatus.ACCEPTED
+            if results[0] == "ok"
+            else RelationshipStatus.CANCELLED
         )
+        self.assertEqual(rel.status, expected)

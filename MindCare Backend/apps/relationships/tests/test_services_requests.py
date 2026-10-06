@@ -1,10 +1,12 @@
 """Service tests: requesting, cancelling, accepting, declining, expiry."""
 
+import json
 from datetime import timedelta
 from unittest.mock import patch
 
 from django.http import Http404
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.accounts.models import ApprovalStatus
 from apps.relationships import services
@@ -129,6 +131,68 @@ class RequestPsychologistTests(TestCase):
                 self._request()
         self.assertIn("relationship", ctx.exception.errors)
 
+    def test_non_patient_caller_gets_validation_error_not_500(self):
+        caller = make_psychologist()
+        with self.assertRaises(DomainValidationError) as ctx:
+            services.request_psychologist(
+                patient_user=caller.user, psychologist_id=self.psych.pk
+            )
+        self.assertEqual(
+            ctx.exception.errors,
+            {"patient": ["Only patients can request a psychologist."]},
+        )
+        self.assertFalse(CareRelationship.objects.exists())
+
+    def _stale_pending_and_recent_decline(self):
+        now = timezone.now()
+        psych_a = make_psychologist()
+        stale = CareRelationship.objects.create(
+            patient=self.patient,
+            psychologist=psych_a,
+            status=RelationshipStatus.PENDING,
+            requested_at=now - REQUEST_EXPIRY - timedelta(hours=1),
+            expires_at=now - timedelta(hours=1),
+        )
+        CareRelationship.objects.create(
+            patient=self.patient,
+            psychologist=self.psych,
+            status=RelationshipStatus.DECLINED,
+            requested_at=now - timedelta(days=2),
+            expires_at=now - timedelta(days=2) + REQUEST_EXPIRY,
+            responded_at=now - timedelta(days=1),
+            cooldown_until=now - timedelta(days=1) + DECLINE_COOLDOWN,
+        )
+        return stale
+
+    def test_rolled_back_expiry_is_not_logged(self):
+        stale = self._stale_pending_and_recent_decline()
+        with self.captureOnCommitCallbacks(execute=True):
+            with self.assertNoLogs("mindcare.audit", level="INFO"):
+                with self.assertRaises(DomainValidationError) as ctx:
+                    self._request()
+        self.assertIn("psychologist", ctx.exception.errors)
+        stale.refresh_from_db()
+        self.assertEqual(stale.status, RelationshipStatus.PENDING)
+
+    def test_committed_expiry_and_request_logged_after_commit(self):
+        psych_a = make_psychologist()
+        now = timezone.now()
+        stale_rel = CareRelationship.objects.create(
+            patient=self.patient,
+            psychologist=psych_a,
+            status=RelationshipStatus.PENDING,
+            requested_at=now - REQUEST_EXPIRY - timedelta(hours=1),
+            expires_at=now - timedelta(hours=1),
+        )
+        with self.assertLogs("mindcare.audit", level="INFO") as captured:
+            with self.captureOnCommitCallbacks(execute=True):
+                rel = self._request()
+        events = [json.loads(r.getMessage()) for r in captured.records]
+        self.assertEqual(
+            [(e["event"], e["relationship_id"]) for e in events],
+            [("expired", stale_rel.pk), ("requested", rel.pk)],
+        )
+
 
 class AnswerRequestTests(TestCase):
     def setUp(self):
@@ -215,13 +279,22 @@ class AnswerRequestTests(TestCase):
                 psychologist_user=self.psych.user, relationship_id=self.rel.pk
             )
 
-    def test_events_logged_with_ids_only(self):
-        import json
-
-        with self.assertLogs("mindcare.audit", level="INFO") as captured:
-            services.accept_request(
-                psychologist_user=self.psych.user, relationship_id=self.rel.pk
+    def test_decline_by_other_psychologist_gets_404_and_row_unchanged(self):
+        other = make_psychologist()
+        with self.assertRaises(Http404):
+            services.decline_request(
+                psychologist_user=other.user, relationship_id=self.rel.pk
             )
+        self.rel.refresh_from_db()
+        self.assertEqual(self.rel.status, RelationshipStatus.PENDING)
+        self.assertIsNone(self.rel.cooldown_until)
+
+    def test_events_logged_with_ids_only(self):
+        with self.assertLogs("mindcare.audit", level="INFO") as captured:
+            with self.captureOnCommitCallbacks(execute=True):
+                services.accept_request(
+                    psychologist_user=self.psych.user, relationship_id=self.rel.pk
+                )
         payload = json.loads(captured.records[-1].getMessage())
         self.assertEqual(payload["event"], "accepted")
         self.assertEqual(payload["actor_role"], "psychologist")
