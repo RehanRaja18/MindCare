@@ -43,6 +43,7 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | `apps/accounts/api/views.py` | `RefreshView` | Rotates JWT refresh tokens, blacklists the token just used | `POST /api/v1/accounts/refresh/` | MindCare Web, MindCare App |
 | `apps/accounts/api/views.py` | `LogoutView` | Blacklists the presented refresh token | `POST /api/v1/accounts/logout/` | MindCare Web, MindCare App |
 | `apps/accounts/authentication.py` | `ActivityTrackingJWTAuthentication` | DRF default auth: simplejwt + `record_activity()`, except on refresh/logout | all authenticated endpoints | MindCare Web, MindCare App |
+| `apps/accounts/schema.py` | `ActivityTrackingJWTScheme` | drf-spectacular extension (registered in `AccountsConfig.ready()`): documents `ActivityTrackingJWTAuthentication` as the `jwtAuth` bearer-JWT security scheme | `/api/docs/`, `/api/schema/` (security on authenticated endpoints) | MindCare Web, MindCare App (API docs) |
 | `apps/accounts/admin.py` | `UserAdmin` | Interim Django-admin approval of pending psychologist/NGO accounts; add disabled (users created only via `register_user()`); password, role, and super-admin flags not editable; deactivating/rejecting ends care relationships (moving back to pending only pauses them) | `/admin/accounts/user/` | neither (Django admin) |
 
 ---
