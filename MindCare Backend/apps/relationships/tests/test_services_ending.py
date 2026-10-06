@@ -1,6 +1,7 @@
 """Service tests: ending, unavailable accounts, pause, availability."""
 
 import json
+from unittest.mock import patch
 
 from django.db import transaction
 from django.http import Http404
@@ -92,6 +93,55 @@ class EndRelationshipTests(TestCase):
             )
         self.rel.refresh_from_db()
         self.assertEqual(self.rel.status, RelationshipStatus.ACCEPTED)
+
+    def test_psychologist_end_after_patient_ended_between_read_and_lock_is_404(self):
+        # The patient ends the row after psychologist_end_relationship's unlocked
+        # read finds it, but before end_relationship locks it. The psychologist
+        # must get the same 404 as when the read itself misses.
+        real_end = services.end_relationship
+
+        def patient_wins_first(**kwargs):
+            real_end(
+                relationship=self.rel,
+                ended_by="patient",
+                reason="patient_ended",
+                actor_id=self.patient.user.pk,
+            )
+            return real_end(**kwargs)
+
+        with patch.object(services, "end_relationship", side_effect=patient_wins_first):
+            with self.assertRaises(Http404):
+                services.psychologist_end_relationship(
+                    psychologist_user=self.psych.user,
+                    relationship_id=self.rel.pk,
+                    reason="other",
+                )
+        self.rel.refresh_from_db()
+        self.assertEqual(
+            (self.rel.status, self.rel.ended_by), (RelationshipStatus.ENDED, "patient")
+        )
+
+    def test_unapproved_or_inactive_psychologist_cannot_end(self):
+        user = self.psych.user
+        for changes in (
+            {"approval_status": ApprovalStatus.PENDING},
+            {"is_active": False},
+        ):
+            with self.subTest(changes=changes):
+                for field, value in changes.items():
+                    setattr(user, field, value)
+                user.save()
+                with self.assertRaises(Http404):
+                    services.psychologist_end_relationship(
+                        psychologist_user=user,
+                        relationship_id=self.rel.pk,
+                        reason="other",
+                    )
+                self.rel.refresh_from_db()
+                self.assertEqual(self.rel.status, RelationshipStatus.ACCEPTED)
+                user.approval_status = ApprovalStatus.APPROVED
+                user.is_active = True
+                user.save()
 
     def test_subscription_lapsed_is_system_only(self):
         with self.assertRaises(DomainValidationError):

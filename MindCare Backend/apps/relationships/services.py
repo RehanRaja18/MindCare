@@ -296,12 +296,19 @@ def psychologist_end_relationship(*, psychologist_user, relationship_id, reason)
     ).first()
     if rel is None:
         raise Http404
-    return end_relationship(
-        relationship=rel,
-        ended_by=EndedBy.PSYCHOLOGIST,
-        reason=reason,
-        actor_id=psychologist_user.pk,
-    )
+    try:
+        return end_relationship(
+            relationship=rel,
+            ended_by=EndedBy.PSYCHOLOGIST,
+            reason=reason,
+            actor_id=psychologist_user.pk,
+        )
+    except DomainValidationError as exc:
+        # Ended concurrently between the read above and the row lock: answer
+        # the same 404 as when the read itself misses.
+        if "relationship" in exc.errors:
+            raise Http404 from exc
+        raise
 
 
 def end_for_unavailable_account(*, user):
