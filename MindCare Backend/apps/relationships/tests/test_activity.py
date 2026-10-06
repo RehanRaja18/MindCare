@@ -90,8 +90,46 @@ class RecordActivityTests(APITestCase):
             f"last_active:{self.psych.user.pk}", 1, ACTIVITY_CACHE_SECONDS
         )
 
+    def test_database_error_logs_exception_type_only(self):
+        user = self.psych.user
+        with patch.object(
+            QuerySet,
+            "update",
+            side_effect=DatabaseError("secret-ish message 12345"),
+        ):
+            with self.assertLogs(
+                "apps.relationships.services", level="WARNING"
+            ) as logs:
+                record_activity(user=user)
+        self.assertEqual(len(logs.records), 1)
+        record = logs.records[0]
+        self.assertEqual(record.levelname, "WARNING")
+        message = record.getMessage()
+        self.assertEqual(message, "last_active update failed: DatabaseError")
+        for forbidden in (
+            "secret-ish",
+            "12345",
+            str(user.pk),
+            user.email,
+            user.full_name,
+        ):
+            self.assertNotIn(forbidden, message)
+        self.assertIsNone(record.exc_info)
+
+    def test_successful_write_logs_nothing(self):
+        with self.assertNoLogs("apps.relationships.services", level="WARNING"):
+            record_activity(user=self.psych.user)
+        self.assertIsNotNone(User.objects.get(pk=self.psych.user.pk).last_active_at)
+
     def test_database_error_never_breaks_authentication(self):
         self._auth(self.psych.user)
         with patch.object(QuerySet, "update", side_effect=DatabaseError("db down")):
-            response = self.client.get("/api/v1/psychologists/me/")
+            with self.assertLogs(
+                "apps.relationships.services", level="WARNING"
+            ) as logs:
+                response = self.client.get("/api/v1/psychologists/me/")
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [r.getMessage() for r in logs.records],
+            ["last_active update failed: DatabaseError"],
+        )

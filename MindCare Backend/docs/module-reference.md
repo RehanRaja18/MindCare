@@ -122,7 +122,7 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | `apps/relationships/services.py` | `psychologist_end_relationship()` | Psychologist ends with a required reason (`treatment_completed`, `referred_elsewhere`, `other`) | `POST /api/v1/relationships/patients/<id>/end/` | MindCare Web |
 | `apps/relationships/services.py` | `end_for_unavailable_account()` | On deactivation or rejection: accepted rows end (system/account_unavailable), pending rows expire; not on pending (pause) | — (called from `UserAdmin.save_model`) | neither (internal) |
 | `apps/relationships/services.py` | `set_accepting_status()` | Accepting switch; reason required when off, cleared when on | `PUT /api/v1/psychologists/me/availability/` | MindCare Web |
-| `apps/relationships/services.py` | `record_activity()` | Psychologist `last_active_at`, at most every 15 min via cache key; cache errors skip silently | — | neither (internal) |
+| `apps/relationships/services.py` | `record_activity()` | Psychologist `last_active_at`, at most every 15 min via cache key; cache errors skip silently; a failed DB write clears the key and logs one warning with the exception type only (no user id, message or traceback) | — | neither (internal) |
 
 ---
 

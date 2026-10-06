@@ -1,5 +1,6 @@
 """Write-path business logic for care relationships."""
 
+import logging
 from zoneinfo import ZoneInfo
 
 from django.core.cache import cache
@@ -26,6 +27,8 @@ from apps.relationships.models import (
 )
 from core.audit import log_relationship_event
 from core.exceptions import DomainValidationError
+
+logger = logging.getLogger(__name__)
 
 DOB_REQUIRED = (
     "Add your date of birth to your profile before requesting a psychologist."
@@ -375,7 +378,9 @@ def record_activity(*, user):
         return None
     try:
         User.objects.filter(pk=user.pk).update(last_active_at=timezone.now())
-    except DatabaseError:
+    except DatabaseError as exc:
+        # Exception type only: the message can echo SQL parameters.
+        logger.warning("last_active update failed: %s", type(exc).__name__)
         # Don't suppress the next attempt for a whole window.
         try:
             cache.delete(key)
