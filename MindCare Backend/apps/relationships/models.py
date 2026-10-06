@@ -116,3 +116,15 @@ class CareRelationship(models.Model):
 
     def __str__(self):
         return f"Care relationship #{self.pk} ({self.status})"
+
+    @property
+    def effective_status(self):
+        """Status as of now, with expiry evaluated on read: a pending row whose
+        `expires_at` has passed reads as expired. Read-only; it never writes.
+        The services persist the expiry on the next write that touches the row."""
+        if (
+            self.status == RelationshipStatus.PENDING
+            and self.expires_at <= timezone.now()
+        ):
+            return RelationshipStatus.EXPIRED
+        return self.status

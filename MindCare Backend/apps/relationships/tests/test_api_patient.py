@@ -1,7 +1,10 @@
 """Patient-facing relationship API."""
 
+from datetime import timedelta
+
 from django.conf import settings
 from django.core.cache import cache
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.test import APITestCase
@@ -9,7 +12,8 @@ from rest_framework.test import APITestCase
 from apps.accounts.models import ApprovalStatus, Role
 from apps.psychologists.api.serializers import DIRECTORY_CARD_FIELDS
 from apps.psychologists.models import PsychologistProfile
-from apps.relationships import services
+from apps.relationships import selectors, services
+from apps.relationships.models import CareRelationship, RelationshipStatus
 from core.pagination import StandardPagination
 from core.permissions import IsPatient
 from core.serializers import StrictTrueField
@@ -370,3 +374,45 @@ class DirectoryPaginationTests(APITestCase):
     def test_max_page_size_constant(self):
         self.assertEqual(StandardPagination.max_page_size, 50)
         self.assertEqual(StandardPagination.page_size, 20)
+
+
+class ExpiryOnReadAndOrderingTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.patient = make_patient()
+        self.psych = make_psychologist()
+        self.client.force_authenticate(self.patient.user)
+
+    def test_stale_pending_shows_expired_in_history_without_writing(self):
+        past = timezone.now() - timedelta(days=4)
+        rel = CareRelationship.objects.create(
+            patient=self.patient,
+            psychologist=self.psych,
+            status=RelationshipStatus.PENDING,
+            requested_at=past,
+            expires_at=past + timedelta(days=3),
+        )
+        r = self.client.get(REQUESTS)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.data["results"][0]["id"], rel.pk)
+        self.assertEqual(r.data["results"][0]["status"], "expired")
+        rel.refresh_from_db()
+        self.assertEqual(rel.status, RelationshipStatus.PENDING)
+        self.assertEqual(self.client.get(CURRENT).data, {"relationship": None})
+
+    def test_history_ties_on_requested_at_newer_pk_first(self):
+        now = timezone.now()
+        rows = [
+            CareRelationship.objects.create(
+                patient=self.patient,
+                psychologist=self.psych,
+                status=RelationshipStatus.CANCELLED,
+                requested_at=now,
+                expires_at=now + timedelta(days=3),
+            )
+            for _ in range(2)
+        ]
+        ids = [r.pk for r in selectors.patient_requests(patient_user=self.patient.user)]
+        self.assertEqual(ids, [rows[1].pk, rows[0].pk])
+        api_ids = [c["id"] for c in self.client.get(REQUESTS).data["results"]]
+        self.assertEqual(api_ids, [rows[1].pk, rows[0].pk])

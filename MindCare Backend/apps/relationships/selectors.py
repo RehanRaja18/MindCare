@@ -83,7 +83,7 @@ def psychologist_inbox(*, psychologist_user):
             expires_at__gt=timezone.now(),
         )
         .select_related("patient__country", "patient__preferred_language")
-        .order_by("requested_at")
+        .order_by("requested_at", "pk")
     )
 
 
@@ -100,7 +100,7 @@ def psychologist_patients(*, psychologist_user):
             "patient__city__country",
             "patient__preferred_language",
         )
-        .order_by("-responded_at")
+        .order_by("-responded_at", "-pk")
     )
 
 
@@ -118,7 +118,7 @@ def psychologist_history(*, psychologist_user):
             psychologist__user=psychologist_user, status=RelationshipStatus.ENDED
         )
         .select_related("patient")
-        .order_by("-ended_at")
+        .order_by("-ended_at", "-pk")
     )
 
 
@@ -148,7 +148,7 @@ def patient_requests(*, patient_user):
         CareRelationship.objects.filter(patient__user=patient_user)
         .select_related(*_PSYCH_CARD_RELATED)
         .prefetch_related("psychologist__specializations", "psychologist__languages")
-        .order_by("-requested_at")
+        .order_by("-requested_at", "-pk")
     )
 
 
@@ -165,7 +165,7 @@ def recent_psychologists(*, patient_user, limit=RECENT_LIMIT):
         .exclude(psychologist_id__in=list(open_psych_ids))
         .select_related(*_PSYCH_CARD_RELATED)
         .prefetch_related("psychologist__specializations", "psychologist__languages")
-        .order_by("-ended_at")
+        .order_by("-ended_at", "-pk")
     )
     seen, result = set(), []
     for row in rows:

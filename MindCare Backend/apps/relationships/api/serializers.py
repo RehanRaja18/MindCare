@@ -7,7 +7,7 @@ from apps.psychologists.api.serializers import (
     DirectoryCardSerializer,
     MinimalCardSerializer,
 )
-from apps.relationships.models import CareRelationship
+from apps.relationships.models import CareRelationship, RelationshipStatus
 from apps.relationships.selectors import psychologist_is_visible
 from core.serializers import RejectUnknownFieldsMixin, StrictTrueField
 
@@ -29,6 +29,10 @@ class PatientEndSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
 
 
 class RelationshipPatientViewSerializer(serializers.ModelSerializer):
+    # Expiry evaluated on read (no write on GET): a stale pending row reads "expired".
+    status = serializers.ChoiceField(
+        source="effective_status", choices=RelationshipStatus.choices, read_only=True
+    )
     psychologist = serializers.SerializerMethodField()
 
     class Meta:
