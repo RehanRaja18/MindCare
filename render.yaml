@@ -1,0 +1,28 @@
+# Render Blueprint for the MindCare anxiety-risk API (FastAPI, "MindCare AI/src/api/main.py").
+# Setup, environment variables and redeploys: "MindCare AI/docs/deployment.md".
+# This file must stay at the repository root: Render looks for render.yaml there.
+services:
+  - type: web
+    name: mindcare-api
+    runtime: python
+    plan: free
+    # The branch Render builds from.
+    branch: main
+    # The project lives in this monorepo folder. Render runs the build and start commands from it,
+    # and auto-deploys only when files under it change.
+    rootDir: "MindCare AI"
+    autoDeploy: true
+    # The build does NOT retrain: XGBoost retrained on Render's Linux machine isn't bit-identical to
+    # the validated Windows build, so the three served artifacts are committed instead
+    # ("MindCare AI/docs/deployment.md", "Why the served model is committed"). The build checks
+    # their hashes and library versions against data/processed/deploy_artifacts.json, starts the
+    # app in-process and requires the documented example prediction. Any failure fails the build,
+    # and Render keeps serving the previous deploy.
+    buildCommand: pip install -r requirements.txt && python scripts/deploy_artifacts.py verify
+    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      # Matches the interpreter the project is developed and tested with (and the version the
+      # pinned scikit-learn==1.9.1 / xgboost==3.4.1 pickles are built with).
+      - key: PYTHON_VERSION
+        value: 3.13.13

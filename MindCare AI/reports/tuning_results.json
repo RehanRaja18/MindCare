@@ -1,0 +1,53 @@
+{
+  "seed": 42,
+  "cv_folds": 5,
+  "n_iter": 20,
+  "cv_scoring": "balanced_accuracy",
+  "search_training_split": "train",
+  "evaluation_split": "validation",
+  "models": {
+    "random_forest": {
+      "best_cv_score": 0.8255371283942873,
+      "best_params": {
+        "n_estimators": 500,
+        "min_samples_split": 10,
+        "min_samples_leaf": 4,
+        "max_features": "sqrt",
+        "max_depth": 30,
+        "class_weight": "balanced"
+      },
+      "untuned_validation": {
+        "accuracy": 0.7951515151515152,
+        "balanced_accuracy": 0.7963232524762951,
+        "macro_f1": 0.7918309104437151
+      },
+      "tuned_validation": {
+        "accuracy": 0.786060606060606,
+        "balanced_accuracy": 0.8190350543818077,
+        "macro_f1": 0.7875367873533149
+      }
+    },
+    "xgboost": {
+      "best_cv_score": 0.8121039583102476,
+      "best_params": {
+        "subsample": 0.8,
+        "n_estimators": 300,
+        "min_child_weight": 3,
+        "max_depth": 3,
+        "learning_rate": 0.03,
+        "gamma": 0,
+        "colsample_bytree": 1.0
+      },
+      "untuned_validation": {
+        "accuracy": 0.7824242424242425,
+        "balanced_accuracy": 0.785091053976705,
+        "macro_f1": 0.7843492301333698
+      },
+      "tuned_validation": {
+        "accuracy": 0.7963636363636364,
+        "balanced_accuracy": 0.7984347823294614,
+        "macro_f1": 0.7966629069773697
+      }
+    }
+  }
+}

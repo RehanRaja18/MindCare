@@ -1,0 +1,53 @@
+# Keeps the Render free-tier service awake by calling /health on a schedule.
+# A workaround for Render's free-tier sleep (idle after ~15 minutes), not a guarantee:
+# see "MindCare AI/docs/deployment.md", "Keep-alive".
+#
+# Needs the repository variable RENDER_SERVICE_URL (Settings -> Secrets and variables -> Actions ->
+# Variables), e.g. https://mindcare-api.onrender.com. GitHub runs this workflow, on schedule or from the
+# manual "Run workflow" button, only from the repository's DEFAULT branch.
+name: Keep Render service awake
+
+on:
+  schedule:
+    # Every 10 minutes. GitHub often starts scheduled runs a few minutes late, so 10 leaves
+    # margin under Render's ~15-minute idle limit.
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Call /health and require HTTP 200 with status "ok"
+        env:
+          SERVICE_URL: ${{ vars.RENDER_SERVICE_URL }}
+        run: |
+          if [ -z "${SERVICE_URL}" ]; then
+            echo "::error::Repository variable RENDER_SERVICE_URL is not set. See MindCare AI/docs/deployment.md."
+            exit 1
+          fi
+          url="${SERVICE_URL%/}/health"
+          # /health returns 200 even when the model failed to load (it reports that as
+          # "status":"not_ready" in the body), so the body is checked too.
+          # A sleeping free instance can take about a minute to wake: retry before failing.
+          for attempt in 1 2 3; do
+            rm -f body.json  # never report a previous attempt's body as this one's
+            # On a connection failure curl still prints "000" as the code and exits non-zero.
+            code=$(curl --silent --show-error --output body.json --write-out '%{http_code}' --max-time 90 "${url}") || true
+            body=$(cat body.json 2>/dev/null || echo "(no response)")
+            if [ "${code}" = "200" ] && echo "${body}" | grep -q '"status":"ok"'; then
+              echo "Healthy on attempt ${attempt}: ${body}"
+              exit 0
+            fi
+            echo "Attempt ${attempt}: HTTP ${code}, body: ${body}"
+            [ "${attempt}" -lt 3 ] && sleep 20
+          done
+          echo "::error::${url} did not return HTTP 200 with \"status\":\"ok\" after 3 attempts"
+          exit 1

@@ -1,0 +1,258 @@
+{
+  "baseline": {
+    "accuracy": 0.7733333333333333,
+    "balanced_accuracy": 0.8055578345201395,
+    "macro_f1": 0.8177090962684819,
+    "high_class_recall": 0.896969696969697
+  },
+  "missing_features": [
+    {
+      "feature": "Stress Level (1-10)",
+      "accuracy": 0.48727272727272725,
+      "balanced_accuracy": 0.4290978381716248,
+      "macro_f1": 0.42402728096672676,
+      "high_class_recall": 0.22424242424242424,
+      "delta_balanced_accuracy": -0.37645999634851474
+    },
+    {
+      "feature": "Therapy Sessions (per month)",
+      "accuracy": 0.7012121212121212,
+      "balanced_accuracy": 0.5590449423201593,
+      "macro_f1": 0.5735764962084338,
+      "high_class_recall": 0.15151515151515152,
+      "delta_balanced_accuracy": -0.24651289219998018
+    },
+    {
+      "feature": "Sleep Hours",
+      "accuracy": 0.7703030303030303,
+      "balanced_accuracy": 0.7921872649989935,
+      "macro_f1": 0.8101585549924665,
+      "high_class_recall": 0.8545454545454545,
+      "delta_balanced_accuracy": -0.013370569521146014
+    },
+    {
+      "feature": "Caffeine Intake (mg/day)",
+      "accuracy": 0.7703030303030303,
+      "balanced_accuracy": 0.7971776575380637,
+      "macro_f1": 0.8112639605451467,
+      "high_class_recall": 0.8727272727272727,
+      "delta_balanced_accuracy": -0.008380176982075827
+    },
+    {
+      "feature": "Diet Quality (1-10)",
+      "accuracy": 0.7715151515151515,
+      "balanced_accuracy": 0.7995402551639667,
+      "macro_f1": 0.8138163847878185,
+      "high_class_recall": 0.8787878787878788,
+      "delta_balanced_accuracy": -0.006017579356172864
+    },
+    {
+      "feature": "Family History of Anxiety",
+      "accuracy": 0.769090909090909,
+      "balanced_accuracy": 0.8029459317580674,
+      "macro_f1": 0.8147401789662304,
+      "high_class_recall": 0.896969696969697,
+      "delta_balanced_accuracy": -0.002611902762072127
+    },
+    {
+      "feature": "Heart Rate (bpm)",
+      "accuracy": 0.7733333333333333,
+      "balanced_accuracy": 0.8054717811112732,
+      "macro_f1": 0.8160208690333951,
+      "high_class_recall": 0.896969696969697,
+      "delta_balanced_accuracy": -8.605340886636004e-05
+    },
+    {
+      "feature": "Sweating Level (1-5)",
+      "accuracy": 0.7733333333333333,
+      "balanced_accuracy": 0.8055578345201395,
+      "macro_f1": 0.8168788379220034,
+      "high_class_recall": 0.896969696969697,
+      "delta_balanced_accuracy": 0.0
+    },
+    {
+      "feature": "Age",
+      "accuracy": 0.7733333333333333,
+      "balanced_accuracy": 0.8056869146334392,
+      "macro_f1": 0.8169253352536042,
+      "high_class_recall": 0.896969696969697,
+      "delta_balanced_accuracy": 0.0001290801132997066
+    },
+    {
+      "feature": "Recent Major Life Event",
+      "accuracy": 0.7739393939393939,
+      "balanced_accuracy": 0.8058572034214072,
+      "macro_f1": 0.8180956095643146,
+      "high_class_recall": 0.896969696969697,
+      "delta_balanced_accuracy": 0.00029936890126769367
+    },
+    {
+      "feature": "Physical Activity (hrs/week)",
+      "accuracy": 0.7745454545454545,
+      "balanced_accuracy": 0.8064577592537073,
+      "macro_f1": 0.8177727282043828,
+      "high_class_recall": 0.896969696969697,
+      "delta_balanced_accuracy": 0.000899924733567814
+    },
+    {
+      "feature": "Breathing Rate (breaths/min)",
+      "accuracy": 0.7751515151515151,
+      "balanced_accuracy": 0.806800154859408,
+      "macro_f1": 0.8190073328496678,
+      "high_class_recall": 0.896969696969697,
+      "delta_balanced_accuracy": 0.0012423203392685211
+    },
+    {
+      "feature": "Medication",
+      "accuracy": 0.7751515151515151,
+      "balanced_accuracy": 0.8068431815638414,
+      "macro_f1": 0.8190246392119911,
+      "high_class_recall": 0.896969696969697,
+      "delta_balanced_accuracy": 0.0012853470437018677
+    },
+    {
+      "feature": "Occupation",
+      "accuracy": 0.7757575757575758,
+      "balanced_accuracy": 0.806970443647376,
+      "macro_f1": 0.8193277234301188,
+      "high_class_recall": 0.896969696969697,
+      "delta_balanced_accuracy": 0.0014126091272365082
+    },
+    {
+      "feature": "Dizziness",
+      "accuracy": 0.7751515151515151,
+      "balanced_accuracy": 0.8069722616771409,
+      "macro_f1": 0.8190730567005137,
+      "high_class_recall": 0.896969696969697,
+      "delta_balanced_accuracy": 0.0014144271570013522
+    },
+    {
+      "feature": "Alcohol Consumption (drinks/week)",
+      "accuracy": 0.7751515151515151,
+      "balanced_accuracy": 0.8070152883815741,
+      "macro_f1": 0.8190880296310336,
+      "high_class_recall": 0.896969696969697,
+      "delta_balanced_accuracy": 0.0014574538614345878
+    },
+    {
+      "feature": "Smoking",
+      "accuracy": 0.7763636363636364,
+      "balanced_accuracy": 0.8078721864107087,
+      "macro_f1": 0.8199665765718299,
+      "high_class_recall": 0.896969696969697,
+      "delta_balanced_accuracy": 0.0023143518905691662
+    }
+  ],
+  "noise": [
+    {
+      "noise_multiplier": 0.25,
+      "accuracy": 0.7636363636363637,
+      "balanced_accuracy": 0.7732346021969073,
+      "macro_f1": 0.7960935498441506,
+      "high_class_recall": 0.8,
+      "delta_balanced_accuracy": -0.0323232323232322
+    },
+    {
+      "noise_multiplier": 0.5,
+      "accuracy": 0.7090909090909091,
+      "balanced_accuracy": 0.6836948329427139,
+      "macro_f1": 0.7225445447886637,
+      "high_class_recall": 0.6121212121212121,
+      "delta_balanced_accuracy": -0.12186300157742558
+    },
+    {
+      "noise_multiplier": 1.0,
+      "accuracy": 0.6357575757575757,
+      "balanced_accuracy": 0.5559644433044112,
+      "macro_f1": 0.5920962184006516,
+      "high_class_recall": 0.32727272727272727,
+      "delta_balanced_accuracy": -0.24959339121572832
+    },
+    {
+      "noise_multiplier": 2.0,
+      "accuracy": 0.5496969696969697,
+      "balanced_accuracy": 0.447973996812094,
+      "macro_f1": 0.4629206370825328,
+      "high_class_recall": 0.15757575757575756,
+      "delta_balanced_accuracy": -0.3575838377080455
+    }
+  ],
+  "invalid_inputs": {
+    "negative_age": {
+      "crashed": false,
+      "predicted_class": "Medium",
+      "probabilities": {
+        "Low": 0.2887144189205415,
+        "Medium": 0.6191029118616735,
+        "High": 0.09218266921778512
+      }
+    },
+    "impossible_stress": {
+      "crashed": false,
+      "predicted_class": "Medium",
+      "probabilities": {
+        "Low": 0.1556270688452298,
+        "Medium": 0.7000773064402857,
+        "High": 0.1442956247144842
+      }
+    },
+    "impossible_heart_rate": {
+      "crashed": false,
+      "predicted_class": "Medium",
+      "probabilities": {
+        "Low": 0.2860296915987241,
+        "Medium": 0.5848097550109003,
+        "High": 0.12916055339037638
+      }
+    },
+    "negative_alcohol": {
+      "crashed": false,
+      "predicted_class": "Medium",
+      "probabilities": {
+        "Low": 0.2540652607166724,
+        "Medium": 0.6559549464829868,
+        "High": 0.08997979280034107
+      }
+    },
+    "all_fields_extreme_max": {
+      "crashed": false,
+      "predicted_class": "Medium",
+      "probabilities": {
+        "Low": 0.16052369634384248,
+        "Medium": 0.5140030062289532,
+        "High": 0.3254732974272045
+      }
+    }
+  },
+  "distribution_shift": [
+    {
+      "stress_shift": -3,
+      "predicted_high_fraction": 0.04181818181818182,
+      "baseline_high_fraction": 0.0903030303030303,
+      "delta": -0.048484848484848485
+    },
+    {
+      "stress_shift": -1,
+      "predicted_high_fraction": 0.08787878787878788,
+      "baseline_high_fraction": 0.0903030303030303,
+      "delta": -0.002424242424242426
+    },
+    {
+      "stress_shift": 1,
+      "predicted_high_fraction": 0.0903030303030303,
+      "baseline_high_fraction": 0.0903030303030303,
+      "delta": 0.0
+    },
+    {
+      "stress_shift": 3,
+      "predicted_high_fraction": 0.0903030303030303,
+      "baseline_high_fraction": 0.0903030303030303,
+      "delta": 0.0
+    }
+  ],
+  "not_applicable": {
+    "wording_changes": "No text/NLP input fields exist in this dataset - all features are numeric or fixed-category; there is no wording to vary.",
+    "site_changes": "The dataset has no site/institution identifier column - it is a single source file, so cross-site robustness cannot be tested with the data available.",
+    "temporal_changes": "The dataset has no timestamp/date column - temporal drift cannot be tested with the data available."
+  }
+}

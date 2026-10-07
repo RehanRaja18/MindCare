@@ -1,0 +1,674 @@
+{
+  "rows": {
+    "out_of_fold": 9350,
+    "out_of_fold_ages_18_49": 6716,
+    "validation": 1650
+  },
+  "overall_accuracy": {
+    "out_of_fold": 0.7895187165775401,
+    "validation": 0.7745454545454545
+  },
+  "chosen_threshold": 0.7,
+  "out_of_fold": [
+    {
+      "threshold": 0.5,
+      "confident_share": 0.9973262032085561,
+      "accuracy_confident": 0.7900268096514745,
+      "accuracy_borderline": 0.6,
+      "errors_total": 1968,
+      "errors_in_borderline": 10,
+      "confident_but_wrong": 1958,
+      "borderline_pairs": {
+        "Low/Medium": 23,
+        "Medium/High": 2,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.7917697324038677,
+        "Medium": 0.7475679720628585,
+        "High": 0.9769850402761795
+      },
+      "per_class_confident_count": {
+        "Low": 4447,
+        "Medium": 4009,
+        "High": 869
+      },
+      "true_high_total": 968,
+      "true_high_confident_and_labelled_high": 849,
+      "true_high_confident_but_not_high": 119,
+      "true_high_confident_not_high_and_unflagged": 37
+    },
+    {
+      "threshold": 0.6,
+      "confident_share": 0.8571122994652406,
+      "accuracy_confident": 0.8266783129523334,
+      "accuracy_borderline": 0.5666167664670658,
+      "errors_total": 1968,
+      "errors_in_borderline": 579,
+      "confident_but_wrong": 1389,
+      "borderline_pairs": {
+        "Low/Medium": 1304,
+        "Medium/High": 32,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.8306197478991597,
+        "Medium": 0.7821930086644756,
+        "High": 0.9825378346915018
+      },
+      "per_class_confident_count": {
+        "Low": 3808,
+        "Medium": 3347,
+        "High": 859
+      },
+      "true_high_total": 968,
+      "true_high_confident_and_labelled_high": 844,
+      "true_high_confident_but_not_high": 114,
+      "true_high_confident_not_high_and_unflagged": 36
+    },
+    {
+      "threshold": 0.65,
+      "confident_share": 0.7862032085561498,
+      "accuracy_confident": 0.8435586994966672,
+      "accuracy_borderline": 0.5907953976988495,
+      "errors_total": 1968,
+      "errors_in_borderline": 818,
+      "confident_but_wrong": 1150,
+      "borderline_pairs": {
+        "Low/Medium": 1951,
+        "Medium/High": 48,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.8483630097645032,
+        "Medium": 0.7984753065959562,
+        "High": 0.9835680751173709
+      },
+      "per_class_confident_count": {
+        "Low": 3482,
+        "Medium": 3017,
+        "High": 852
+      },
+      "true_high_total": 968,
+      "true_high_confident_and_labelled_high": 838,
+      "true_high_confident_but_not_high": 111,
+      "true_high_confident_not_high_and_unflagged": 35
+    },
+    {
+      "threshold": 0.7,
+      "confident_share": 0.7110160427807487,
+      "accuracy_confident": 0.8580024067388689,
+      "accuracy_borderline": 0.6210214655810511,
+      "errors_total": 1968,
+      "errors_in_borderline": 1024,
+      "confident_but_wrong": 944,
+      "borderline_pairs": {
+        "Low/Medium": 2628,
+        "Medium/High": 74,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.8618732261116367,
+        "Medium": 0.8114567526555387,
+        "High": 0.9892984542211652
+      },
+      "per_class_confident_count": {
+        "Low": 3171,
+        "Medium": 2636,
+        "High": 841
+      },
+      "true_high_total": 968,
+      "true_high_confident_and_labelled_high": 832,
+      "true_high_confident_but_not_high": 108,
+      "true_high_confident_not_high_and_unflagged": 33
+    },
+    {
+      "threshold": 0.75,
+      "confident_share": 0.6211764705882353,
+      "accuracy_confident": 0.878271349862259,
+      "accuracy_borderline": 0.6439864483342744,
+      "errors_total": 1968,
+      "errors_in_borderline": 1261,
+      "confident_but_wrong": 707,
+      "borderline_pairs": {
+        "Low/Medium": 3420,
+        "Medium/High": 122,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.8808933002481389,
+        "Medium": 0.8306264501160093,
+        "High": 0.9927884615384616
+      },
+      "per_class_confident_count": {
+        "Low": 2821,
+        "Medium": 2155,
+        "High": 832
+      },
+      "true_high_total": 968,
+      "true_high_confident_and_labelled_high": 826,
+      "true_high_confident_but_not_high": 100,
+      "true_high_confident_not_high_and_unflagged": 29
+    },
+    {
+      "threshold": 0.8,
+      "confident_share": 0.5117647058823529,
+      "accuracy_confident": 0.8986415882967607,
+      "accuracy_borderline": 0.6751369112814896,
+      "errors_total": 1968,
+      "errors_in_borderline": 1483,
+      "confident_but_wrong": 485,
+      "borderline_pairs": {
+        "Low/Medium": 4360,
+        "Medium/High": 205,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.9015912897822446,
+        "Medium": 0.8445431472081218,
+        "High": 0.9939098660170523
+      },
+      "per_class_confident_count": {
+        "Low": 2388,
+        "Medium": 1576,
+        "High": 821
+      },
+      "true_high_total": 968,
+      "true_high_confident_and_labelled_high": 816,
+      "true_high_confident_but_not_high": 86,
+      "true_high_confident_not_high_and_unflagged": 21
+    },
+    {
+      "threshold": 0.9,
+      "confident_share": 0.23454545454545456,
+      "accuracy_confident": 0.9571363429092568,
+      "accuracy_borderline": 0.7381584462763728,
+      "errors_total": 1968,
+      "errors_in_borderline": 1874,
+      "confident_but_wrong": 94,
+      "borderline_pairs": {
+        "Low/Medium": 6681,
+        "Medium/High": 476,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.9444444444444444,
+        "Medium": 0.8292682926829268,
+        "High": 0.9987080103359173
+      },
+      "per_class_confident_count": {
+        "Low": 1296,
+        "Medium": 123,
+        "High": 774
+      },
+      "true_high_total": 968,
+      "true_high_confident_and_labelled_high": 773,
+      "true_high_confident_but_not_high": 12,
+      "true_high_confident_not_high_and_unflagged": 3
+    }
+  ],
+  "out_of_fold_ages_18_49": [
+    {
+      "threshold": 0.5,
+      "confident_share": 0.9968731387730793,
+      "accuracy_confident": 0.7988050784167289,
+      "accuracy_borderline": 0.5714285714285714,
+      "errors_total": 1356,
+      "errors_in_borderline": 9,
+      "confident_but_wrong": 1347,
+      "borderline_pairs": {
+        "Low/Medium": 19,
+        "Medium/High": 2,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.792609111181905,
+        "Medium": 0.7467556544308491,
+        "High": 0.9848661233993015
+      },
+      "per_class_confident_count": {
+        "Low": 3139,
+        "Medium": 2697,
+        "High": 859
+      },
+      "true_high_total": 931,
+      "true_high_confident_and_labelled_high": 846,
+      "true_high_confident_but_not_high": 85,
+      "true_high_confident_not_high_and_unflagged": 26
+    },
+    {
+      "threshold": 0.6,
+      "confident_share": 0.8598868374032163,
+      "accuracy_confident": 0.8342857142857143,
+      "accuracy_borderline": 0.5759829968119022,
+      "errors_total": 1356,
+      "errors_in_borderline": 399,
+      "confident_but_wrong": 957,
+      "borderline_pairs": {
+        "Low/Medium": 917,
+        "Medium/High": 24,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.8298585256887565,
+        "Medium": 0.7817531305903399,
+        "High": 0.9859320046893317
+      },
+      "per_class_confident_count": {
+        "Low": 2686,
+        "Medium": 2236,
+        "High": 853
+      },
+      "true_high_total": 931,
+      "true_high_confident_and_labelled_high": 841,
+      "true_high_confident_but_not_high": 80,
+      "true_high_confident_not_high_and_unflagged": 25
+    },
+    {
+      "threshold": 0.65,
+      "confident_share": 0.792287075640262,
+      "accuracy_confident": 0.8513437323811314,
+      "accuracy_borderline": 0.5949820788530465,
+      "errors_total": 1356,
+      "errors_in_borderline": 565,
+      "confident_but_wrong": 791,
+      "borderline_pairs": {
+        "Low/Medium": 1360,
+        "Medium/High": 35,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.8488419341731004,
+        "Medium": 0.797713717693837,
+        "High": 0.9858490566037735
+      },
+      "per_class_confident_count": {
+        "Low": 2461,
+        "Medium": 2012,
+        "High": 848
+      },
+      "true_high_total": 931,
+      "true_high_confident_and_labelled_high": 836,
+      "true_high_confident_but_not_high": 79,
+      "true_high_confident_not_high_and_unflagged": 24
+    },
+    {
+      "threshold": 0.7,
+      "confident_share": 0.7181357951161406,
+      "accuracy_confident": 0.8652291105121294,
+      "accuracy_borderline": 0.6270470153195985,
+      "errors_total": 1356,
+      "errors_in_borderline": 706,
+      "confident_but_wrong": 650,
+      "borderline_pairs": {
+        "Low/Medium": 1835,
+        "Medium/High": 58,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.8605169340463458,
+        "Medium": 0.8105625717566016,
+        "High": 0.991636798088411
+      },
+      "per_class_confident_count": {
+        "Low": 2244,
+        "Medium": 1742,
+        "High": 837
+      },
+      "true_high_total": 931,
+      "true_high_confident_and_labelled_high": 830,
+      "true_high_confident_but_not_high": 76,
+      "true_high_confident_not_high_and_unflagged": 22
+    },
+    {
+      "threshold": 0.75,
+      "confident_share": 0.631328171530673,
+      "accuracy_confident": 0.8877358490566037,
+      "accuracy_borderline": 0.6445880452342488,
+      "errors_total": 1356,
+      "errors_in_borderline": 880,
+      "confident_but_wrong": 476,
+      "borderline_pairs": {
+        "Low/Medium": 2381,
+        "Medium/High": 95,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.8824412206103052,
+        "Medium": 0.8327427356484762,
+        "High": 0.9939759036144579
+      },
+      "per_class_confident_count": {
+        "Low": 1999,
+        "Medium": 1411,
+        "High": 830
+      },
+      "true_high_total": 931,
+      "true_high_confident_and_labelled_high": 825,
+      "true_high_confident_but_not_high": 69,
+      "true_high_confident_not_high_and_unflagged": 19
+    },
+    {
+      "threshold": 0.8,
+      "confident_share": 0.5251637879690292,
+      "accuracy_confident": 0.9084207541820244,
+      "accuracy_borderline": 0.6760740043900909,
+      "errors_total": 1356,
+      "errors_in_borderline": 1033,
+      "confident_but_wrong": 323,
+      "borderline_pairs": {
+        "Low/Medium": 3028,
+        "Medium/High": 161,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.9061393152302243,
+        "Medium": 0.843040473840079,
+        "High": 0.9939024390243902
+      },
+      "per_class_confident_count": {
+        "Low": 1694,
+        "Medium": 1013,
+        "High": 820
+      },
+      "true_high_total": 931,
+      "true_high_confident_and_labelled_high": 815,
+      "true_high_confident_but_not_high": 61,
+      "true_high_confident_not_high_and_unflagged": 15
+    },
+    {
+      "threshold": 0.9,
+      "confident_share": 0.2610184633710542,
+      "accuracy_confident": 0.966343411294923,
+      "accuracy_borderline": 0.7386661293572436,
+      "errors_total": 1356,
+      "errors_in_borderline": 1297,
+      "confident_but_wrong": 59,
+      "borderline_pairs": {
+        "Low/Medium": 4594,
+        "Medium/High": 369,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.9476495726495726,
+        "Medium": 0.7954545454545454,
+        "High": 0.9987063389391979
+      },
+      "per_class_confident_count": {
+        "Low": 936,
+        "Medium": 44,
+        "High": 773
+      },
+      "true_high_total": 931,
+      "true_high_confident_and_labelled_high": 772,
+      "true_high_confident_but_not_high": 6,
+      "true_high_confident_not_high_and_unflagged": 2
+    }
+  ],
+  "validation": [
+    {
+      "threshold": 0.5,
+      "confident_share": 0.9933333333333333,
+      "accuracy_confident": 0.7754728492983527,
+      "accuracy_borderline": 0.6363636363636364,
+      "errors_total": 372,
+      "errors_in_borderline": 4,
+      "confident_but_wrong": 368,
+      "borderline_pairs": {
+        "Low/Medium": 11,
+        "Medium/High": 0,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.770012706480305,
+        "Medium": 0.7396280400572246,
+        "High": 0.9673202614379085
+      },
+      "per_class_confident_count": {
+        "Low": 787,
+        "Medium": 699,
+        "High": 153
+      },
+      "true_high_total": 165,
+      "true_high_confident_and_labelled_high": 148,
+      "true_high_confident_but_not_high": 17,
+      "true_high_confident_not_high_and_unflagged": 7
+    },
+    {
+      "threshold": 0.6,
+      "confident_share": 0.8442424242424242,
+      "accuracy_confident": 0.8212491026561378,
+      "accuracy_borderline": 0.5214007782101168,
+      "errors_total": 372,
+      "errors_in_borderline": 123,
+      "confident_but_wrong": 249,
+      "borderline_pairs": {
+        "Low/Medium": 251,
+        "Medium/High": 6,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.8176382660687593,
+        "Medium": 0.7843478260869565,
+        "High": 0.9798657718120806
+      },
+      "per_class_confident_count": {
+        "Low": 669,
+        "Medium": 575,
+        "High": 149
+      },
+      "true_high_total": 165,
+      "true_high_confident_and_labelled_high": 146,
+      "true_high_confident_but_not_high": 17,
+      "true_high_confident_not_high_and_unflagged": 7
+    },
+    {
+      "threshold": 0.65,
+      "confident_share": 0.7775757575757576,
+      "accuracy_confident": 0.8402182385035074,
+      "accuracy_borderline": 0.5449591280653951,
+      "errors_total": 372,
+      "errors_in_borderline": 167,
+      "confident_but_wrong": 205,
+      "borderline_pairs": {
+        "Low/Medium": 357,
+        "Medium/High": 10,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.8327974276527331,
+        "Medium": 0.8097087378640777,
+        "High": 0.9794520547945206
+      },
+      "per_class_confident_count": {
+        "Low": 622,
+        "Medium": 515,
+        "High": 146
+      },
+      "true_high_total": 165,
+      "true_high_confident_and_labelled_high": 143,
+      "true_high_confident_but_not_high": 16,
+      "true_high_confident_not_high_and_unflagged": 7
+    },
+    {
+      "threshold": 0.7,
+      "confident_share": 0.6951515151515152,
+      "accuracy_confident": 0.8587619877942458,
+      "accuracy_borderline": 0.5825049701789264,
+      "errors_total": 372,
+      "errors_in_borderline": 210,
+      "confident_but_wrong": 162,
+      "borderline_pairs": {
+        "Low/Medium": 486,
+        "Medium/High": 17,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.8574040219378428,
+        "Medium": 0.8179824561403509,
+        "High": 0.9930555555555556
+      },
+      "per_class_confident_count": {
+        "Low": 547,
+        "Medium": 456,
+        "High": 144
+      },
+      "true_high_total": 165,
+      "true_high_confident_and_labelled_high": 143,
+      "true_high_confident_but_not_high": 16,
+      "true_high_confident_not_high_and_unflagged": 7
+    },
+    {
+      "threshold": 0.75,
+      "confident_share": 0.6060606060606061,
+      "accuracy_confident": 0.885,
+      "accuracy_borderline": 0.6046153846153847,
+      "errors_total": 372,
+      "errors_in_borderline": 257,
+      "confident_but_wrong": 115,
+      "borderline_pairs": {
+        "Low/Medium": 627,
+        "Medium/High": 23,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.8875,
+        "Medium": 0.8404255319148937,
+        "High": 0.9930555555555556
+      },
+      "per_class_confident_count": {
+        "Low": 480,
+        "Medium": 376,
+        "High": 144
+      },
+      "true_high_total": 165,
+      "true_high_confident_and_labelled_high": 143,
+      "true_high_confident_but_not_high": 14,
+      "true_high_confident_not_high_and_unflagged": 6
+    },
+    {
+      "threshold": 0.8,
+      "confident_share": 0.5048484848484849,
+      "accuracy_confident": 0.9051620648259304,
+      "accuracy_borderline": 0.6413708690330477,
+      "errors_total": 372,
+      "errors_in_borderline": 293,
+      "confident_but_wrong": 79,
+      "borderline_pairs": {
+        "Low/Medium": 782,
+        "Medium/High": 35,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.912621359223301,
+        "Medium": 0.8483754512635379,
+        "High": 0.9930555555555556
+      },
+      "per_class_confident_count": {
+        "Low": 412,
+        "Medium": 277,
+        "High": 144
+      },
+      "true_high_total": 165,
+      "true_high_confident_and_labelled_high": 143,
+      "true_high_confident_but_not_high": 12,
+      "true_high_confident_not_high_and_unflagged": 5
+    },
+    {
+      "threshold": 0.9,
+      "confident_share": 0.23939393939393938,
+      "accuracy_confident": 0.9569620253164557,
+      "accuracy_borderline": 0.7171314741035857,
+      "errors_total": 372,
+      "errors_in_borderline": 355,
+      "confident_but_wrong": 17,
+      "borderline_pairs": {
+        "Low/Medium": 1174,
+        "Medium/High": 81,
+        "Low/High": 0
+      },
+      "per_class_confident_accuracy": {
+        "Low": 0.960352422907489,
+        "Medium": 0.78125,
+        "High": 0.9926470588235294
+      },
+      "per_class_confident_count": {
+        "Low": 227,
+        "Medium": 32,
+        "High": 136
+      },
+      "true_high_total": 165,
+      "true_high_confident_and_labelled_high": 135,
+      "true_high_confident_but_not_high": 3,
+      "true_high_confident_not_high_and_unflagged": 2
+    }
+  ],
+  "shipped_rule": {
+    "out_of_fold": {
+      "confident_share": 0.5618181818181818,
+      "accuracy_confident": 0.8581762802208261,
+      "accuracy_borderline": 0.7014888943129118,
+      "errors_total": 1968,
+      "errors_in_borderline": 1223,
+      "moved_to_borderline_by_flag": 1395,
+      "true_high_total": 968,
+      "true_high_confident_high": 832,
+      "true_high_borderline": 103,
+      "true_high_confident_not_high": 33,
+      "per_class_confident_accuracy": {
+        "Low": 0.8618732261116367,
+        "Medium": 0.7598710717163578,
+        "High": 0.9892984542211652
+      },
+      "per_class_confident_count": {
+        "Low": 3171,
+        "Medium": 1241,
+        "High": 841
+      }
+    },
+    "out_of_fold_ages_18_49": {
+      "confident_share": 0.570577724836212,
+      "accuracy_confident": 0.8703027139874739,
+      "accuracy_borderline": 0.7021497919556172,
+      "errors_total": 1356,
+      "errors_in_borderline": 859,
+      "moved_to_borderline_by_flag": 991,
+      "true_high_total": 931,
+      "true_high_confident_high": 830,
+      "true_high_borderline": 79,
+      "true_high_confident_not_high": 22,
+      "per_class_confident_accuracy": {
+        "Low": 0.8605169340463458,
+        "Medium": 0.7643142476697736,
+        "High": 0.991636798088411
+      },
+      "per_class_confident_count": {
+        "Low": 2244,
+        "Medium": 751,
+        "High": 837
+      }
+    },
+    "validation": {
+      "confident_share": 0.5484848484848485,
+      "accuracy_confident": 0.8530386740331491,
+      "accuracy_borderline": 0.6791946308724832,
+      "errors_total": 372,
+      "errors_in_borderline": 239,
+      "moved_to_borderline_by_flag": 242,
+      "true_high_total": 165,
+      "true_high_confident_high": 143,
+      "true_high_borderline": 15,
+      "true_high_confident_not_high": 7,
+      "per_class_confident_accuracy": {
+        "Low": 0.8574040219378428,
+        "Medium": 0.7476635514018691,
+        "High": 0.9930555555555556
+      },
+      "per_class_confident_count": {
+        "Low": 547,
+        "Medium": 214,
+        "High": 144
+      }
+    }
+  }
+}
