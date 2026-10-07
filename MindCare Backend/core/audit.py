@@ -47,3 +47,32 @@ def log_identity_reveal(*, viewer_id, patient_id):
         "patient_id": patient_id,
     }
     logger.info(json.dumps(payload))
+
+
+RELATIONSHIP_EVENTS = {
+    "requested",
+    "cancelled",
+    "accepted",
+    "declined",
+    "expired",
+    "ended",
+}
+
+
+def log_relationship_event(
+    *, event, relationship_id, actor_id, actor_role, reason=None
+):
+    """A care-relationship state change. IDs and codes only: never names, never
+    anything typed by a person, never patient_id and psychologist_id together."""
+    if event not in RELATIONSHIP_EVENTS:
+        raise ValueError(f"Unknown relationship event: {event!r}")
+    payload = {
+        "event_type": "relationship",
+        "event": event,
+        "relationship_id": relationship_id,
+        "reason": reason,
+        "actor_id": actor_id,
+        "actor_role": actor_role,
+        "timestamp": timezone.now().isoformat(),
+    }
+    logger.info(json.dumps(payload))

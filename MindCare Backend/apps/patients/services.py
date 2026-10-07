@@ -19,6 +19,7 @@ from core.validators import (
 )
 
 MAX_PSEUDONYM_ATTEMPTS = 5
+DOB_CANNOT_CLEAR = "Your date of birth can't be removed once set."
 
 UPDATABLE_FIELDS = {
     "is_profile_public",
@@ -67,6 +68,13 @@ def update_patient_profile(*, profile, **fields):
         run_validator(E164_VALIDATOR, fields["phone_number"], field="phone_number")
     elif "phone_number" in fields:
         fields["phone_number"] = None
+    if (
+        "date_of_birth" in fields
+        and not fields["date_of_birth"]
+        and profile.date_of_birth is not None
+    ):
+        # Phase 3: required to request a psychologist, so never removable once set.
+        raise DomainValidationError({"date_of_birth": [DOB_CANNOT_CLEAR]})
     if fields.get("date_of_birth") is not None:
         run_validator(
             validate_adult_date_of_birth, fields["date_of_birth"], field="date_of_birth"

@@ -10,16 +10,27 @@ from apps.accounts.models import ApprovalStatus, Role, User
 from apps.ngo.models import NGOProfile
 from apps.patients.models import PatientProfile
 from apps.psychologists.models import PsychologistProfile
+from apps.relationships.models import CareRelationship, RelationshipStatus
 
 CACHE_KEY = "stats:public:v1"
 CACHE_TIMEOUT = 300
 
 
 def _compute():
-    # TEMPORARY interim definition (docs/decisions.md, 2026-09-26): registered
-    # active patients. Phase 3 MUST switch this to patients with an accepted
-    # psychologist once the relationship model exists.
-    people_in_care = User.objects.filter(role=Role.PATIENT, is_active=True).count()
+    # Patients in active care: an accepted relationship to an approved, active
+    # psychologist (docs/decisions.md, 2026-10-06). A paused psychologist's
+    # patients aren't counted.
+    people_in_care = (
+        CareRelationship.objects.filter(
+            status=RelationshipStatus.ACCEPTED,
+            patient__user__is_active=True,
+            psychologist__user__is_active=True,
+            psychologist__user__approval_status=ApprovalStatus.APPROVED,
+        )
+        .values("patient_id")
+        .distinct()
+        .count()
+    )
     verified_therapists = User.objects.filter(
         role=Role.PSYCHOLOGIST, is_active=True, approval_status=ApprovalStatus.APPROVED
     ).count()

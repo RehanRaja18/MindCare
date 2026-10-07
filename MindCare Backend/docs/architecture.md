@@ -23,7 +23,9 @@ docs/               This file, decisions.md, roadmap.md, deployment.md
 - **reference** — shared, admin-editable reference data (countries, cities, languages,
   specializations) used by every profile app.
 - **patients** — patient profiles and patient-specific data.
-- **psychologists** — psychologist profiles, credentials, and their assigned patients.
+- **psychologists** — psychologist profiles, credentials, the patient-facing directory and the accepting-new-patients switch.
+- **relationships** — psychologist ↔ patient care relationships: requests, acceptance,
+  ending, and the ownership rules every psychologist-facing query uses.
 - **appointments** — scheduling and managing therapy sessions (incl. Zoom integration).
 - **clinical_notes** — psychologist-authored notes on patients/sessions (PHI).
 - **journals** — patient-authored journal entries (PHI).

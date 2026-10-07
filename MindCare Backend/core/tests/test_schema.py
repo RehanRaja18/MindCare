@@ -1,12 +1,33 @@
 """The OpenAPI schema documents every Phase 2 endpoint."""
 
+from unittest import mock
+
 import pytest
+from drf_spectacular.drainage import GENERATOR_STATS
 from drf_spectacular.generators import SchemaGenerator
 
 
 @pytest.fixture(scope="module")
-def paths():
-    return SchemaGenerator().get_schema(request=None, public=True)["paths"]
+def generated():
+    """Generate the schema once and collect every warning drf-spectacular emits.
+
+    All warn()/error() calls funnel through GENERATOR_STATS.emit. openapi.py imports
+    warn by name, so patching drainage.warn would miss it; wrapping emit does not."""
+    GENERATOR_STATS.reset()
+    with mock.patch.object(GENERATOR_STATS, "emit", wraps=GENERATOR_STATS.emit) as emit:
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+    warnings = [str(c.args[0]) for c in emit.call_args_list if c.args[1] == "warning"]
+    return schema, warnings
+
+
+@pytest.fixture(scope="module")
+def schema(generated):
+    return generated[0]
+
+
+@pytest.fixture(scope="module")
+def paths(schema):
+    return schema["paths"]
 
 
 def _has_response(op, code):
@@ -50,3 +71,62 @@ def test_cities_lists_country_parameter(paths):
 @pytest.mark.parametrize("name", ["countries", "languages", "specializations"])
 def test_reference_lists_documented(paths, name):
     assert _has_response(paths[f"/api/v1/reference/{name}/"]["get"], "200")
+
+
+def test_no_unresolved_authenticator_warnings(generated):
+    _, warnings = generated
+    assert not [w for w in warnings if "could not resolve authenticator" in w]
+
+
+def test_jwt_security_scheme_documented(schema):
+    assert schema["components"]["securitySchemes"]["jwtAuth"] == {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+    }
+
+
+def test_authenticated_endpoint_requires_jwt(paths):
+    assert {"jwtAuth": []} in paths["/api/v1/relationships/current/"]["get"]["security"]
+
+
+@pytest.mark.parametrize(
+    ("path", "method"),
+    [("/api/v1/stats/public/", "get"), ("/api/v1/accounts/register/", "post")],
+)
+def test_public_endpoint_does_not_require_jwt(paths, path, method):
+    assert {"jwtAuth": []} not in paths[path][method].get("security", [])
+
+
+PHASE3_PATHS = {
+    "/api/v1/psychologists/directory/": {"get"},
+    "/api/v1/psychologists/directory/{id}/": {"get"},
+    "/api/v1/psychologists/me/availability/": {"get", "put"},
+    "/api/v1/relationships/requests/": {"get", "post"},
+    "/api/v1/relationships/requests/{id}/cancel/": {"post"},
+    "/api/v1/relationships/requests/{id}/accept/": {"post"},
+    "/api/v1/relationships/requests/{id}/decline/": {"post"},
+    "/api/v1/relationships/current/": {"get"},
+    "/api/v1/relationships/current/end/": {"post"},
+    "/api/v1/relationships/recent/": {"get"},
+    "/api/v1/relationships/inbox/": {"get"},
+    "/api/v1/relationships/patients/": {"get"},
+    "/api/v1/relationships/patients/{id}/": {"get"},
+    "/api/v1/relationships/patients/{id}/end/": {"post"},
+    "/api/v1/relationships/history/": {"get"},
+}
+
+
+@pytest.mark.parametrize("path,methods", sorted(PHASE3_PATHS.items()))
+def test_phase3_paths_present(paths, path, methods):
+    assert path in paths
+    assert methods <= set(paths[path])
+
+
+def test_request_create_documents_201(paths):
+    assert "201" in paths["/api/v1/relationships/requests/"]["post"]["responses"]
+
+
+def test_schema_generates_without_warnings(generated):
+    _, warnings = generated
+    assert warnings == []

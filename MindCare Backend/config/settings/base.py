@@ -28,6 +28,7 @@ LOCAL_APPS = [
     "apps.stats",
     "apps.patients",
     "apps.psychologists",
+    "apps.relationships",
     "apps.appointments",
     "apps.clinical_notes",
     "apps.journals",
@@ -125,7 +126,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Django REST Framework
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "apps.accounts.authentication.ActivityTrackingJWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -134,6 +135,8 @@ REST_FRAMEWORK = {
         "register": "10/hour",
         "reference": "120/min",
         "public_stats": "60/min",
+        "directory": "60/min",
+        "relationship_requests": "10/hour",
     },
     "NUM_PROXIES": env.int("NUM_PROXIES", default=0),
 }
@@ -168,6 +171,17 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Unified backend serving MindCare Web and MindCare App.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Several request bodies have a `reason` field with different choice sets;
+    # name each enum explicitly so the schema has no naming collisions.
+    "ENUM_NAME_OVERRIDES": {
+        "DeclineReasonEnum": "apps.relationships.models.DeclineReason",
+        "NotAcceptingReasonEnum": "apps.psychologists.models.NotAcceptingReason",
+        "PsychologistEndReasonEnum": [
+            "other",
+            "referred_elsewhere",
+            "treatment_completed",
+        ],
+    },
 }
 
 # Cache (also backs DRF throttling — must be shared across worker processes)

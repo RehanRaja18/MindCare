@@ -21,10 +21,10 @@ def get_patient_profile_for_user(*, user):
 
 
 def _is_assigned_psychologist(*, viewer, patient_profile):
-    # Phase 3 hook: return True when `viewer` has an accepted relationship with
-    # this patient. Until the relationship model exists, psychologists get the
-    # pseudonym like any other viewer (docs/decisions.md, 2026-09-26).
-    return False
+    # Phase 3: accepted relationship to a currently approved, active psychologist.
+    from apps.relationships.selectors import is_assigned_psychologist
+
+    return is_assigned_psychologist(viewer=viewer, patient_profile=patient_profile)
 
 
 def get_patient_display_identity(*, patient_profile, viewer):

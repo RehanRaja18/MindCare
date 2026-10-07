@@ -17,6 +17,7 @@ API_V1_APPS = [
     "stats",
     "patients",
     "psychologists",
+    "relationships",
     "appointments",
     "clinical_notes",
     "journals",

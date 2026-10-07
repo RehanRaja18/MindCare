@@ -30,10 +30,30 @@ class DisplayIdentityTests(TestCase):
             self.assertEqual(result["display_name"], self.profile.pseudonym)
             self.assertFalse(result["is_real_name"])
 
-    def test_psychologist_sees_pseudonym_until_phase3(self):
+    def test_unrelated_psychologist_sees_pseudonym(self):
         self.assertFalse(
             self._identity(make_user(role=Role.PSYCHOLOGIST))["is_real_name"]
         )
+
+    def test_assigned_psychologist_sees_real_name_unlogged(self):
+        from django.utils import timezone
+
+        from apps.relationships.models import REQUEST_EXPIRY, CareRelationship
+        from core.testing import make_psychologist
+
+        psych = make_psychologist()
+        now = timezone.now()
+        CareRelationship.objects.create(
+            patient=self.profile,
+            psychologist=psych,
+            status="accepted",
+            requested_at=now,
+            expires_at=now + REQUEST_EXPIRY,
+            responded_at=now,
+        )
+        with self.assertNoLogs("mindcare.audit", level="INFO"):
+            result = self._identity(psych.user)
+        self.assertEqual(result["display_name"], "Ayesha Khan")
 
     def test_public_profile_shows_real_name_to_anyone(self):
         update_patient_profile(profile=self.profile, is_profile_public=True)

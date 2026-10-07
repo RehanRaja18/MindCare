@@ -32,6 +32,7 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
 |------|-------------------|---------|--------------|--------------------|
 | `apps/accounts/models.py` | `User` | Custom auth user model: email login, `role`, `approval_status`, `is_super_admin`, `adult_confirmed_at` (18+ declaration timestamp) | — | MindCare Web, MindCare App |
+| `apps/accounts/models.py` | `User.last_active_at` | Last activity, psychologists only (shown as a band) | — | MindCare App |
 | `apps/accounts/services.py` | `register_user()` | Requires the 18+ declaration (stamps `adult_confirmed_at`), creates `User` + role profile in one transaction via `PROFILE_CREATORS` (no signals), logs a `register` audit event only on success | `POST /api/v1/accounts/register/` | MindCare Web, MindCare App |
 | `apps/accounts/services.py` | `authenticate_and_check_approval()` | Authenticates credentials and enforces the `approval_status` gate for psychologist/NGO accounts | `POST /api/v1/accounts/login/` | MindCare Web, MindCare App |
 | `apps/accounts/services.py` | `record_token_refresh()` | Logs a `token_refresh` audit event | `POST /api/v1/accounts/refresh/` | MindCare Web, MindCare App |
@@ -41,7 +42,9 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | `apps/accounts/api/views.py` | `LoginView` | JWT login; embeds `role` claim; blocks pending/rejected accounts; throttled | `POST /api/v1/accounts/login/` | MindCare Web, MindCare App |
 | `apps/accounts/api/views.py` | `RefreshView` | Rotates JWT refresh tokens, blacklists the token just used | `POST /api/v1/accounts/refresh/` | MindCare Web, MindCare App |
 | `apps/accounts/api/views.py` | `LogoutView` | Blacklists the presented refresh token | `POST /api/v1/accounts/logout/` | MindCare Web, MindCare App |
-| `apps/accounts/admin.py` | `UserAdmin` | Interim Django-admin approval of pending psychologist/NGO accounts; add disabled (users created only via `register_user()`); password, role, and super-admin flags not editable | `/admin/accounts/user/` | neither (Django admin) |
+| `apps/accounts/authentication.py` | `ActivityTrackingJWTAuthentication` | DRF default auth: simplejwt + `record_activity()`, except on refresh/logout | all authenticated endpoints | MindCare Web, MindCare App |
+| `apps/accounts/schema.py` | `ActivityTrackingJWTScheme` | drf-spectacular extension (registered in `AccountsConfig.ready()`): documents `ActivityTrackingJWTAuthentication` as the `jwtAuth` bearer-JWT security scheme | `/api/docs/`, `/api/schema/` (security on authenticated endpoints) | MindCare Web, MindCare App (API docs) |
+| `apps/accounts/admin.py` | `UserAdmin` | Interim Django-admin approval of pending psychologist/NGO accounts; add disabled (users created only via `register_user()`); password, role, and super-admin flags not editable; deactivating/rejecting ends care relationships (moving back to pending only pauses them) | `/admin/accounts/user/` | neither (Django admin) |
 
 ---
 
@@ -64,9 +67,9 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 |------|-------------------|---------|--------------|--------------------|
 | `apps/patients/models.py` | `PatientProfile` | Patient demographics/preferences, immutable pseudonym, `is_profile_public` (default False); no health data | — | MindCare App |
 | `apps/patients/services.py` | `create_patient_profile()` | Creates the profile at registration with a unique pseudonym (retries collisions) | via `POST /api/v1/accounts/register/` | MindCare App |
-| `apps/patients/services.py` | `update_patient_profile()` | Owner edits; rejects pseudonym changes, under-18 DOB, bad timezone/phone; resolves city | `PATCH /api/v1/patients/me/` | MindCare App |
+| `apps/patients/services.py` | `update_patient_profile()` | Owner edits; rejects pseudonym changes, under-18 DOB, bad timezone/phone; resolves city; date of birth can be corrected but never cleared once set (Phase 3) | `PATCH /api/v1/patients/me/` | MindCare App |
 | `apps/patients/selectors.py` | `get_patient_profile_for_user()` | Loads the requesting patient's own profile | `GET /api/v1/patients/me/` | MindCare App |
-| `apps/patients/selectors.py` | `get_patient_display_identity()` | Single rule for real name vs pseudonym; an admin reveal of a private profile logs `identity_reveal`; Phases 3/11 must use it | — (no endpoint in Phase 2) | MindCare Web, MindCare App (Phase 3+) |
+| `apps/patients/selectors.py` | `get_patient_display_identity()` | Single rule for real name vs pseudonym; an admin reveal of a private profile logs `identity_reveal`; the assigned-psychologist exception is now live (accepted relationship to an approved, active psychologist, not logged); Phase 11 must use it | — (no endpoint in Phase 2) | MindCare Web, MindCare App (Phase 3+) |
 | `apps/patients/admin.py` | `PatientProfileAdmin` | Django-admin view/edit; add disabled and `user` read-only | `/admin/patients/patientprofile/` | neither (Django admin) |
 | `apps/patients/api/views.py` | `MyPatientProfileView` | Owner-only read/update of the patient profile | `GET`/`PATCH /api/v1/patients/me/` | MindCare App |
 
@@ -77,11 +80,18 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
 |------|-------------------|---------|--------------|--------------------|
 | `apps/psychologists/models.py` | `PsychologistProfile` | Credentials (locked after registration; license number admin-only, unique per issuing country) + editable professional details | — | MindCare Web |
+| `apps/psychologists/models.py` | `PsychologistProfile.is_accepting_patients`, `not_accepting_reason` | Psychologist-set "accepting new patients" switch with a reason (`fully_booked`, `away`, `other`) | — | MindCare Web |
 | `apps/psychologists/services.py` | `create_psychologist_profile()` | Creates the profile at registration; normalizes license; generic duplicate-license error | via `POST /api/v1/accounts/register/` | MindCare Web |
 | `apps/psychologists/services.py` | `update_psychologist_profile()` | Owner edits; rejects changed credential fields (`credential_field_locked`), accepts unchanged ones; validates `gender` at the service layer (invalid value raises `DomainValidationError`, `None` clears it) | `PATCH /api/v1/psychologists/me/` | MindCare Web |
 | `apps/psychologists/selectors.py` | `get_psychologist_profile_for_user()` | Loads the requesting psychologist's own profile | `GET /api/v1/psychologists/me/` | MindCare Web |
+| `apps/psychologists/selectors.py` | `visible_psychologists()`, `list_directory()`, `get_directory_entry()` | Approved, active psychologists only; filters (specialization, language, gender, country, city, accepting, name search) combined with AND; accepting first, then most recently active (never active last), then name | `GET /api/v1/psychologists/directory/` | MindCare App |
 | `apps/psychologists/admin.py` | `PsychologistProfileAdmin` | Django-admin corrections; add disabled and `user` read-only; license/authority/qualifications edits normalized like the service layer | `/admin/psychologists/psychologistprofile/` | neither (Django admin) |
 | `apps/psychologists/api/views.py` | `MyPsychologistProfileView` | Owner-only read/update of the psychologist profile | `GET`/`PATCH /api/v1/psychologists/me/` | MindCare Web |
+| `apps/psychologists/api/serializers.py` | `DIRECTORY_CARD_FIELDS`, `DirectoryCardSerializer`, `MinimalCardSerializer`, `DirectoryQuerySerializer` | Patient-facing psychologist card with an explicit field list (never `license_number`, `last_active_at`, `not_accepting_reason`); `last_active` as a band; minimal `{id, full_name}` card when the psychologist is no longer approved and active; directory query params validated (bad `city`/`accepting`/`gender` give 400; whitespace-only `search` means no filter) | `GET /api/v1/psychologists/directory/` | MindCare App |
+| `apps/psychologists/api/views.py` | `DirectoryListView`, `DirectoryDetailView`, `DirectoryRateThrottle` | Logged-in patients only; paginated directory (20 per page, max 50) and single card (404 if not approved and active); throttled (`directory`, 60/min) | `GET /api/v1/psychologists/directory/`, `GET /api/v1/psychologists/directory/<id>/` | MindCare App |
+| `apps/psychologists/api/serializers.py` | `BlankAsNoneChoiceField` | `ChoiceField` where `""`, whitespace-only and `null` all mean "no reason given" (`None`), so the service returns its single "Choose a reason…" message instead of DRF's "not a valid choice"; used for the availability `reason` and the psychologist end `reason` | `PUT /api/v1/psychologists/me/availability/`, `POST /api/v1/relationships/patients/<id>/end/` | MindCare Web |
+| `apps/psychologists/api/serializers.py` | `AvailabilitySerializer` | Availability body `{accepting, reason}`; `reason` from `NotAcceptingReason`, unknown keys rejected | `PUT /api/v1/psychologists/me/availability/` | MindCare Web |
+| `apps/psychologists/api/views.py` | `AvailabilityView` | The psychologist's own "accepting new patients" switch; approved, active psychologists only (403 when pending/rejected/inactive); reason required when off (400), cleared when on; the reason is never shown to patients | `GET`/`PUT /api/v1/psychologists/me/availability/` | MindCare Web |
 
 ---
 
@@ -102,11 +112,48 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 
 ---
 
+### apps/relationships
+
+| File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
+|------|-------------------|---------|--------------|--------------------|
+| `apps/relationships/models.py` | `CareRelationship` | One row per request; becomes the relationship when accepted; one open (pending/accepted) row per patient via `relationships_one_open_per_patient`; profiles referenced with PROTECT | — | MindCare Web, MindCare App |
+| `apps/relationships/models.py` | `CareRelationship.effective_status` | Read-only status with expiry evaluated on read (a pending row past `expires_at` reads as `expired`); never writes, services persist the expiry on their next write; the `status` shown in the patient view | — | MindCare Web, MindCare App |
+| `apps/relationships/admin.py` | `CareRelationshipAdmin` | Read-only support view; patients by pseudonym | `/admin/relationships/carerelationship/` | neither (Django admin) |
+| `apps/relationships/selectors.py` | `get_active_relationship()` | The single "is this patient in active care?" check (accepted row, psychologist approved and active); Phase 9 hook | — | neither (internal) |
+| `apps/relationships/selectors.py` | `is_assigned_psychologist()` | True only for an accepted row to a currently approved, active psychologist; used by `get_patient_display_identity()` | — | neither (internal) |
+| `apps/relationships/selectors.py` | `requester_summary()` | Pre-acceptance view of a requester: pseudonym, language, timezone, country, gender, age (never name/city/phone/date of birth) | `GET /api/v1/relationships/inbox/` | MindCare Web |
+| `apps/relationships/selectors.py` | `psychologist_inbox()`, `psychologist_patients()`, `psychologist_patient()`, `psychologist_history()`, `patient_current()`, `patient_requests()`, `recent_psychologists()`, `last_active_band()` | Ownership-scoped reads for both sides; psychologist reads cover only the caller's own rows | `GET /api/v1/relationships/{inbox,patients,patients/<id>,history,current,requests,recent}/` | MindCare Web, MindCare App |
+| `apps/relationships/selectors.py` | `psychologist_is_visible()` | Shared "approved and active" check for a psychologist profile (used by the selectors above and the patient-view serializer's full vs minimal card) | — | neither (internal) |
+| `apps/relationships/services.py` | `request_psychologist()` | Date of birth required; generic "isn't available" for unapproved/inactive/unknown psychologists; accepting check; stale pending expired in the same transaction; one open row; 30-day decline cooldown | `POST /api/v1/relationships/requests/` | MindCare App |
+| `apps/relationships/services.py` | `cancel_request()`, `accept_request()`, `decline_request()` | Row-locked, ownership-checked (404), expiry-aware state changes; decline sets the 30-day cooldown | `POST /api/v1/relationships/requests/<id>/{cancel,accept,decline}/` | MindCare App, MindCare Web |
+| `apps/relationships/services.py` | `end_relationship()` | The only way an accepted relationship ends; reason validated per `ended_by` (`subscription_lapsed` system-only, reserved for Phase 9); row-locked; "ended" audit line written only after commit | — (called by the views below and by Phase 9) | neither (internal) |
+| `apps/relationships/services.py` | `patient_end_relationship()` | Patient ends their psychologist; `confirm` must be JSON `true` | `POST /api/v1/relationships/current/end/` | MindCare App |
+| `apps/relationships/services.py` | `psychologist_end_relationship()` | Psychologist ends with a required reason (`treatment_completed`, `referred_elsewhere`, `other`) | `POST /api/v1/relationships/patients/<id>/end/` | MindCare Web |
+| `apps/relationships/services.py` | `end_for_unavailable_account()` | On deactivation or rejection: accepted rows end (system/account_unavailable), pending rows expire; not on pending (pause) | — (called from `UserAdmin.save_model`) | neither (internal) |
+| `apps/relationships/services.py` | `set_accepting_status()` | Accepting switch; reason required when off, cleared when on | `PUT /api/v1/psychologists/me/availability/` | MindCare Web |
+| `apps/relationships/services.py` | `record_activity()` | Psychologist `last_active_at`, at most every 15 min via cache key; cache errors skip silently; a failed DB write clears the key and logs one warning with the exception type only (no user id, message or traceback) | — | neither (internal) |
+| `apps/relationships/api/serializers.py` | `RequestCreateSerializer`, `PatientEndSerializer`, `RelationshipPatientViewSerializer` | Request body (`psychologist` id, unknown keys rejected); end confirmation via `StrictTrueField`; the patient's view of a relationship with the full card or the minimal card | — | MindCare App |
+| `apps/relationships/api/views.py` | `RequestListCreateView`, `RelationshipRequestRateThrottle` | GET: the patient's paginated request history (the App's history screen); POST: send a request (only POST throttled, `relationship_requests`, 10/hour) | `GET`/`POST /api/v1/relationships/requests/` | MindCare App |
+| `apps/relationships/api/views.py` | `CancelRequestView` | Patient cancels their own pending request (another patient's gives 404) | `POST /api/v1/relationships/requests/<id>/cancel/` | MindCare App |
+| `apps/relationships/api/views.py` | `CurrentRelationshipView` | The patient's pending (unexpired) or accepted relationship, or `{"relationship": null}` | `GET /api/v1/relationships/current/` | MindCare App |
+| `apps/relationships/api/views.py` | `EndCurrentRelationshipView` | Patient ends their psychologist; body `{"confirm": true}` (JSON true only) | `POST /api/v1/relationships/current/end/` | MindCare App |
+| `apps/relationships/api/views.py` | `RecentPsychologistsView` | Up to 10 past psychologists (approved, active, no open row) as directory cards | `GET /api/v1/relationships/recent/` | MindCare App |
+| `apps/relationships/api/serializers.py` | `InboxItemSerializer`, `AssignedPatientSerializer`, `ASSIGNED_PATIENT_FIELDS`, `HistoryItemSerializer`, `DeclineSerializer`, `PsychologistEndSerializer` | Psychologist-facing shapes: inbox item with `requester_summary()` (pseudonym, language, timezone, country, gender, age; no name); assigned patient (real name, age, never `date_of_birth`); history item (pseudonym only); decline body (optional `reason`) and end body (`reason` from `treatment_completed`/`referred_elsewhere`/`other`), unknown keys rejected | — | MindCare Web |
+| `apps/relationships/api/views.py` | `InboxView` | The psychologist's own pending, unexpired requests, oldest first; logged-in, approved and active psychologists only (`IsPsychologist` + `IsApprovedPsychologist`) | `GET /api/v1/relationships/inbox/` | MindCare Web |
+| `apps/relationships/api/views.py` | `AcceptRequestView` | Accept an own pending request → `{id, status}`; another psychologist's request gives 404, a stale one 400; logged-in, approved and active psychologists only (`IsPsychologist` + `IsApprovedPsychologist`) | `POST /api/v1/relationships/requests/<id>/accept/` | MindCare Web |
+| `apps/relationships/api/views.py` | `DeclineRequestView` | Decline an own pending request with an optional reason (starts the 30-day cooldown) → `{id, status}`; another psychologist's gives 404; logged-in, approved and active psychologists only (`IsPsychologist` + `IsApprovedPsychologist`) | `POST /api/v1/relationships/requests/<id>/decline/` | MindCare Web |
+| `apps/relationships/api/views.py` | `PatientListView` | The psychologist's current (accepted) patients with real name and age, never date of birth; logged-in, approved and active psychologists only (`IsPsychologist` + `IsApprovedPsychologist`) | `GET /api/v1/relationships/patients/` | MindCare Web |
+| `apps/relationships/api/views.py` | `PatientDetailView` | One current patient; 404 unless it is the caller's own accepted row (access ends the moment care ends); logged-in, approved and active psychologists only (`IsPsychologist` + `IsApprovedPsychologist`) | `GET /api/v1/relationships/patients/<id>/` | MindCare Web |
+| `apps/relationships/api/views.py` | `PatientEndView` | Psychologist ends an own relationship; `reason` required (`Choose a reason.`), `patient_unresponsive` rejected; returns the history item; another psychologist's row gives 404; logged-in, approved and active psychologists only (`IsPsychologist` + `IsApprovedPsychologist`) | `POST /api/v1/relationships/patients/<id>/end/` | MindCare Web |
+| `apps/relationships/api/views.py` | `HistoryView` | The psychologist's own ended relationships, pseudonym only (not the patient's request history, which is `GET /requests/`); logged-in, approved and active psychologists only (`IsPsychologist` + `IsApprovedPsychologist`) | `GET /api/v1/relationships/history/` | MindCare Web |
+
+---
+
 ### apps/stats
 
 | File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
 |------|-------------------|---------|--------------|--------------------|
-| `apps/stats/selectors.py` | `get_public_platform_stats()` | Cached (5 min) aggregate counts: active patients (TEMPORARY until Phase 3), approved psychologists, distinct cities of vetted profiles only (active patients; active AND approved psychologists and NGOs; not NGO service areas) | `GET /api/v1/stats/public/` | MindCare Web |
+| `apps/stats/selectors.py` | `get_public_platform_stats()` | Cached (5 min) aggregate counts: `people_in_care` = patients with an accepted relationship to an approved, active psychologist (Phase 3; no longer temporary), approved psychologists, distinct cities of vetted profiles only (active patients; active AND approved psychologists and NGOs; not NGO service areas) | `GET /api/v1/stats/public/` | MindCare Web |
 | `apps/stats/api/views.py` | `PublicStatsView` | Unauthenticated, rate-limited (`public_stats`, 60/min) public counts; exact contract `{people_in_care, verified_therapists, cities}` | `GET /api/v1/stats/public/` | MindCare Web |
 
 ---
@@ -116,6 +163,7 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
 |------|-------------------|---------|--------------|--------------------|
 | `core/permissions.py` | `IsPatient`, `IsPsychologist`, `IsAdmin`, `IsNGO` | Role-level DRF permission classes | — | MindCare Web, MindCare App |
+| `core/permissions.py` | `IsApprovedPsychologist` | Psychologist whose account is active and approved (pending/paused, rejected and deactivated are refused); used with `IsPsychologist` on every Phase 3 psychologist endpoint, not on the Phase 2 `/me/` profile endpoints | all psychologist-facing `/api/v1/relationships/` endpoints, `/api/v1/psychologists/me/availability/` | MindCare Web |
 | `core/permissions.py` | `IsOwnerOfObject` | Reusable object-level ownership permission base class, for future apps to subclass | — | (foundation for future apps) |
 | `core/audit.py` | `log_auth_event()` | Emits structured, PHI-free JSON audit log lines for auth events | — | neither (internal) |
 | `core/exceptions.py` | `DomainValidationError` | Raised by services when a business rule rejects input; views turn it into a 400 | — | neither (internal) |
@@ -123,7 +171,9 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | `core/choices.py` | `Gender` | Shared gender choices for patient/psychologist profiles | — | MindCare Web, MindCare App |
 | `core/serializers.py` | `RejectUnknownFieldsMixin` | Makes serializers reject undeclared keys (e.g. `pseudonym`) with a 400; checked in `to_internal_value`, so nested and `many=True` children (e.g. each NGO `service_areas` item) are covered too | — | neither (internal) |
 | `core/serializers.py` | `StrictTrueField` | Custom DRF field that accepts **only** the JSON boolean `true`, rejecting coerced truthy values like `"true"`, `1`, `"yes"` (used for legal declarations like the 18+ confirmation); documented as a boolean in the OpenAPI schema | — | neither (internal) |
+| `core/pagination.py` | `StandardPagination` | Shared page-number pagination: 20 per page by default, `page_size` query param capped at 50 | all paginated list endpoints | MindCare Web, MindCare App |
 | `core/audit.py` | `log_identity_reveal()` | Logs `identity_reveal` (viewer id, patient id only) when an admin resolves a private patient's real name | — | neither (internal) |
+| `core/audit.py` | `log_relationship_event()` | Relationship state changes (requested/cancelled/accepted/declined/expired/ended) with relationship id, actor id/role and reason only | — | neither (internal) |
 
 ---
 
@@ -132,16 +182,7 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
 |------|-------------------|---------|--------------|--------------------|
 | `config/settings/base.py`, `dev.py`, `prod.py` | `CORS_ALLOWED_ORIGINS`, `CORS_ALLOW_CREDENTIALS`, `corsheaders.middleware.CorsMiddleware` | CORS configured via `django-cors-headers` (`requirements/base.txt`, 4.9.0). `base.py`/`prod.py` allow only the deployed MindCare Web origin (`https://mind-care-web-seven.vercel.app`; pinned explicitly in `prod.py`); `dev.py` adds the Vite dev server (`http://localhost:5173`). `CORS_ALLOW_CREDENTIALS=False` because auth is JWT bearer tokens in the `Authorization` header, not cookies. Middleware sits above `CommonMiddleware` | all `/api/v1/` endpoints | MindCare Web |
-
 | `manage.py` | `main()` | `manage.py test` forces `config.settings.test` (guarded, local-only DB) so the Django test runner can never run against the `.env` production `DATABASE_URL` | — | neither (tooling) |
-| `apps/*/api/views.py` | `extend_schema` annotations | OpenAPI request/response schema for every Phase 2 endpoint (register documents the per-role `profile` shape) | `/api/schema/`, `/api/docs/` | MindCare Web, MindCare App |
-
----
-
-### config/ (project settings)
-
-| File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
-|------|-------------------|---------|--------------|--------------------|
-| `config/settings/base.py`, `dev.py`, `prod.py` | `CORS_ALLOWED_ORIGINS`, `CORS_ALLOW_CREDENTIALS`, `corsheaders.middleware.CorsMiddleware` | CORS configured via `django-cors-headers` (`requirements/base.txt`, 4.9.0). `base.py`/`prod.py` allow only the deployed MindCare Web origin (`https://mind-care-web-seven.vercel.app`; pinned explicitly in `prod.py`); `dev.py` adds the Vite dev server (`http://localhost:5173`). `CORS_ALLOW_CREDENTIALS=False` because auth is JWT bearer tokens in the `Authorization` header, not cookies. Middleware sits above `CommonMiddleware` | all `/api/v1/` endpoints | MindCare Web |
+| `apps/*/api/views.py` | `extend_schema` annotations | OpenAPI request/response schema for every Phase 2 and Phase 3 endpoint (register documents the per-role `profile` shape) | `/api/schema/`, `/api/docs/` | MindCare Web, MindCare App |
 
 <!-- Add new `### apps/<app_name>` sections below as modules are implemented. -->

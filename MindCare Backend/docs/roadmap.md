@@ -8,9 +8,9 @@ and @decisions.md for the reasoning behind scope and ordering choices.
 |-------|-------|--------|
 | 0 | Project scaffolding | Done |
 | 1 | Auth/RBAC: custom `User` model, JWT auth with rotation + blacklisting, RBAC permission classes, auth audit logging, Django admin panel for approving pending accounts | Done |
-| 2 | Patient, Psychologist & NGO profiles; patient privacy (pseudonym, `is_profile_public`, display-identity selector); `GET /stats/public/` | In progress |
+| 2 | Patient, Psychologist & NGO profiles; patient privacy (pseudonym, `is_profile_public`, display-identity selector); `GET /stats/public/` | Done (PR #20) |
 | 2.5 | Admin Management (see below) | Not started |
-| 3 | Psychologist ↔ Patient relationship (request / accept / decline) | Not started |
+| 3 | Psychologist ↔ Patient relationship (request / accept / decline / cancel / expire / end), directory, recent psychologists, accepting switch, last-active bands; spec `docs/superpowers/specs/2026-10-05-phase3-relationships-design.md` | In progress |
 | 4 | Appointments & sessions (Zoom metadata) | Not started |
 | 5 | Journals & psychologist notes — first PHI-sensitive module. **The DB-backed PHI access audit trail must ship before or with this phase** (see @decisions.md) | Not started |
 | 6 | AI recommendation workflow (backend side): psychologist approval gate, stub endpoint calling the separate AI service | Not started |
@@ -66,3 +66,6 @@ when its turn comes.
   roles. Needs its own unique, verified field on `User`. It is **not**
   `PatientProfile.phone_number`, which is contact-only (see @decisions.md). Pairs
   naturally with Phase 10's verification work.
+- **Misconduct reports** (both directions; scheduled after Phase 3): the moderation
+  app owns report records and submission; Phase 2.5 admin tools own review, dismiss
+  and ban (see @decisions.md, 2026-10-06).

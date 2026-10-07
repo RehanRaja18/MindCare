@@ -116,7 +116,23 @@ class UpdatePatientProfileTests(TestCase):
             )
         self.assertIn("date_of_birth", ctx.exception.errors)
 
-    def test_dob_can_be_cleared(self):
+    def test_dob_can_be_corrected_but_not_cleared(self):
+        from datetime import date
+
+        update_patient_profile(profile=self.profile, date_of_birth=date(1990, 5, 5))
+        update_patient_profile(profile=self.profile, date_of_birth=date(1991, 6, 6))
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.date_of_birth, date(1991, 6, 6))
+        with self.assertRaises(DomainValidationError) as ctx:
+            update_patient_profile(profile=self.profile, date_of_birth=None)
+        self.assertEqual(
+            ctx.exception.errors,
+            {"date_of_birth": ["Your date of birth can't be removed once set."]},
+        )
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.date_of_birth, date(1991, 6, 6))
+
+    def test_dob_none_is_fine_when_never_set(self):
         update_patient_profile(profile=self.profile, date_of_birth=None)
         self.profile.refresh_from_db()
         self.assertIsNone(self.profile.date_of_birth)

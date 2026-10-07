@@ -10,7 +10,7 @@ hard rule that role-based access alone is never sufficient.
 
 from rest_framework.permissions import BasePermission
 
-from apps.accounts.models import Role
+from apps.accounts.models import ApprovalStatus, Role
 
 
 class IsPatient(BasePermission):
@@ -28,6 +28,23 @@ class IsPsychologist(BasePermission):
             request.user
             and request.user.is_authenticated
             and request.user.role == Role.PSYCHOLOGIST
+        )
+
+
+class IsApprovedPsychologist(BasePermission):
+    """A psychologist whose account is active and approved. Pending (paused for
+    re-review), rejected and deactivated psychologists are refused. Used with
+    IsPsychologist on endpoints that act on patients; the Phase 2 /me/ profile
+    endpoints deliberately don't use it, since a pending psychologist needs them."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and user.role == Role.PSYCHOLOGIST
+            and user.is_active
+            and user.approval_status == ApprovalStatus.APPROVED
         )
 
 

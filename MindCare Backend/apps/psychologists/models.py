@@ -23,6 +23,12 @@ MIN_YEARS_OF_EXPERIENCE = 0
 MAX_YEARS_OF_EXPERIENCE = 70
 
 
+class NotAcceptingReason(models.TextChoices):
+    FULLY_BOOKED = "fully_booked", "Fully booked"
+    AWAY = "away", "Away / on leave"
+    OTHER = "other", "Other"
+
+
 class PsychologistProfile(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -54,6 +60,12 @@ class PsychologistProfile(models.Model):
         max_length=20, choices=Gender.choices, null=True, blank=True
     )
     bio = models.TextField(max_length=2000, blank=True, default="")
+    # Set by the psychologist (Phase 3); never changes on its own. Patients see
+    # only on/off; the reason stays on the psychologist's availability endpoint.
+    is_accepting_patients = models.BooleanField(default=True)
+    not_accepting_reason = models.CharField(
+        max_length=20, choices=NotAcceptingReason.choices, null=True, blank=True
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
