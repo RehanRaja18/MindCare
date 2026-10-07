@@ -48,6 +48,17 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 
 ---
 
+### apps/ai
+
+| File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
+|------|-------------------|---------|--------------|--------------------|
+| `integrations/ai_service/client.py` | `predict()`, `AIServiceUnavailable`, `AIServiceRejected` | Stdlib HTTP call to the AI service's `POST /predict` (base URL from `AI_SERVICE_URL`); 400/422 → rejected with the AI's flattened `detail`; timeout, connection error, 5xx, other 4xx, non-JSON or no URL → unavailable; never logs the body | — | neither (internal) |
+| `apps/ai/services.py` | `predict_anxiety_risk()` | Forwards the features with a 60 s timeout; nothing stored or logged (health data, no audit trail before Phase 5) | `POST /api/v1/ai/anxiety-prediction/` | MindCare Web |
+| `apps/ai/api/serializers.py` | `AnxietyPredictionRequestSerializer`, `AnxietyPredictionResponseSerializer`, `OCCUPATIONS` | Request keys exactly as the AI expects (17 fields, same bounds as its schema, unknown keys rejected); response documents the AI's shape | — | MindCare Web |
+| `apps/ai/api/views.py` | `AnxietyPredictionView`, `AIPredictionRateThrottle` | Approved, active psychologists only (patients 403); AI rejection → 400 `{detail}`; AI unavailable → 503 "waking up"; throttled (`ai_prediction`, 20/min per user) | `POST /api/v1/ai/anxiety-prediction/` | MindCare Web |
+
+---
+
 ### apps/ngo
 
 | File | Function / Class | Purpose | API Endpoint | Frontend Consumer |

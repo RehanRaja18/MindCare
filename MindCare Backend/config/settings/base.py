@@ -26,6 +26,7 @@ LOCAL_APPS = [
     "apps.accounts",
     "apps.reference",
     "apps.stats",
+    "apps.ai",
     "apps.patients",
     "apps.psychologists",
     "apps.relationships",
@@ -137,9 +138,14 @@ REST_FRAMEWORK = {
         "public_stats": "60/min",
         "directory": "60/min",
         "relationship_requests": "10/hour",
+        "ai_prediction": "20/min",
     },
     "NUM_PROXIES": env.int("NUM_PROXIES", default=0),
 }
+
+# MindCare AI inference service (FastAPI on Render). Base URL only; the client
+# appends /predict. Empty means "not configured": the AI endpoint answers 503.
+AI_SERVICE_URL = env("AI_SERVICE_URL", default="")
 
 # django-cors-headers: lets MindCare Web call this API from a browser.
 # Only the deployed web origin here; dev.py adds the local Vite dev server.

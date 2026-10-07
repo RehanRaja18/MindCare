@@ -22,6 +22,7 @@ Production backend runs on **Render**, with **Supabase** (Postgres) and
 | `SECRET_KEY` | generated fresh for production; not shared with any dev `.env` |
 | `DJANGO_SETTINGS_MODULE` | `config.settings.prod` |
 | `ALLOWED_HOSTS` | `.onrender.com` |
+| `AI_SERVICE_URL` | the MindCare AI service's base URL, no trailing `/predict` (e.g. `https://mindcare-api.onrender.com`). Unset → `POST /api/v1/ai/anxiety-prediction/` answers 503 |
 
 **Local development:** the developer's local `.env` `DATABASE_URL` points at the
 local docker Postgres (switched 2026-09-30); production credentials live only in

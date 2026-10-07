@@ -41,6 +41,8 @@ docs/               This file, decisions.md, roadmap.md, deployment.md
 - **rewards** — gamification/rewards for patient engagement.
 - **emergency** — crisis/emergency escalation flows.
 - **stats** — public aggregate platform counts for the marketing site (no models).
+- **ai** — gateway to the separate AI inference service for psychologists (no models;
+  nothing stored). The approval workflow stays in `recommendations`.
 
 ## Shared modules
 
