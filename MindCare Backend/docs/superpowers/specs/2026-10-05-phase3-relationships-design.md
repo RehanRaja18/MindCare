@@ -72,8 +72,9 @@ No other transitions; no row is ever reopened.
 - **Pause, not end, for a psychologist under re-review.** If a psychologist's
   `approval_status` becomes `pending` (a future Phase 2.5 re-review), their accepted
   relationships stay `accepted`. Care is effectively paused: they can't log in, and
-  every selector that shows patient data requires the psychologist to be approved
-  and active, so
+  every psychologist-side selector that shows real patient data (inbox, current
+  patients; not the pseudonym-only history, see §8) requires the psychologist to be
+  approved and active, so
   they get no access, the patient isn't counted in `people_in_care`, and the
   patient's views show a minimal card. A paused psychologist who still holds a valid
   token gets **403 on every psychologist endpoint, including history**
@@ -283,8 +284,13 @@ format. The `relationships` app is mounted at `/api/v1/relationships/`.
 
 `IsApprovedPsychologist` requires an active, approved psychologist, so a pending
 (paused for re-review), rejected or deactivated psychologist gets 403 on every
-endpoint below, including history. The selectors and services keep their own checks
-(own rows only; all except `psychologist_history()` also require approved and active).
+endpoint below, including history. The psychologist-side `psychologist_inbox()` and
+`psychologist_patients()` / `psychologist_patient()` selectors and the
+`accept_request()`, `decline_request()` and `psychologist_end_relationship()` services
+also check approved and active themselves; `psychologist_history()` and
+`set_accepting_status()` don't, so for those two this permission class is the only
+gate. Patient-side selectors don't require it, so a patient can still see and end a
+paused relationship.
 
 | Method + path | Does |
 |---------------|------|
@@ -352,7 +358,7 @@ ended relationships. The names are kept as they are.
 | Psychologist with a pending request | pseudonym, preferred language, timezone, country, gender, age | `requester_summary()` (narrow selector, never the general one) |
 | Assigned psychologist (accepted row; psychologist approved and active) | real name and profile (§9), **age not date of birth**, unlogged | `is_assigned_psychologist()` + psychologist selectors scoped to own accepted rows |
 | Former psychologist (row ended) | pseudonym only (history); no profile | access ends the moment the row leaves `accepted` |
-| Paused psychologist (`approval_status` back to `pending`) | nothing: 403 on every psychologist endpoint, including history (deliberate; **Phase 2.5 may revisit**) | `IsApprovedPsychologist` on every psychologist endpoint, plus selectors requiring approved and active |
+| Paused psychologist (`approval_status` back to `pending`) | nothing: 403 on every psychologist endpoint, including history (deliberate; **Phase 2.5 may revisit**) | `IsApprovedPsychologist` on every psychologist endpoint (the only gate for history and availability), plus the inbox/patients selectors requiring approved and active |
 | Patients browsing | directory cards of approved, active psychologists; no `not_accepting_reason` | directory selector + serializer |
 | Anyone else | unchanged from Phase 2 | — |
 

@@ -685,7 +685,8 @@ not to operate in the app.
 - Accounts: deactivated or rejected → their relationships end (`system /
   account_unavailable`) and pending requests expire. A psychologist moved back to
   `pending` (Phase 2.5 re-review) is **paused, not ended**: the row stays accepted,
-  they lose access (selectors require approved and active), the patient can still end
+  they lose access (selectors require approved and active; see 2026-10-07: the
+  permission class now returns 403 on every psychologist endpoint), the patient can still end
   it. Phase 2.5 decides what the patient sees during a pause.
 - **Relationships are free until Phase 9.**
 **Why:** "The patient's psychologist" must mean exactly one person for Phases 4–6 and
@@ -793,10 +794,13 @@ relationship. **Phase 2.5 may revisit this** when it designs the re-review
 experience.
 **Why:** One simple rule (approved + active) for every psychologist endpoint is
 easier to audit than per-endpoint exceptions. A psychologist under re-review
-shouldn't act on, or browse, patient-related data. Selectors and services keep their
-own checks: every one is scoped to the caller's own rows, and all except
-`psychologist_history()` (pseudonym only) also require approved and active, so for
-history the permission class is the gate that enforces this decision.
+shouldn't act on, or browse, patient-related data. On the psychologist side, the
+`psychologist_inbox()` and `psychologist_patients()` / `psychologist_patient()`
+selectors and the `accept_request()`, `decline_request()` and
+`psychologist_end_relationship()` services also check approved and active themselves.
+`psychologist_history()` and `set_accepting_status()` don't, so for those two the
+permission class is the only gate. Patient-side selectors deliberately don't require
+it, because a patient must still see and end a paused relationship.
 **Alternatives considered:** Letting paused psychologists keep pseudonym-only
 history (the original spec §11), rejected for simplicity and least privilege; Phase
 2.5 may revisit.
