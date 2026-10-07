@@ -6,6 +6,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.psychologists.api.serializers import (
+    BlankAsNoneChoiceField,
     DirectoryCardSerializer,
     MinimalCardSerializer,
 )
@@ -164,10 +165,9 @@ class DeclineSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
 
 
 class PsychologistEndSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
-    # Optional here so a missing reason reaches the service, which answers
-    # {"reason": ["Choose a reason."]}.
-    reason = serializers.ChoiceField(
+    # Optional, and blank/whitespace/null all become None, so every "no reason"
+    # body reaches the service, which answers {"reason": ["Choose a reason."]}.
+    reason = BlankAsNoneChoiceField(
         choices=sorted(r.value for r in PSYCHOLOGIST_END_REASONS),
         required=False,
-        allow_null=True,
     )

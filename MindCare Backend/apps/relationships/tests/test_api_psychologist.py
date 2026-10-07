@@ -137,6 +137,33 @@ class AssignedPatientTests(APITestCase):
         self.assertEqual(r.data["end_reason"], "treatment_completed")
         self.assertEqual(r.data["ended_by"], "psychologist")
 
+    def test_end_with_empty_or_missing_reason_gets_one_message(self):
+        url = f"{BASE}/patients/{self.rel.pk}/end/"
+        before = CareRelationship.objects.get(pk=self.rel.pk).updated_at
+        for label, body in (
+            ("missing", {}),
+            ("null", {"reason": None}),
+            ("empty", {"reason": ""}),
+            ("whitespace", {"reason": "   "}),
+        ):
+            with self.subTest(body=label):
+                r = self.client.post(url, body, format="json")
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(r.json(), {"reason": ["Choose a reason."]})
+        self.rel.refresh_from_db()
+        self.assertEqual(self.rel.status, RelationshipStatus.ACCEPTED)
+        self.assertEqual(self.rel.updated_at, before)
+
+    def test_end_with_unknown_reason_is_400_and_row_unchanged(self):
+        url = f"{BASE}/patients/{self.rel.pk}/end/"
+        for code in ("nope", "patient_unresponsive"):
+            with self.subTest(code=code):
+                r = self.client.post(url, {"reason": code}, format="json")
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("reason", r.json())
+        self.rel.refresh_from_db()
+        self.assertEqual(self.rel.status, RelationshipStatus.ACCEPTED)
+
     def test_history_is_pseudonym_only(self):
         services.patient_end_relationship(patient_user=self.patient.user, confirm=True)
         item = self.client.get(f"{BASE}/history/").data[0]
@@ -268,6 +295,59 @@ class AvailabilityAPITests(APITestCase):
         self.assertEqual(r.data, {"accepting": False, "reason": "away"})
         r = self.client.put(AVAILABILITY, {"accepting": True}, format="json")
         self.assertEqual(r.data, {"accepting": True, "reason": None})
+
+    def _profile_state(self):
+        self.psych.refresh_from_db()
+        return (
+            self.psych.is_accepting_patients,
+            self.psych.not_accepting_reason,
+            self.psych.updated_at,
+        )
+
+    def test_not_accepting_with_empty_or_missing_reason_gets_one_message(self):
+        before = self._profile_state()
+        for label, body in (
+            ("missing", {"accepting": False}),
+            ("null", {"accepting": False, "reason": None}),
+            ("empty", {"accepting": False, "reason": ""}),
+            ("whitespace", {"accepting": False, "reason": "   "}),
+        ):
+            with self.subTest(body=label):
+                r = self.client.put(AVAILABILITY, body, format="json")
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(
+                    r.json(),
+                    {
+                        "reason": [
+                            "Choose a reason when you're not accepting new patients."
+                        ]
+                    },
+                )
+        self.assertEqual(self._profile_state(), before)
+
+    def test_not_accepting_with_unknown_reason_is_400_and_profile_unchanged(self):
+        before = self._profile_state()
+        r = self.client.put(
+            AVAILABILITY, {"accepting": False, "reason": "nope"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("reason", r.json())
+        self.assertEqual(self._profile_state(), before)
+
+    def test_accepting_with_blank_or_null_reason_succeeds_and_clears_it(self):
+        for label, reason in (("null", None), ("empty", ""), ("whitespace", "   ")):
+            with self.subTest(reason=label):
+                self.client.put(
+                    AVAILABILITY, {"accepting": False, "reason": "away"}, format="json"
+                )
+                r = self.client.put(
+                    AVAILABILITY, {"accepting": True, "reason": reason}, format="json"
+                )
+                self.assertEqual(r.status_code, status.HTTP_200_OK)
+                self.assertEqual(r.json(), {"accepting": True, "reason": None})
+                self.psych.refresh_from_db()
+                self.assertTrue(self.psych.is_accepting_patients)
+                self.assertIsNone(self.psych.not_accepting_reason)
 
     def test_put_rejects_unknown_keys(self):
         r = self.client.put(

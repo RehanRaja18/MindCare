@@ -151,11 +151,25 @@ class DirectoryQuerySerializer(serializers.Serializer):
     search = serializers.CharField(required=False, max_length=120, allow_blank=True)
 
 
+class BlankAsNoneChoiceField(serializers.ChoiceField):
+    """A ChoiceField where "", "   " and null all mean "no reason given" (None),
+    so the service answers its single "choose a reason" message instead of DRF's
+    "not a valid choice". DRF doesn't trim whitespace on ChoiceField itself."""
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("allow_null", True)
+        kwargs.setdefault("allow_blank", True)
+        super().__init__(**kwargs)
+
+    def to_internal_value(self, data):
+        if isinstance(data, str) and not data.strip():
+            return None
+        return super().to_internal_value(data)
+
+
 class AvailabilitySerializer(RejectUnknownFieldsMixin, serializers.Serializer):
     """GET/PUT /psychologists/me/availability/. A reason is required (by the
     service) when accepting is false, and cleared when it is true."""
 
     accepting = serializers.BooleanField()
-    reason = serializers.ChoiceField(
-        choices=NotAcceptingReason.choices, required=False, allow_null=True
-    )
+    reason = BlankAsNoneChoiceField(choices=NotAcceptingReason.choices, required=False)
