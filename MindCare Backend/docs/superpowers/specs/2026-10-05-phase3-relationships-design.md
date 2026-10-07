@@ -72,10 +72,14 @@ No other transitions; no row is ever reopened.
 - **Pause, not end, for a psychologist under re-review.** If a psychologist's
   `approval_status` becomes `pending` (a future Phase 2.5 re-review), their accepted
   relationships stay `accepted`. Care is effectively paused: they can't log in, and
-  every selector already requires the psychologist to be approved and active, so
+  every selector that shows patient data requires the psychologist to be approved
+  and active, so
   they get no access, the patient isn't counted in `people_in_care`, and the
-  patient's views show a minimal card. The patient can still end the relationship.
-  What the patient sees during a pause is **left to Phase 2.5**.
+  patient's views show a minimal card. A paused psychologist who still holds a valid
+  token gets **403 on every psychologist endpoint, including history**
+  (`IsApprovedPsychologist`, §8); this is a deliberate choice that **Phase 2.5 may
+  revisit** when it designs the re-review experience. The patient can still end the
+  relationship. What the patient sees during a pause is **left to Phase 2.5**.
 - **Automatic ending happens only when an account is deactivated
   (`is_active=False`) or rejected (`approval_status="rejected"`).**
 
@@ -275,7 +279,12 @@ format. The `relationships` app is mounted at `/api/v1/relationships/`.
 | `POST /api/v1/relationships/current/end/` | Body `{"confirm": true}` (`StrictTrueField`) → 200 |
 | `GET /api/v1/relationships/recent/` | Up to 10 cards |
 
-**Psychologist (`IsAuthenticated` + `IsPsychologist`)**
+**Psychologist (`IsAuthenticated` + `IsPsychologist` + `IsApprovedPsychologist`)**
+
+`IsApprovedPsychologist` requires an active, approved psychologist, so a pending
+(paused for re-review), rejected or deactivated psychologist gets 403 on every
+endpoint below, including history. The selectors and services keep their own checks
+(own rows only; all except `psychologist_history()` also require approved and active).
 
 | Method + path | Does |
 |---------------|------|
@@ -342,7 +351,8 @@ ended relationships. The names are kept as they are.
 |--------|------|-------------|
 | Psychologist with a pending request | pseudonym, preferred language, timezone, country, gender, age | `requester_summary()` (narrow selector, never the general one) |
 | Assigned psychologist (accepted row; psychologist approved and active) | real name and profile (§9), **age not date of birth**, unlogged | `is_assigned_psychologist()` + psychologist selectors scoped to own accepted rows |
-| Former psychologist (row ended) or paused psychologist | pseudonym only (history); no profile | access ends the moment the row leaves `accepted` or the psychologist stops being approved and active |
+| Former psychologist (row ended) | pseudonym only (history); no profile | access ends the moment the row leaves `accepted` |
+| Paused psychologist (`approval_status` back to `pending`) | nothing: 403 on every psychologist endpoint, including history (deliberate; **Phase 2.5 may revisit**) | `IsApprovedPsychologist` on every psychologist endpoint, plus selectors requiring approved and active |
 | Patients browsing | directory cards of approved, active psychologists; no `not_accepting_reason` | directory selector + serializer |
 | Anyone else | unchanged from Phase 2 | — |
 
@@ -419,7 +429,8 @@ Service tests first (CLAUDE.md). Plus:
 - **Ending:** reason validation per `ended_by` (`subscription_lapsed` system-only;
   `patient_unresponsive` rejected as invalid); `end_for_unavailable_account` on
   deactivation and on rejection ends accepted / expires pending; **becoming
-  `pending` pauses** (row stays accepted, psychologist loses access, patient sees
+  `pending` pauses** (row stays accepted, psychologist gets 403 on every
+  psychologist endpoint including history, patient sees
   minimal card, not counted in `people_in_care`, patient can still end).
 - **Availability:** reason required off, cleared on.
 - **Activity:** psychologists only; cache hit skips; Redis error skips silently;

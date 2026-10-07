@@ -778,3 +778,25 @@ means Phase 3 needs no exception to that rule.
 - **Phase 10:** email the psychologist on each new request and a reminder 3–5 hours
   before it expires (`expires_at` is stored for this; the scheduler comes with Phase
   7); notify the patient when a psychologist ends the relationship.
+
+## 2026-10-07 - Phase 3: paused psychologists get 403 on every psychologist endpoint
+**Decision:** Every Phase 3 psychologist endpoint (inbox, accept, decline, current
+patients, patient detail, end, history, and `/psychologists/me/availability/`)
+requires `IsAuthenticated` + `IsPsychologist` + `IsApprovedPsychologist`, so only an
+active, approved psychologist gets through. A psychologist moved back to `pending`
+(paused for a Phase 2.5 re-review) gets **403 on all of them, including history**;
+the same applies to rejected and deactivated psychologists. This replaces the
+original Phase 3 spec §11 line that let a paused psychologist keep a pseudonym-only
+history. The Phase 2 `/me/` profile endpoints are unchanged (a pending psychologist
+still needs them). The patient side is unchanged: a patient can still end a paused
+relationship. **Phase 2.5 may revisit this** when it designs the re-review
+experience.
+**Why:** One simple rule (approved + active) for every psychologist endpoint is
+easier to audit than per-endpoint exceptions. A psychologist under re-review
+shouldn't act on, or browse, patient-related data. Selectors and services keep their
+own checks: every one is scoped to the caller's own rows, and all except
+`psychologist_history()` (pseudonym only) also require approved and active, so for
+history the permission class is the gate that enforces this decision.
+**Alternatives considered:** Letting paused psychologists keep pseudonym-only
+history (the original spec §11), rejected for simplicity and least privilege; Phase
+2.5 may revisit.
