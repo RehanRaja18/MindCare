@@ -1,18 +1,21 @@
 """Tests for the demo seed (apps/accounts/demo.py) and the seed_demo command."""
 
 import os
+from datetime import timedelta
 from io import StringIO
 from unittest import mock
 
 from django.core.management import CommandError, call_command
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.accounts import demo
 from apps.accounts.models import ApprovalStatus, Role, User
 from apps.patients.models import PatientProfile
 from apps.psychologists.models import PsychologistProfile
+from apps.relationships import selectors as relationship_selectors
 from apps.relationships import services as relationship_services
-from apps.relationships.models import CareRelationship
+from apps.relationships.models import CareRelationship, RelationshipStatus
 from core.testing import make_patient, make_psychologist
 
 PASSWORD = "demo-pass-123"
@@ -62,23 +65,62 @@ class SeedDemoServiceTests(TestCase):
         self.assertEqual(second["existing"], 8)
         self.assertEqual(User.objects.filter(email__in=demo.DEMO_EMAILS).count(), 8)
 
-    def test_remove_deletes_only_demo_accounts_relationships_first(self):
+    def test_seeds_accepted_and_pending_relationships_with_one_psychologist(self):
         demo.seed_demo_accounts(password=PASSWORD)
+        sara = PsychologistProfile.objects.get(user__email=demo.DEMO_INBOX_PSYCHOLOGIST)
+        p1, p2 = (
+            PatientProfile.objects.get(user__email=e) for e in demo.DEMO_PATIENT_EMAILS
+        )
+        accepted = relationship_selectors.patient_current(patient_user=p1.user)
+        pending = relationship_selectors.patient_current(patient_user=p2.user)
+        self.assertEqual(
+            (accepted.psychologist, accepted.status),
+            (sara, RelationshipStatus.ACCEPTED),
+        )
+        self.assertEqual(
+            (pending.psychologist, pending.status), (sara, RelationshipStatus.PENDING)
+        )
+        self.assertEqual(
+            list(
+                relationship_selectors.psychologist_inbox(psychologist_user=sara.user)
+            ),
+            [pending],
+        )
+        self.assertEqual(
+            [
+                r.pk
+                for r in relationship_selectors.psychologist_patients(
+                    psychologist_user=sara.user
+                )
+            ],
+            [accepted.pk],
+        )
+
+    def test_rerun_keeps_relationships_and_renews_an_expired_request(self):
+        demo.seed_demo_accounts(password=PASSWORD)
+        demo.seed_demo_accounts(password=PASSWORD)
+        self.assertEqual(CareRelationship.objects.count(), 2)
+
+        p2 = PatientProfile.objects.get(user__email=demo.DEMO_PATIENT_EMAILS[1])
+        CareRelationship.objects.filter(patient=p2).update(
+            expires_at=timezone.now() - timedelta(minutes=1)
+        )
+        demo.seed_demo_accounts(password=PASSWORD)
+        current = relationship_selectors.patient_current(patient_user=p2.user)
+        self.assertEqual(current.status, RelationshipStatus.PENDING)
+        self.assertEqual(CareRelationship.objects.filter(patient=p2).count(), 2)
+
+    def test_remove_deletes_only_demo_accounts_relationships_first(self):
+        demo.seed_demo_accounts(password=PASSWORD)  # 2 demo relationship rows
         real_patient = make_patient()
         real_psych = make_psychologist()
-        demo_patient = PatientProfile.objects.get(
-            user__email=demo.DEMO_PATIENT_EMAILS[0]
+        other_demo_psych = PsychologistProfile.objects.get(
+            user__email="demo.psych.bilal@example.com"
         )
-        demo_psych = PsychologistProfile.objects.filter(
-            user__email__in=demo.DEMO_PSYCHOLOGIST_EMAILS, is_accepting_patients=True
-        ).first()
-        # PROTECT rows in both directions: demo patient -> demo psych, and a real
-        # patient -> demo psych (removed), real patient 2 -> real psych (kept).
+        # PROTECT rows: a real patient -> demo psych (removed), and a real
+        # patient -> real psych (kept).
         relationship_services.request_psychologist(
-            patient_user=demo_patient.user, psychologist_id=demo_psych.pk
-        )
-        relationship_services.request_psychologist(
-            patient_user=real_patient.user, psychologist_id=demo_psych.pk
+            patient_user=real_patient.user, psychologist_id=other_demo_psych.pk
         )
         other_real = make_patient()
         kept = relationship_services.request_psychologist(
@@ -88,7 +130,7 @@ class SeedDemoServiceTests(TestCase):
         result = demo.remove_demo_accounts()
 
         self.assertEqual(result["users"], 8)
-        self.assertEqual(result["relationships"], 2)
+        self.assertEqual(result["relationships"], 3)
         self.assertFalse(User.objects.filter(email__in=demo.DEMO_EMAILS).exists())
         self.assertTrue(User.objects.filter(pk=real_patient.user.pk).exists())
         self.assertTrue(User.objects.filter(pk=real_psych.user.pk).exists())

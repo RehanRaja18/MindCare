@@ -90,9 +90,13 @@ done. **Still open before merging:** `NUM_PROXIES` on Render.
 
 `DEMO_PASSWORD=<choose one> python manage.py seed_demo` creates 6 approved demo
 psychologists and 2 demo patients (all `@example.com`, names ending "(Demo)"). It
-can be re-run safely. `python manage.py seed_demo --remove` deletes exactly those
-accounts and their relationship rows. On Render, run it from the service's Shell
-tab with `DEMO_PASSWORD` set for that one command. Demo cities outside Pakistan
+can be re-run safely. Demo patient 1 (Hina) has an accepted relationship with
+Dr. Sara Ahmed and demo patient 2 (Daniyal) a pending request to her, so
+`demo.psych.sara@example.com` shows both the inbox and the patient list. Pending
+requests expire after 3 days; re-running the command renews it. `python manage.py seed_demo --remove` deletes exactly those
+accounts and their relationship rows. Render's free tier has no Shell, so run it
+locally with `DATABASE_URL` set to the production URL for that one command, then
+remove the variable again. Demo cities outside Pakistan
 (London, Dubai) are created unverified, like any typed city.
 
 ## Removing test data (Phase 3 onwards)

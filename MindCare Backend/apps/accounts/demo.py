@@ -6,6 +6,10 @@ license numbers start with DEMO-. Accounts are created through the real services
 exactly like accounts made through the API. The password is passed in by the
 caller (the seed_demo command reads it from DEMO_PASSWORD); none is stored here.
 
+It also sets up one psychologist's caseload for the demo: demo patient 1 has an
+accepted relationship with Dr. Sara Ahmed, demo patient 2 a pending request to her
+(so her inbox and patient list both have something to show).
+
 remove_demo_accounts() deletes only the emails listed below. CareRelationship
 rows reference profiles with on_delete=PROTECT, so they are deleted first.
 """
@@ -18,8 +22,13 @@ from django.db.models import Q
 from apps.accounts.models import ApprovalStatus, Role, User
 from apps.accounts.services import register_user
 from apps.patients.services import update_patient_profile
-from apps.relationships.models import CareRelationship
-from apps.relationships.services import set_accepting_status
+from apps.relationships.models import CareRelationship, RelationshipStatus
+from apps.relationships.selectors import patient_current
+from apps.relationships.services import (
+    accept_request,
+    request_psychologist,
+    set_accepting_status,
+)
 
 DEMO_PSYCHOLOGISTS = [
     {
@@ -148,6 +157,7 @@ DEMO_PATIENTS = [
 DEMO_PSYCHOLOGIST_EMAILS = [p["email"] for p in DEMO_PSYCHOLOGISTS]
 DEMO_PATIENT_EMAILS = [p["email"] for p in DEMO_PATIENTS]
 DEMO_EMAILS = DEMO_PSYCHOLOGIST_EMAILS + DEMO_PATIENT_EMAILS
+DEMO_INBOX_PSYCHOLOGIST = "demo.psych.sara@example.com"
 
 
 def _psychologist_profile_data(spec):
@@ -225,7 +235,31 @@ def seed_demo_accounts(*, password):
             gender=spec["gender"],
         )
 
+    _ensure_demo_relationships()
     return {"created": created, "existing": existing}
+
+
+def _ensure_demo_relationships():
+    """Patient 1 accepted with the inbox psychologist, patient 2 pending to her.
+    A patient who already has an open row (e.g. changed during a demo) is left
+    alone; an expired pending request is replaced by request_psychologist()."""
+    psych_user = User.objects.get(email=DEMO_INBOX_PSYCHOLOGIST)
+    psych_id = psych_user.psychologist_profile.pk
+    accepted_email, pending_email = DEMO_PATIENT_EMAILS
+
+    patient = User.objects.get(email=accepted_email)
+    current = patient_current(patient_user=patient)
+    if current is None:
+        current = request_psychologist(patient_user=patient, psychologist_id=psych_id)
+    if (
+        current.status == RelationshipStatus.PENDING
+        and current.psychologist_id == psych_id
+    ):
+        accept_request(psychologist_user=psych_user, relationship_id=current.pk)
+
+    patient = User.objects.get(email=pending_email)
+    if patient_current(patient_user=patient) is None:
+        request_psychologist(patient_user=patient, psychologist_id=psych_id)
 
 
 @transaction.atomic
