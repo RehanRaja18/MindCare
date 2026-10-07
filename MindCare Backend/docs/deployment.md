@@ -86,6 +86,15 @@ done. **Still open before merging:** `NUM_PROXIES` on Render.
 - [ ] **After deploy:** re-run the CORS preflight check (see CORS section) and
       check `/api/docs/` shows the register and `/me/` contracts.
 
+## Demo accounts
+
+`DEMO_PASSWORD=<choose one> python manage.py seed_demo` creates 6 approved demo
+psychologists and 2 demo patients (all `@example.com`, names ending "(Demo)"). It
+can be re-run safely. `python manage.py seed_demo --remove` deletes exactly those
+accounts and their relationship rows. On Render, run it from the service's Shell
+tab with `DEMO_PASSWORD` set for that one command. Demo cities outside Pakistan
+(London, Dubai) are created unverified, like any typed city.
+
 ## Removing test data (Phase 3 onwards)
 
 `CareRelationship` rows reference profiles with `on_delete=PROTECT`, so a user who
