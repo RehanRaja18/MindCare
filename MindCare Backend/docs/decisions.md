@@ -804,3 +804,35 @@ it, because a patient must still see and end a paused relationship.
 **Alternatives considered:** Letting paused psychologists keep pseudonym-only
 history (the original spec §11), rejected for simplicity and least privilege; Phase
 2.5 may revisit.
+
+## 2026-10-07 - AI gateway: psychologist-only, nothing stored or logged, new `apps/ai`
+**Decision:** `POST /api/v1/ai/anxiety-prediction/` forwards a body to the MindCare
+AI service's `POST /predict` (base URL from the `AI_SERVICE_URL` env var; client in
+`integrations/ai_service/client.py`, stdlib `urllib`, no new package) and returns
+the AI's response unchanged.
+- **Approved, active psychologists only** (`IsPsychologist` +
+  `IsApprovedPsychologist`); patients get 403. The prediction is decision support
+  for a psychologist. Both CLAUDE.md files forbid model output reaching a patient
+  without psychologist review, so "any logged-in user" was rejected.
+- **The request body is never stored or logged.** It is health data, and no health
+  data is stored before the Phase 5 audit trail (2026-09-26). Failures log only the
+  exception type or HTTP status. Because nothing is read from or written to a
+  patient record, there is no object-level ownership check: the psychologist types
+  the values in. When Phase 6 links a prediction to a patient, it needs the
+  ownership check, the audit trail, and the recommendation-triple rules
+  (2026-09-27).
+- **Errors:** timeout (60 s, for Render cold starts), connection error, 5xx, a 4xx
+  other than 400/422 (e.g. Render's 404 for a missing service) or a non-JSON answer
+  → 503 `{"detail": "The AI service is waking up. Please try again in a minute."}`.
+  The AI's 400/422 → 400 `{"detail": "<the AI's message>"}`. Throttle
+  `ai_prediction`, 20/min per user.
+- **A new `apps/ai` app** (no models, like `apps/stats`) because the URL is
+  `/api/v1/ai/`. Phase 6's approval workflow stays in `apps/recommendations`.
+- **Age range mismatch (open):** the AI service accepts ages **18–49** and rejects
+  others with a 422 (passed through as a 400). The 2026-09-27 Phase 6 note says
+  **18–50**. The AI side is the one enforced today. Phase 6 must make the two
+  agree (the AI's reason: almost no High cases at 50+ in the data).
+- `/patient-summary` (severity tier + recommendation bundle) is not exposed yet.
+**Alternatives considered:** any logged-in user (patients would see raw model
+output); storing requests for later analysis (health data before the audit trail);
+`requests`/`httpx` (a new dependency for one call).

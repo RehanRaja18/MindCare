@@ -45,6 +45,19 @@ new service, selector, or API endpoint. Keep entries one row per function/class.
 | `apps/accounts/authentication.py` | `ActivityTrackingJWTAuthentication` | DRF default auth: simplejwt + `record_activity()`, except on refresh/logout | all authenticated endpoints | MindCare Web, MindCare App |
 | `apps/accounts/schema.py` | `ActivityTrackingJWTScheme` | drf-spectacular extension (registered in `AccountsConfig.ready()`): documents `ActivityTrackingJWTAuthentication` as the `jwtAuth` bearer-JWT security scheme | `/api/docs/`, `/api/schema/` (security on authenticated endpoints) | MindCare Web, MindCare App (API docs) |
 | `apps/accounts/admin.py` | `UserAdmin` | Interim Django-admin approval of pending psychologist/NGO accounts; add disabled (users created only via `register_user()`); password, role, and super-admin flags not editable; deactivating/rejecting ends care relationships (moving back to pending only pauses them) | `/admin/accounts/user/` | neither (Django admin) |
+| `apps/accounts/demo.py` | `seed_demo_accounts()`, `remove_demo_accounts()`, `DEMO_EMAILS` | Idempotent demo data through the real services: 6 approved psychologists (names end "(Demo)", `@example.com`, `DEMO-` licenses; mixed specializations, languages, cities, genders, accepting on/off) and 2 patients with timezone and date of birth; patient 1 accepted with Dr. Sara Ahmed and patient 2 pending to her (via `request_psychologist()` / `accept_request()`; an expired request is renewed on re-run); removal deletes only those emails, relationship rows first (PROTECT) | — | neither (tooling) |
+| `apps/accounts/management/commands/seed_demo.py` | `Command` | `python manage.py seed_demo` (password from the `DEMO_PASSWORD` env var, never printed) and `seed_demo --remove` | — | neither (tooling) |
+
+---
+
+### apps/ai
+
+| File | Function / Class | Purpose | API Endpoint | Frontend Consumer |
+|------|-------------------|---------|--------------|--------------------|
+| `integrations/ai_service/client.py` | `predict()`, `AIServiceUnavailable`, `AIServiceRejected` | Stdlib HTTP call to the AI service's `POST /predict` (base URL from `AI_SERVICE_URL`); 400/422 → rejected with the AI's flattened `detail`; timeout, connection error, 5xx, other 4xx, non-JSON or no URL → unavailable; never logs the body | — | neither (internal) |
+| `apps/ai/services.py` | `predict_anxiety_risk()` | Forwards the features with a 60 s timeout; nothing stored or logged (health data, no audit trail before Phase 5) | `POST /api/v1/ai/anxiety-prediction/` | MindCare Web |
+| `apps/ai/api/serializers.py` | `AnxietyPredictionRequestSerializer`, `AnxietyPredictionResponseSerializer`, `OCCUPATIONS` | Request keys exactly as the AI expects (17 fields, same bounds as its schema, unknown keys rejected); response documents the AI's shape | — | MindCare Web |
+| `apps/ai/api/views.py` | `AnxietyPredictionView`, `AIPredictionRateThrottle` | Approved, active psychologists only (patients 403); AI rejection → 400 `{detail}`; AI unavailable → 503 "waking up"; throttled (`ai_prediction`, 20/min per user) | `POST /api/v1/ai/anxiety-prediction/` | MindCare Web |
 
 ---
 

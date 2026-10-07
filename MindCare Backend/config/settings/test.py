@@ -36,3 +36,7 @@ CACHES = {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
     }
 }
+
+# Tests mock every AI call; this placeholder never resolves, so a missing mock
+# fails instead of reaching the real service.
+AI_SERVICE_URL = "http://ai.invalid"

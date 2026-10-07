@@ -22,6 +22,7 @@ Production backend runs on **Render**, with **Supabase** (Postgres) and
 | `SECRET_KEY` | generated fresh for production; not shared with any dev `.env` |
 | `DJANGO_SETTINGS_MODULE` | `config.settings.prod` |
 | `ALLOWED_HOSTS` | `.onrender.com` |
+| `AI_SERVICE_URL` | the MindCare AI service's base URL, no trailing `/predict` (e.g. `https://mindcare-api.onrender.com`). Unset → `POST /api/v1/ai/anxiety-prediction/` answers 503 |
 
 **Local development:** the developer's local `.env` `DATABASE_URL` points at the
 local docker Postgres (switched 2026-09-30); production credentials live only in
@@ -84,6 +85,19 @@ done. **Still open before merging:** `NUM_PROXIES` on Render.
       request gets a 400.
 - [ ] **After deploy:** re-run the CORS preflight check (see CORS section) and
       check `/api/docs/` shows the register and `/me/` contracts.
+
+## Demo accounts
+
+`DEMO_PASSWORD=<choose one> python manage.py seed_demo` creates 6 approved demo
+psychologists and 2 demo patients (all `@example.com`, names ending "(Demo)"). It
+can be re-run safely. Demo patient 1 (Hina) has an accepted relationship with
+Dr. Sara Ahmed and demo patient 2 (Daniyal) a pending request to her, so
+`demo.psych.sara@example.com` shows both the inbox and the patient list. Pending
+requests expire after 3 days; re-running the command renews it. `python manage.py seed_demo --remove` deletes exactly those
+accounts and their relationship rows. Render's free tier has no Shell, so run it
+locally with `DATABASE_URL` set to the production URL for that one command, then
+remove the variable again. Demo cities outside Pakistan
+(London, Dubai) are created unverified, like any typed city.
 
 ## Removing test data (Phase 3 onwards)
 
