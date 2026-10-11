@@ -108,10 +108,36 @@ class PremiumProvider extends ChangeNotifier {
   void setAutoRenew(bool on) {
     if (_trialEndsAt == null || _card == null) return;
     if (!on && status == PremiumStatus.active) _cancelledAccessEnd = _currentPeriodEnd();
-    if (on) _cancelledAccessEnd = null;
+    if (on) {
+      _cancelledAccessEnd = null;
+      _cancellationReason = null;
+    }
     _autoRenew = on;
     notifyListeners();
   }
+
+  String? _cancellationReason;
+
+  /// Why the patient cancelled, if they said. Sent to the backend with the
+  /// cancellation so the team can learn from it.
+  String? get cancellationReason => _cancellationReason;
+
+  /// Whether there is a subscription that can be cancelled right now.
+  bool get canCancel => status == PremiumStatus.trial || status == PremiumStatus.active;
+
+  /// Whether a cancelled subscription can still be resumed before it ends.
+  bool get canResume => status == PremiumStatus.trialCancelled || status == PremiumStatus.cancelled;
+
+  /// Cancels the subscription: no further charges, and access continues to
+  /// the end of the trial or the month already paid for. Returns that date.
+  DateTime? cancel({String? reason}) {
+    if (!canCancel) return null;
+    _cancellationReason = (reason == null || reason.trim().isEmpty) ? null : reason.trim();
+    setAutoRenew(false);
+    return accessEndsAt;
+  }
+
+  void resume() => setAutoRenew(true);
 
   void updateCard(PaymentCard card) {
     _card = card;

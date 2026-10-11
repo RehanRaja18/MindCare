@@ -62,6 +62,21 @@ void main() {
       expect(CardUtils.validateExpiry('13/27', now: now), 'Use MM/YY');
     });
 
+    test('name on card: letters only, full name, sensible length', () {
+      expect(CardUtils.validateName('Ayesha Khan'), isNull);
+      expect(CardUtils.validateName("Sean O'Brien"), isNull);
+      expect(CardUtils.validateName('Mary-Jane Smith'), isNull);
+      expect(CardUtils.validateName('عائشہ خان'), isNull);
+      expect(CardUtils.validateName(''), 'Enter the name on your card');
+      expect(CardUtils.validateName('Ali 123'), "A name can't contain numbers");
+      expect(CardUtils.validateName('Ali@Khan'), isNotNull);
+      expect(CardUtils.validateName('A'), 'Enter the full name on your card');
+      expect(CardUtils.validateName('-Ali'), isNotNull);
+      expect(CardUtils.validateName('Ali  Khan'), 'Check the spacing and punctuation');
+      expect(CardUtils.validateName('A' * 27), contains('max 26'));
+      expect(CardUtils.cleanName('  ali   khan '), 'ali khan');
+    });
+
     test('formatters group the number and add the slash', () {
       final number = CardNumberFormatter().formatEditUpdate(TextEditingValue.empty, const TextEditingValue(text: '4242424242424242'));
       expect(number.text, '4242 4242 4242 4242');
@@ -167,7 +182,7 @@ void main() {
     expect(find.text("You're in."), findsOneWidget);
   });
 
-  testWidgets('Manage subscription turns auto-renew off and back on', (tester) async {
+  testWidgets('Cancelling from Manage subscription keeps access, then resumes', (tester) async {
     _phone(tester);
     final premium = PremiumProvider()..startTrial(_card);
     await tester.pumpWidget(_wrap(const ManageSubscriptionScreen(), premium));
@@ -175,16 +190,43 @@ void main() {
     expect(find.text('Free trial'), findsOneWidget);
     expect(find.text('Visa •••• 4242'), findsOneWidget);
 
-    await tester.tap(find.text('Turn off auto-renew'));
+    await tester.tap(find.text('Cancel subscription'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Turn off'));
+    expect(find.text('CANCEL SUBSCRIPTION'), findsOneWidget);
+
+    // Backing out keeps Premium.
+    await tester.tap(find.text('Keep Premium'));
+    await tester.pumpAndSettle();
+    expect(premium.status, PremiumStatus.trial);
+
+    await tester.tap(find.text('Cancel subscription'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Too expensive'));
+    await tester.pump();
+    expect(find.textContaining('NGO scholarships'), findsOneWidget);
+
+    await tester.scrollUntilVisible(find.text('Cancel subscription').last, 200, scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.text('Cancel subscription').last);
     await tester.pumpAndSettle();
 
     expect(premium.status, PremiumStatus.trialCancelled);
-    expect(find.text('Free trial · ending'), findsOneWidget);
+    expect(premium.isPremium, isTrue);
+    expect(premium.cancellationReason, 'Too expensive');
+    expect(find.textContaining('is cancelled'), findsOneWidget);
 
-    await tester.tap(find.text('Turn auto-renew back on'));
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cancelled'), findsOneWidget);
+
+    await tester.tap(find.text('Resume subscription'));
     await tester.pump();
     expect(premium.status, PremiumStatus.trial);
+    expect(premium.cancellationReason, isNull);
+  });
+
+  test('cancel() does nothing without a subscription', () {
+    final p = PremiumProvider();
+    expect(p.cancel(reason: 'x'), isNull);
+    expect(p.status, PremiumStatus.none);
   });
 }

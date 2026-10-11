@@ -18,6 +18,7 @@ import '../care/aida_personality_screen.dart';
 import '../care/past_sessions_screen.dart';
 import '../care/therapist_detail_screen.dart';
 import '../premium/journal_screen.dart';
+import '../premium/manage_subscription_screen.dart';
 import '../premium/outings_screen.dart';
 import '../premium/premium_screen.dart';
 import '../settings/appearance_screen.dart';
@@ -89,8 +90,21 @@ class ProfileScreen extends StatelessWidget {
         icon: Icons.directions_walk,
         title: 'Outing activities',
         subtitle: premium.isPremium ? 'Walks, coffee, meals, hikes' : 'Premium',
-        showDivider: false,
+        showDivider: premium.trialUsed,
       ),
+      if (premium.trialUsed)
+        ProfileListItem(
+          icon: Icons.receipt_long_outlined,
+          title: 'Manage subscription',
+          subtitle: premium.card == null ? 'Billing and cancellation' : '${premium.card!.masked} · cancel any time',
+          showDivider: false,
+        ),
+    ];
+    final premiumScreens = <Widget>[
+      const PremiumScreen(),
+      const JournalScreen(),
+      const OutingsScreen(),
+      if (premium.trialUsed) const ManageSubscriptionScreen(),
     ];
 
     final accountItems = [
@@ -175,9 +189,8 @@ class ProfileScreen extends StatelessWidget {
                 ProfileListSection(
                   items: premiumItems,
                   onItemTap: (index) {
-                    const screens = [PremiumScreen(), JournalScreen(), OutingsScreen()];
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => MobileFrame(child: screens[index])),
+                      MaterialPageRoute(builder: (_) => MobileFrame(child: premiumScreens[index])),
                     );
                   },
                 ),
