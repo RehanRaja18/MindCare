@@ -34,12 +34,13 @@ const PricingPage: React.FC = () => {
           </h1>
 
           <p className="text-gray-500 text-lg mb-16">
-            Trial 7 days, no card · NGO scholarships available · Therapist switch included
+            Trial 7 days, no card · NGO scholarships available
           </p>
         </Reveal>
 
         <Reveal delay={0.1}>
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10 text-left max-w-md mx-auto mb-16">
+            <p className="text-xs font-semibold tracking-widest text-orange-600 uppercase mb-2">{PRICING_PLAN.name}</p>
             <div className="flex items-baseline gap-1 mb-1">
               <span className="text-5xl font-black text-gray-900">{PRICING_PLAN.price}</span>
               <span className="text-gray-500">{PRICING_PLAN.period}</span>
