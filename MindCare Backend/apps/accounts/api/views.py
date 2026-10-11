@@ -9,7 +9,8 @@ from rest_framework import serializers, status
 from rest_framework.exceptions import ParseError, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.throttling import AnonRateThrottle
+from rest_framework.settings import api_settings
+from rest_framework.throttling import AnonRateThrottle, BaseThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -26,6 +27,7 @@ from apps.accounts.api.serializers import (
 )
 from apps.accounts.models import ApprovalStatus
 from core.exceptions import DomainValidationError
+from core.permissions import IsAdmin
 
 
 class RegisterRateThrottle(AnonRateThrottle):
@@ -132,3 +134,28 @@ class LogoutView(APIView):
         token.blacklist()
         services.record_logout(user=request.user, ip=request.META.get("REMOTE_ADDR"))
         return Response(status=status.HTTP_205_RESET_CONTENT)
+
+
+class ClientIpDebugView(APIView):
+    """TEMPORARY, admin-only: shows the proxy headers Render passes through, so the
+    right NUM_PROXIES can be measured instead of guessed. Remove in the very next
+    PR (docs/decisions.md, 2026-10-10). Nothing is logged or stored."""
+
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    @extend_schema(exclude=True)
+    def get(self, request):
+        meta = request.META
+        xff = meta.get("HTTP_X_FORWARDED_FOR")
+        return Response(
+            {
+                "remote_addr": meta.get("REMOTE_ADDR"),
+                "x_forwarded_for": xff,
+                "x_forwarded_for_count": len(xff.split(",")) if xff else 0,
+                "cf_connecting_ip": meta.get("HTTP_CF_CONNECTING_IP"),
+                "true_client_ip": meta.get("HTTP_TRUE_CLIENT_IP"),
+                "x_real_ip": meta.get("HTTP_X_REAL_IP"),
+                "num_proxies": api_settings.NUM_PROXIES,
+                "throttle_ident": BaseThrottle().get_ident(request),
+            }
+        )

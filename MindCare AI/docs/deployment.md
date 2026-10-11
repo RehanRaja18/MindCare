@@ -98,7 +98,7 @@ model change):
 |---|---|---|---|
 | `PYTHON_VERSION` | `render.yaml` | `3.13.13` | Yes, already committed. It matches the project's interpreter and the pinned `scikit-learn==1.9.1` / `xgboost==3.4.1` |
 | `PORT` | Set by Render | — | No. Never set it yourself |
-| `RENDER_SERVICE_URL` | **GitHub** repository variable (not Render) | Your service URL, e.g. `https://mindcare-api.onrender.com` | No. Set it by hand after the first deploy (see "Keep-alive") |
+| `RENDER_SERVICE_URL` | **GitHub** repository variable (not Render) | Your service URL, e.g. `https://mindcare-api-fysd.onrender.com` | No. Set it by hand after the first deploy (see "Keep-alive") |
 
 **Nothing needs to be set in the Render dashboard.** The app reads no environment variables. The
 model file paths and the review threshold (`HIGH_PROBA_THRESHOLD = 0.025`) are deliberately constants
@@ -155,7 +155,7 @@ branch (`main`). On any other branch, neither works.
 
 1. On GitHub: repository **Settings → Secrets and variables → Actions → Variables** tab →
    **New repository variable**.
-2. Name `RENDER_SERVICE_URL`, value your service URL, e.g. `https://mindcare-api.onrender.com`
+2. Name `RENDER_SERVICE_URL`, value your service URL, e.g. `https://mindcare-api-fysd.onrender.com`
    (no trailing `/health`). A variable, not a secret, is right here: the URL is public anyway, and
    it shows up readably in the run logs.
 3. Test it, once the workflow is on the default branch: **Actions → Keep Render service awake →

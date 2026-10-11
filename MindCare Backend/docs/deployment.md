@@ -23,7 +23,7 @@ Production backend runs on **Render**, with **Supabase** (Postgres) and
 | `DJANGO_SETTINGS_MODULE` | `config.settings.prod` |
 | `ALLOWED_HOSTS` | `.onrender.com` |
 | `CORS_EXTRA_ALLOWED_ORIGINS` | optional, comma-separated extra browser origins on top of the Vercel origin, e.g. `http://localhost:5000` for a local Flutter web demo. Unset normally; remove after a demo |
-| `AI_SERVICE_URL` | the MindCare AI service's base URL, no trailing `/predict` (e.g. `https://mindcare-api.onrender.com`). Unset → `POST /api/v1/ai/anxiety-prediction/` answers 503 |
+| `AI_SERVICE_URL` | the MindCare AI service's base URL, no trailing `/predict` (e.g. `https://mindcare-api-fysd.onrender.com`). Unset → `POST /api/v1/ai/anxiety-prediction/` answers 503 |
 
 **Local development:** the developer's local `.env` `DATABASE_URL` points at the
 local docker Postgres (switched 2026-09-30); production credentials live only in
@@ -69,9 +69,12 @@ done. **Still open before merging:** `NUM_PROXIES` on Render.
 
 - [ ] **Rate limits behind Render's proxy:** `NUM_PROXIES` defaults to 0, so DRF
       throttles on the proxy's address and every user shares one bucket (login
-      5/min, register 10/hour, reference 120/min, stats 60/min). Confirm Render's
-      proxy hop count and set `NUM_PROXIES` (likely `1`) in Render's environment,
-      then re-test that a throttle is per-client.
+      5/min, register 10/hour, reference 120/min, stats 60/min). Measure it with the
+      temporary `GET /api/v1/accounts/debug/client-ip/` (admin JWT): set
+      `NUM_PROXIES` to the number of `X-Forwarded-For` entries that are proxies,
+      i.e. the value for which `throttle_ident` equals your own public IP (normally
+      the same as `cf_connecting_ip`). Then remove the endpoint in the next PR
+      (see @decisions.md, 2026-10-10).
 - [x] **Migrations run on deploy** (confirmed from Render's dashboard,
       2026-09-30). Render's build command:
       `pip install -r requirements/prod.txt && python manage.py collectstatic --noinput && python manage.py migrate`.
@@ -123,6 +126,17 @@ DELETE FROM accounts_user WHERE id IN (<ids>);
 
 Check the ids with a `SELECT` first, and run it inside a transaction
 (`BEGIN; … COMMIT;`) so a mistake can be rolled back.
+
+## Supabase settings
+
+- **Data API: OFF** (turned off 2026-10-10). Django never used it, and with it on,
+  any table without RLS was readable with the anon key. Keep it off; see
+  @decisions.md, 2026-10-10.
+
+## Security headers
+
+- **HSTS:** `prod.py` sends `Strict-Transport-Security: max-age=86400` (one day).
+  After a week with no HTTPS problems, raise `SECURE_HSTS_SECONDS` to `31536000`.
 
 ## TODO
 

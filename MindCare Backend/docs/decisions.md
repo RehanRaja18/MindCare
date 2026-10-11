@@ -870,3 +870,27 @@ exposes no cookies, but it should still be removed after the demo.
 would need an opt-in filter, and audio fields would be empty on most rows);
 hardcoding `http://localhost:5000` in `prod.py` (a development origin allowed in
 production for good).
+
+## 2026-10-10 - Phase 1 housekeeping: Supabase Data API off, HSTS, measured NUM_PROXIES, ruff only
+**Decision:**
+- **Supabase Data API is turned off** (done in the dashboard, 2026-10-10). Django
+  connects to Postgres directly as the owner and never used it; with it on, any
+  `public` table without RLS was readable with the project's anon key. One setting
+  covers every future table, which per-table RLS would not. Supabase Storage is a
+  separate service and is unaffected.
+- **HSTS:** `SECURE_HSTS_SECONDS = 86400` (one day) in `prod.py`, raised to one year
+  after a week without problems. No `includeSubDomains`: the host is a subdomain of
+  `onrender.com`, which we don't control.
+- **`NUM_PROXIES` is measured, not guessed.** DRF reads `X-Forwarded-For` from the
+  right. Too low and every client shares one throttle bucket (today, with 0); too
+  high and a client can forge its address and slip past the login limit. Requests
+  pass through Cloudflare and Render's proxy, and neither documents how many entries
+  it adds. A temporary admin-only `GET /api/v1/accounts/debug/client-ip/` shows the
+  headers once on production. **Hard rule: that endpoint is removed in the very next
+  PR**, whatever else that PR contains.
+- **black and flake8 removed from `requirements/dev.txt`.** Pre-commit runs ruff
+  (lint and format), so neither tool was ever run; dependabot PRs #21 and #30 are
+  closed rather than merged.
+**Alternatives considered:** RLS on every table through a migration (must be repeated
+for every new table); guessing `NUM_PROXIES=1`; throttling on `CF-Connecting-IP`
+(only safe if the origin can never be reached except through Cloudflare).
