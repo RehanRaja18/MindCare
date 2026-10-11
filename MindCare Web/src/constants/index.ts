@@ -523,7 +523,7 @@ export const PRICING_PLAN = {
   name: 'Premium',
   price: 'Rs 1,500',
   period: '/month',
-  trial: '7-day free trial · no card required',
+  trial: '7-day free trial',
   features: [
     'Patient Journal',
     'Outing activities',

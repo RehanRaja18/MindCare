@@ -27,7 +27,7 @@ const PricingPage: React.FC = () => {
           </h1>
 
           <p className="text-gray-500 text-lg mb-16">
-            Trial 7 days, no card · NGO scholarships available
+            Trial 7 days
           </p>
         </Reveal>
 
