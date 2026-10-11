@@ -6,6 +6,8 @@ import '../../core/utils/app_feedback.dart';
 import '../../main.dart';
 import '../../models/account_data.dart';
 import '../../providers/account_provider.dart';
+import '../../providers/journal_provider.dart';
+import '../../providers/premium_provider.dart';
 import '../../providers/user_session_provider.dart';
 import '../../widgets/common/sos_button.dart';
 import '../../widgets/profile/profile_header.dart';
@@ -13,6 +15,9 @@ import '../../widgets/profile/profile_list_section.dart';
 import '../care/aida_personality_screen.dart';
 import '../care/past_sessions_screen.dart';
 import '../care/therapist_detail_screen.dart';
+import '../premium/journal_screen.dart';
+import '../premium/outings_screen.dart';
+import '../premium/premium_screen.dart';
 import '../settings/appearance_screen.dart';
 import '../settings/notification_settings_screen.dart';
 import '../settings/privacy_data_screen.dart';
@@ -55,6 +60,32 @@ class ProfileScreen extends StatelessWidget {
       ProfileListItem(icon: Icons.terrain, title: 'Your therapist', subtitle: '${provider.therapistName} · ${provider.therapistSince}'),
       ProfileListItem(icon: Icons.auto_awesome, title: 'Aida personality', trailing: provider.aidaPersonality),
       ProfileListItem(icon: Icons.bookmark_border, title: 'Past sessions & notes', trailing: '${provider.pastSessionsCount}', showDivider: false),
+    ];
+
+    final premium = context.watch<PremiumProvider>();
+    final journalCount = context.watch<JournalProvider>().entries.length;
+    final premiumItems = [
+      ProfileListItem(
+        icon: Icons.workspace_premium_outlined,
+        title: 'MindCare Premium',
+        subtitle: premium.isOnTrial
+            ? 'Free trial · ${premium.trialDaysLeft} ${premium.trialDaysLeft == 1 ? 'day' : 'days'} left'
+            : premium.isPremium
+                ? 'Active'
+                : '${PremiumProvider.trialDays}-day free trial, then Rs 1,500 / month',
+      ),
+      ProfileListItem(
+        icon: Icons.menu_book_outlined,
+        title: 'Patient Journal',
+        trailing: premium.isPremium ? '$journalCount' : null,
+        subtitle: premium.isPremium ? null : 'Premium',
+      ),
+      ProfileListItem(
+        icon: Icons.directions_walk,
+        title: 'Outing activities',
+        subtitle: premium.isPremium ? 'Walks, coffee, meals, hikes' : 'Premium',
+        showDivider: false,
+      ),
     ];
 
     final accountItems = [
@@ -125,6 +156,24 @@ class ProfileScreen extends StatelessWidget {
                         );
                         break;
                     }
+                  },
+                ),
+                const SizedBox(height: 22),
+                const Row(
+                  children: [
+                    Text('PREMIUM', style: TextStyle(letterSpacing: 1, color: AppColors.textLabel, fontWeight: FontWeight.w600, fontSize: 12)),
+                    SizedBox(width: 8),
+                    Icon(Icons.workspace_premium_outlined, size: 14, color: AppColors.amberSegment),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ProfileListSection(
+                  items: premiumItems,
+                  onItemTap: (index) {
+                    const screens = [PremiumScreen(), JournalScreen(), OutingsScreen()];
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => MobileFrame(child: screens[index])),
+                    );
                   },
                 ),
                 const SizedBox(height: 22),
