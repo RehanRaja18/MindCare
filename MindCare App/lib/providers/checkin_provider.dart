@@ -23,33 +23,18 @@ class CheckinProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ----- Vitals (dummy/demo data for front-end testing — a real build
-  // would source this from a wearable SDK or a backend API) -----
-  final VitalsSnapshot vitals = const VitalsSnapshot(
-    heartRate: 68,
-    breathingRate: 13,
-    steps: 6612,
-    sweatEda: 2.1,
-    heartTrend: [64, 66, 65, 68, 70, 67, 68],
-    breathingTrend: [12, 13, 13, 14, 13, 12, 13],
-    stepsTrend: [800, 1400, 2600, 3500, 4800, 5700, 6612],
-    sweatTrend: [1.8, 1.9, 2.3, 2.0, 2.2, 2.4, 2.1],
-    state: 'Settled',
-  );
+  // ----- Vitals -----
+  // Null until a wearable or the backend supplies a reading; screens show
+  // an empty state instead of made-up numbers.
+  VitalsSnapshot? vitals;
 
-  final List<NervousSystemState> calmActivated = const [
-    NervousSystemState.activated,
-    NervousSystemState.activated,
-    NervousSystemState.calm,
-    NervousSystemState.calm,
-    NervousSystemState.activated,
-    NervousSystemState.calm,
-    NervousSystemState.activated,
-    NervousSystemState.calm,
-    NervousSystemState.calm,
-    NervousSystemState.activated,
-    NervousSystemState.activated,
-  ];
+  List<NervousSystemState> calmActivated = const [];
+
+  void setVitals(VitalsSnapshot? snapshot, {List<NervousSystemState> timeline = const []}) {
+    vitals = snapshot;
+    calmActivated = timeline;
+    notifyListeners();
+  }
 
   // ----- Progress -----
   final int streakDays = 14;

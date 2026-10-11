@@ -14,11 +14,12 @@ class VitalsSummaryCard extends StatelessWidget {
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
       child: Row(
         children: [
-          Expanded(child: _Metric(label: 'HEART', value: '${vitals.heartRate}', unit: 'bpm')),
+          // '—' until a reading arrives from a wearable or the backend.
+          Expanded(child: _Metric(label: 'HEART', value: vitals == null ? '—' : '${vitals.heartRate}', unit: 'bpm')),
           const _Divider(),
-          Expanded(child: _Metric(label: 'BREATH', value: '${vitals.breathingRate}', unit: '/min')),
+          Expanded(child: _Metric(label: 'BREATH', value: vitals == null ? '—' : '${vitals.breathingRate}', unit: '/min')),
           const _Divider(),
-          Expanded(child: _Metric(label: 'STEPS', value: _formatSteps(vitals.steps), unit: 'today')),
+          Expanded(child: _Metric(label: 'STEPS', value: vitals == null ? '—' : _formatSteps(vitals.steps), unit: 'today')),
         ],
       ),
     );

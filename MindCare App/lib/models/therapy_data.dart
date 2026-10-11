@@ -47,3 +47,10 @@ class WeekDay {
   final String label;
   final int date;
 }
+/// The patient's next booked session, as supplied by the backend.
+class UpcomingSession {
+  const UpcomingSession({required this.startsAt, required this.therapistName, required this.mode});
+  final DateTime startsAt;
+  final String therapistName;
+  final String mode; // e.g. 'Meet', 'In person'
+}

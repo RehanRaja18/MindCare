@@ -66,16 +66,21 @@ class _PulseScreenState extends State<PulseScreen> {
                             children: [
                               Text('STATE RIGHT NOW', style: AppTextStyles.label()),
                               const SizedBox(height: 18),
-                              const NervousSystemDial(state: 'Calm', subtitle: 'parasympathetic'),
-                              const SizedBox(height: 18),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 24),
-                                child: Text(
-                                  'Your body is settled. Stay with it — sip water, soften your shoulders.',
-                                  textAlign: TextAlign.center,
-                                  style: AppTextStyles.body(size: 14),
-                                ),
+                              NervousSystemDial(
+                                state: vitals?.state ?? '—',
+                                subtitle: vitals == null ? 'no reading yet' : 'right now',
                               ),
+                              if (vitals == null) ...[
+                                const SizedBox(height: 18),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  child: Text(
+                                    'No readings yet. Your heart rate, breathing and steps will show here once they are shared with MindCare.',
+                                    textAlign: TextAlign.center,
+                                    style: AppTextStyles.body(size: 14),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -85,9 +90,9 @@ class _PulseScreenState extends State<PulseScreen> {
                             Expanded(
                               child: VitalMetricCard(
                                 label: 'HEART RATE',
-                                value: '${vitals.heartRate}',
+                                value: vitals == null ? '—' : '${vitals.heartRate}',
                                 unit: 'bpm',
-                                trend: vitals.heartTrend,
+                                trend: vitals?.heartTrend ?? const [],
                                 color: AppColors.moodStressed,
                               ),
                             ),
@@ -95,9 +100,9 @@ class _PulseScreenState extends State<PulseScreen> {
                             Expanded(
                               child: VitalMetricCard(
                                 label: 'BREATHING',
-                                value: '${vitals.breathingRate}',
+                                value: vitals == null ? '—' : '${vitals.breathingRate}',
                                 unit: '/min',
-                                trend: vitals.breathingTrend,
+                                trend: vitals?.breathingTrend ?? const [],
                                 color: AppColors.moodLow,
                               ),
                             ),
@@ -109,9 +114,9 @@ class _PulseScreenState extends State<PulseScreen> {
                             Expanded(
                               child: VitalMetricCard(
                                 label: 'SWEAT (EDA)',
-                                value: vitals.sweatEda.toStringAsFixed(1),
+                                value: vitals == null ? '—' : vitals.sweatEda.toStringAsFixed(1),
                                 unit: 'μS',
-                                trend: vitals.sweatTrend,
+                                trend: vitals?.sweatTrend ?? const [],
                                 color: AppColors.amberSegment,
                               ),
                             ),
@@ -119,9 +124,9 @@ class _PulseScreenState extends State<PulseScreen> {
                             Expanded(
                               child: VitalMetricCard(
                                 label: 'STEPS',
-                                value: _formatSteps(vitals.steps),
+                                value: vitals == null ? '—' : _formatSteps(vitals.steps),
                                 unit: 'today',
-                                trend: vitals.stepsTrend,
+                                trend: vitals?.stepsTrend ?? const [],
                                 color: AppColors.progressActive,
                               ),
                             ),
