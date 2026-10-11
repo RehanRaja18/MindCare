@@ -8,36 +8,11 @@ import '../../models/premium_data.dart';
 import '../../providers/premium_provider.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/premium/premium_widgets.dart';
+import 'cancel_subscription_screen.dart';
 import 'premium_checkout_screen.dart';
 
 class ManageSubscriptionScreen extends StatelessWidget {
   const ManageSubscriptionScreen({super.key});
-
-  Future<void> _confirmCancel(BuildContext context, PremiumProvider premium) async {
-    final until = premium.status == PremiumStatus.trial ? premium.trialEndsAt : premium.nextChargeAt;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.background,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Turn off auto-renew?', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textDark)),
-        content: Text(
-          until == null
-              ? "You won't be charged again."
-              : "You'll keep Premium until ${DateLabels.long(until)}, and you won't be charged after that.",
-          style: AppTextStyles.body(size: 14),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Keep Premium', style: TextStyle(color: AppColors.textMuted))),
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Turn off', style: TextStyle(color: AppColors.sos, fontWeight: FontWeight.w700))),
-        ],
-      ),
-    );
-    if (confirmed == true && context.mounted) {
-      context.read<PremiumProvider>().setAutoRenew(false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Auto-renew is off. You won't be charged.")));
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,13 +22,11 @@ class ManageSubscriptionScreen extends StatelessWidget {
 
     final (String title, String subtitle) = switch (status) {
       PremiumStatus.trial => ('Free trial', '${premium.trialDaysLeft} ${premium.trialDaysLeft == 1 ? 'day' : 'days'} left · first charge ${DateLabels.long(premium.trialEndsAt!)}'),
-      PremiumStatus.trialCancelled => ('Free trial · ending', 'Premium ends ${DateLabels.long(premium.accessEndsAt!)}. No charge.'),
+      PremiumStatus.trialCancelled => ('Cancelled', 'Premium stays on until ${DateLabels.long(premium.accessEndsAt!)}. You won\x27t be charged.'),
       PremiumStatus.active => ('Premium · monthly', 'Renews ${DateLabels.long(premium.nextChargeAt!)}'),
-      PremiumStatus.cancelled => ('Premium · ending', 'Premium ends ${DateLabels.long(premium.accessEndsAt!)}. No further charges.'),
+      PremiumStatus.cancelled => ('Cancelled', 'Premium stays on until ${DateLabels.long(premium.accessEndsAt!)}. No further charges.'),
       PremiumStatus.none => ('No active plan', 'Start a free trial to unlock Journal and Outings.'),
     };
-    final renewing = status == PremiumStatus.trial || status == PremiumStatus.active;
-    final canResume = status == PremiumStatus.trialCancelled || status == PremiumStatus.cancelled;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -96,7 +69,8 @@ class ManageSubscriptionScreen extends StatelessWidget {
                     label: 'Next charge',
                     value: premium.nextChargeAt == null ? 'None' : 'Rs 1,500 on ${DateLabels.long(premium.nextChargeAt!)}',
                   ),
-                  _Row(label: 'Auto-renew', value: premium.autoRenew ? 'On' : 'Off', showDivider: card != null),
+                  _Row(label: 'Auto-renew', value: premium.autoRenew ? 'On' : 'Off', showDivider: premium.accessEndsAt != null || card != null),
+                  if (premium.accessEndsAt != null) _Row(label: 'Access until', value: DateLabels.long(premium.accessEndsAt!), showDivider: card != null),
                   if (card != null)
                     InkWell(
                       onTap: () => Navigator.of(context).push(
@@ -135,27 +109,42 @@ class ManageSubscriptionScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            if (renewing)
-              GestureDetector(
-                onTap: () => _confirmCancel(context, premium),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-                  child: const Center(
-                    child: Text('Turn off auto-renew', style: TextStyle(color: AppColors.sos, fontWeight: FontWeight.w700, fontSize: 14)),
+            if (premium.canCancel)
+              SizedBox(
+                height: 54,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const MobileFrame(child: CancelSubscriptionScreen())),
                   ),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: AppColors.border),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  ),
+                  child: const Text('Cancel subscription', style: TextStyle(color: AppColors.sos, fontWeight: FontWeight.w700, fontSize: 15)),
                 ),
               ),
-            if (canResume)
+            if (premium.canResume)
               PrimaryButton(
-                label: 'Turn auto-renew back on',
+                label: 'Resume subscription',
                 icon: Icons.refresh,
                 onPressed: () {
-                  context.read<PremiumProvider>().setAutoRenew(true);
+                  final p = context.read<PremiumProvider>()..resume();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Auto-renew is on. Next charge ${DateLabels.long(context.read<PremiumProvider>().nextChargeAt!)}.')),
+                    SnackBar(content: Text('Welcome back. Your next charge is ${DateLabels.long(p.nextChargeAt!)}.')),
                   );
                 },
+              ),
+            if (premium.status == PremiumStatus.none)
+              PrimaryButton(
+                label: premium.trialUsed ? 'Subscribe · Rs 1,500 / month' : 'Start free trial',
+                onPressed: () => Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (_) => MobileFrame(
+                      child: PremiumCheckoutScreen(mode: premium.trialUsed ? CheckoutMode.subscribe : CheckoutMode.trial),
+                    ),
+                  ),
+                ),
               ),
             const SizedBox(height: 16),
             Text(

@@ -69,6 +69,26 @@ class CardUtils {
     if (d.length != cvcLength(brand)) return '${cvcLength(brand)} digits';
     return null;
   }
+
+  /// Longest name a card can print.
+  static const int maxNameLength = 26;
+
+  // Letters in any language, plus the space . ' - found in real names.
+  static final _nameChars = RegExp(r"^\p{L}[\p{L} .'\-]*$", unicode: true);
+
+  static String? validateName(String? value) {
+    final name = (value ?? '').trim();
+    if (name.isEmpty) return 'Enter the name on your card';
+    if (RegExp(r'\d').hasMatch(name)) return "A name can't contain numbers";
+    if (!_nameChars.hasMatch(name)) return "Use letters only (spaces, - and ' are fine)";
+    if (RegExp(r'\p{L}', unicode: true).allMatches(name).length < 2) return 'Enter the full name on your card';
+    if (name.length > maxNameLength) return 'Use the name as printed (max $maxNameLength characters)';
+    if (RegExp(r"[ .'\-]{2,}").hasMatch(name)) return 'Check the spacing and punctuation';
+    return null;
+  }
+
+  /// Trims and collapses repeated spaces: "  ali   khan " -> "ali khan".
+  static String cleanName(String value) => value.trim().replaceAll(RegExp(r'\s+'), ' ');
 }
 
 /// Groups the card number as "4242 4242 4242 4242" (Amex: 4-6-5).

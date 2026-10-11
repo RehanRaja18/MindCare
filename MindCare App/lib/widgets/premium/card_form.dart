@@ -52,7 +52,7 @@ class CardFormState extends State<CardForm> {
       last4: digits.substring(digits.length - 4),
       expMonth: expiry.$1,
       expYear: expiry.$2,
-      holderName: _name.text.trim(),
+      holderName: CardUtils.cleanName(_name.text),
     );
   }
 
@@ -151,7 +151,12 @@ class CardFormState extends State<CardForm> {
             controller: _name,
             textCapitalization: TextCapitalization.words,
             autofillHints: const [AutofillHints.creditCardName],
-            validator: (v) => (v == null || v.trim().length < 2) ? 'Enter the name on your card' : null,
+            // Block digits and symbols as they are typed; the validator explains the rest.
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r"[\p{L} .'\-]", unicode: true)),
+              LengthLimitingTextInputFormatter(CardUtils.maxNameLength),
+            ],
+            validator: CardUtils.validateName,
             style: AppTextStyles.body(size: 16, color: AppColors.textDark),
             decoration: _decoration('As shown on the card'),
           ),
