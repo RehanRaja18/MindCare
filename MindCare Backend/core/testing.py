@@ -192,7 +192,7 @@ def make_psychologist(
         extra["full_name"] = full_name
     user = make_user(role=Role.PSYCHOLOGIST, **extra)
     profile_overrides.setdefault(
-        "license_number", f"LIC-{uuid.uuid4().hex[:8].upper()}"
+        "license_number", f"LIC-{uuid.uuid4().hex[:8].upper()}-1"
     )
     return create_psychologist_profile(
         user=user, **psychologist_profile_data(**profile_overrides)
