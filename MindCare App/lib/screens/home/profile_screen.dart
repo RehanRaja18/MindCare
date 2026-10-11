@@ -4,7 +4,9 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/app_feedback.dart';
 import '../../main.dart';
+import '../../core/utils/date_labels.dart';
 import '../../models/account_data.dart';
+import '../../models/premium_data.dart';
 import '../../providers/account_provider.dart';
 import '../../providers/journal_provider.dart';
 import '../../providers/premium_provider.dart';
@@ -68,11 +70,14 @@ class ProfileScreen extends StatelessWidget {
       ProfileListItem(
         icon: Icons.workspace_premium_outlined,
         title: 'MindCare Premium',
-        subtitle: premium.isOnTrial
-            ? 'Free trial · ${premium.trialDaysLeft} ${premium.trialDaysLeft == 1 ? 'day' : 'days'} left'
-            : premium.isPremium
-                ? 'Active'
-                : '${PremiumProvider.trialDays}-day free trial, then Rs 1,500 / month',
+        subtitle: switch (premium.status) {
+          PremiumStatus.trial => 'Free trial · ${premium.trialDaysLeft} ${premium.trialDaysLeft == 1 ? 'day' : 'days'} left',
+          PremiumStatus.active => 'Renews ${DateLabels.day(premium.nextChargeAt!)}',
+          PremiumStatus.trialCancelled || PremiumStatus.cancelled => 'Ends ${DateLabels.day(premium.accessEndsAt!)}',
+          PremiumStatus.none => premium.trialUsed
+              ? 'Rs 1,500 / month'
+              : '${PremiumProvider.trialDays}-day free trial, then Rs 1,500 / month',
+        },
       ),
       ProfileListItem(
         icon: Icons.menu_book_outlined,

@@ -3,13 +3,17 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/date_labels.dart';
 import '../../main.dart';
+import '../../models/premium_data.dart';
 import '../../providers/premium_provider.dart';
 import '../../widgets/common/primary_button.dart';
 import '../../widgets/common/sos_button.dart';
 import '../../widgets/premium/premium_widgets.dart';
 import 'journal_screen.dart';
+import 'manage_subscription_screen.dart';
 import 'outings_screen.dart';
+import 'premium_checkout_screen.dart';
 
 /// MindCare Premium — the same plan as the pricing page on the website.
 class PremiumScreen extends StatelessWidget {
@@ -108,20 +112,20 @@ class PremiumScreen extends StatelessWidget {
                       Expanded(
                         child: PrimaryButton(
                           label: premium.isPremium
-                              ? 'Open your journal'
+                              ? 'Manage subscription'
                               : premium.trialUsed
-                              ? 'Trial ended'
+                              ? 'Subscribe · Rs 1,500 / month'
                               : 'Start free trial',
-                          onPressed: premium.isPremium
-                              ? () =>
-                                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MobileFrame(child: JournalScreen())))
-                              : premium.trialUsed
-                              ? null
-                              : () {
-                                  context.read<PremiumProvider>().startTrial();
-                                  ScaffoldMessenger.of(context)
-                                      .showSnackBar(const SnackBar(content: Text('Your free trial has started. Enjoy Premium.')));
-                                },
+                          icon: premium.isPremium ? Icons.tune : Icons.arrow_forward,
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => MobileFrame(
+                                child: premium.isPremium
+                                    ? const ManageSubscriptionScreen()
+                                    : PremiumCheckoutScreen(mode: premium.trialUsed ? CheckoutMode.subscribe : CheckoutMode.trial),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -130,9 +134,14 @@ class PremiumScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    premium.isOnTrial
-                        ? 'Trial ends in ${premium.trialDaysLeft} ${premium.trialDaysLeft == 1 ? 'day' : 'days'}. Then Rs 1,500 / month.'
-                        : 'Then Rs 1,500 / month. Cancel any time, no fee.',
+                    switch (premium.status) {
+                      PremiumStatus.trial => 'Trial ends ${DateLabels.long(premium.trialEndsAt!)}. Then Rs 1,500 / month on ${premium.card!.masked}.',
+                      PremiumStatus.active => 'Renews ${DateLabels.long(premium.nextChargeAt!)} · Rs 1,500 on ${premium.card!.masked}.',
+                      PremiumStatus.trialCancelled || PremiumStatus.cancelled => 'Auto-renew is off. Premium ends ${DateLabels.long(premium.accessEndsAt!)}.',
+                      PremiumStatus.none => premium.trialUsed
+                          ? 'Rs 1,500 / month. Cancel any time, no fee.'
+                          : 'Card needed to start · Rs 0 today · cancel any time.',
+                    },
                     style: AppTextStyles.body(size: 11),
                   ),
                 ],
@@ -176,7 +185,11 @@ class _PlanCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(20)),
                   child: Text(
-                    premium.isOnTrial ? 'On free trial' : 'Active',
+                    switch (premium.status) {
+                      PremiumStatus.trial => 'On free trial',
+                      PremiumStatus.trialCancelled || PremiumStatus.cancelled => 'Ending',
+                      _ => 'Active',
+                    },
                     style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
                   ),
                 ),
