@@ -78,10 +78,14 @@ class CreatePsychologistProfileTests(TestCase):
         from apps.psychologists.models import PsychologistProfile
 
         with self.assertRaises(DomainValidationError) as ctx:
-            _create(years_of_experience=71)
+            _create(years_of_experience=61)
         self.assertEqual(
             ctx.exception.errors,
-            {"years_of_experience": ["Enter a whole number of years from 0 to 70."]},
+            {
+                "years_of_experience": [
+                    "Years of experience must be a whole number between 0 and 60."
+                ]
+            },
         )
         self.assertEqual(PsychologistProfile.objects.count(), 0)
 
@@ -92,15 +96,19 @@ class CreatePsychologistProfileTests(TestCase):
             _create(years_of_experience=-1)
         self.assertEqual(
             ctx.exception.errors,
-            {"years_of_experience": ["Enter a whole number of years from 0 to 70."]},
+            {
+                "years_of_experience": [
+                    "Years of experience must be a whole number between 0 and 60."
+                ]
+            },
         )
         self.assertEqual(PsychologistProfile.objects.count(), 0)
 
     def test_create_with_years_of_experience_boundaries_accepted(self):
         profile_low = _create(license_number="B-0", years_of_experience=0)
         self.assertEqual(profile_low.years_of_experience, 0)
-        profile_high = _create(license_number="B-70", years_of_experience=70)
-        self.assertEqual(profile_high.years_of_experience, 70)
+        profile_high = _create(license_number="B-60", years_of_experience=60)
+        self.assertEqual(profile_high.years_of_experience, 60)
 
 
 class UpdatePsychologistProfileTests(TestCase):
@@ -110,12 +118,12 @@ class UpdatePsychologistProfileTests(TestCase):
     def test_non_credential_fields_editable(self):
         update_psychologist_profile(
             profile=self.profile,
-            bio="Hello",
+            bio="Hello, I work with adults on anxiety.",
             years_of_experience=6,
             specializations=list(Specialization.objects.filter(slug="grief")),
         )
         self.profile.refresh_from_db()
-        self.assertEqual(self.profile.bio, "Hello")
+        self.assertEqual(self.profile.bio, "Hello, I work with adults on anxiety.")
         self.assertEqual(
             list(self.profile.specializations.values_list("slug", flat=True)), ["grief"]
         )
@@ -131,10 +139,12 @@ class UpdatePsychologistProfileTests(TestCase):
         self.assertEqual(self.profile.license_number, "PMDC-12345")
 
     def test_unchanged_credentials_accepted_on_full_object_patch(self):
-        data = psychologist_profile_data(license_number=" pmdc-12345 ", bio="Updated")
+        data = psychologist_profile_data(
+            license_number=" pmdc-12345 ", bio="Updated bio about my clinical practice."
+        )
         update_psychologist_profile(profile=self.profile, **data)
         self.profile.refresh_from_db()
-        self.assertEqual(self.profile.bio, "Updated")
+        self.assertEqual(self.profile.bio, "Updated bio about my clinical practice.")
 
     def test_every_credential_field_is_locked(self):
         changes = {
@@ -168,10 +178,14 @@ class UpdatePsychologistProfileTests(TestCase):
 
     def test_update_with_years_of_experience_above_max_rejected(self):
         with self.assertRaises(DomainValidationError) as ctx:
-            update_psychologist_profile(profile=self.profile, years_of_experience=71)
+            update_psychologist_profile(profile=self.profile, years_of_experience=61)
         self.assertEqual(
             ctx.exception.errors,
-            {"years_of_experience": ["Enter a whole number of years from 0 to 70."]},
+            {
+                "years_of_experience": [
+                    "Years of experience must be a whole number between 0 and 60."
+                ]
+            },
         )
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.years_of_experience, 5)

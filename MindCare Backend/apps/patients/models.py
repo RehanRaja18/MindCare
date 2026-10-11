@@ -10,7 +10,9 @@ from django.conf import settings
 from django.db import models
 
 from core.choices import Gender
-from core.validators import E164_VALIDATOR, validate_iana_timezone
+from core.fields import PhoneField
+from core.models import ValidatedModelMixin
+from core.validators import validate_iana_timezone
 
 PSEUDONYM_PREFIX = "Patient-"
 
@@ -19,7 +21,7 @@ def generate_pseudonym():
     return f"{PSEUDONYM_PREFIX}{secrets.token_hex(3)}"
 
 
-class PatientProfile(models.Model):
+class PatientProfile(ValidatedModelMixin, models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -50,9 +52,7 @@ class PatientProfile(models.Model):
     )
     # Contact number only — NOT a login identifier. Phone-number login, if built,
     # gets its own unique, verified field on User (docs/decisions.md, 2026-09-26).
-    phone_number = models.CharField(
-        max_length=20, null=True, blank=True, validators=[E164_VALIDATOR]
-    )
+    phone_number = PhoneField(max_length=20, null=True, blank=True)
     preferred_language = models.ForeignKey(
         "reference.Language",
         on_delete=models.PROTECT,

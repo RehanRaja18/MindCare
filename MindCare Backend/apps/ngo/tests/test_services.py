@@ -168,21 +168,28 @@ class UpdateNGOProfileTests(TestCase):
 
     def test_unchanged_credentials_accepted(self):
         update_ngo_profile(
-            profile=self.profile, **ngo_profile_data(description="Updated")
+            profile=self.profile,
+            **ngo_profile_data(description="Updated description of the organisation."),
         )
         self.profile.refresh_from_db()
-        self.assertEqual(self.profile.description, "Updated")
+        self.assertEqual(
+            self.profile.description, "Updated description of the organisation."
+        )
 
     def test_normalized_equal_credentials_accepted(self):
         profile = update_ngo_profile(
             profile=self.profile,
             registration_number=" secp-0001 ",
             organization_name="Helping   Hands Foundation",
-            description="Updated",
+            description="Updated description of the organisation.",
         )
-        self.assertEqual(profile.description, "Updated")
+        self.assertEqual(
+            profile.description, "Updated description of the organisation."
+        )
         self.profile.refresh_from_db()
-        self.assertEqual(self.profile.description, "Updated")
+        self.assertEqual(
+            self.profile.description, "Updated description of the organisation."
+        )
         self.assertEqual(self.profile.registration_number, "SECP-0001")
         self.assertEqual(self.profile.organization_name, "Helping Hands Foundation")
 

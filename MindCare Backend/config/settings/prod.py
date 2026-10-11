@@ -8,6 +8,11 @@ SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
+# HSTS: one day first; raise to one year (31536000) after a week without problems
+# (docs/decisions.md, 2026-10-10). No includeSubDomains: the host is a subdomain
+# of onrender.com, which this app doesn't control.
+SECURE_HSTS_SECONDS = 86400
+
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")  # noqa: F405
 

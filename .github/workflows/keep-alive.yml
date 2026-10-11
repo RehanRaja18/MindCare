@@ -3,7 +3,7 @@
 # see "MindCare AI/docs/deployment.md", "Keep-alive".
 #
 # Needs the repository variable RENDER_SERVICE_URL (Settings -> Secrets and variables -> Actions ->
-# Variables), e.g. https://mindcare-api.onrender.com. GitHub runs this workflow, on schedule or from the
+# Variables), e.g. https://mindcare-api-fysd.onrender.com. GitHub runs this workflow, on schedule or from the
 # manual "Run workflow" button, only from the repository's DEFAULT branch.
 name: Keep Render service awake
 

@@ -12,8 +12,11 @@ quotes endpoints can never return it by accident.
 
 from django.db import models
 
+from core.fields import FreeTextField, PersonNameField
+from core.models import ValidatedModelMixin
 
-class MotivationalContent(models.Model):
+
+class MotivationalContent(ValidatedModelMixin, models.Model):
     is_active = models.BooleanField(
         default=True, help_text="Untick to hide it from the app immediately."
     )
@@ -31,8 +34,8 @@ class QuoteCategory(models.TextChoices):
 
 
 class Quote(MotivationalContent):
-    text = models.CharField(max_length=500)
-    author = models.CharField(max_length=120, blank=True)
+    text = FreeTextField(label="Quote", min_length=10, rule_max_length=500)
+    author = PersonNameField(max_length=120, label="Author", blank=True)
     category = models.CharField(
         max_length=20, choices=QuoteCategory.choices, blank=True
     )

@@ -870,3 +870,68 @@ exposes no cookies, but it should still be removed after the demo.
 would need an opt-in filter, and audio fields would be empty on most rows);
 hardcoding `http://localhost:5000` in `prod.py` (a development origin allowed in
 production for good).
+
+## 2026-10-10 - Phase 1 housekeeping: Supabase Data API off, HSTS, measured NUM_PROXIES, ruff only
+**Decision:**
+- **Supabase Data API is turned off** (done in the dashboard, 2026-10-10). Django
+  connects to Postgres directly as the owner and never used it; with it on, any
+  `public` table without RLS was readable with the project's anon key. One setting
+  covers every future table, which per-table RLS would not. Supabase Storage is a
+  separate service and is unaffected.
+- **HSTS:** `SECURE_HSTS_SECONDS = 86400` (one day) in `prod.py`, raised to one year
+  after a week without problems. No `includeSubDomains`: the host is a subdomain of
+  `onrender.com`, which we don't control.
+- **`NUM_PROXIES` is measured, not guessed.** DRF reads `X-Forwarded-For` from the
+  right. Too low and every client shares one throttle bucket (today, with 0); too
+  high and a client can forge its address and slip past the login limit. Requests
+  pass through Cloudflare and Render's proxy, and neither documents how many entries
+  it adds. A temporary admin-only `GET /api/v1/accounts/debug/client-ip/` shows the
+  headers once on production. **Hard rule: that endpoint is removed in the very next
+  PR**, whatever else that PR contains.
+- **black and flake8 removed from `requirements/dev.txt`.** Pre-commit runs ruff
+  (lint and format), so neither tool was ever run; dependabot PRs #21 and #30 are
+  closed rather than merged.
+**Alternatives considered:** RLS on every table through a migration (must be repeated
+for every new table); guessing `NUM_PROXIES=1`; throttling on `CF-Connecting-IP`
+(only safe if the origin can never be reached except through Cloudflare).
+
+## 2026-10-10 - Every input field is validated by one set of rules, enforced on the models
+**Decision:** (Rules and exact messages: @validation-rules.md.)
+- **One rule set, three implementations.** `core/validators.py` is the authority;
+  MindCare Web and MindCare App mirror it with the same messages. Rule types:
+  person name, organisation name, free text, identifier, phone, email, HTTPS URL,
+  date of birth, numbers, choices, password, file upload.
+- **Enforced on the models, not only in serializers.** Field classes in
+  `core/fields.py` normalise and validate (so Django admin forms are covered), and
+  `core.models.ValidatedModelMixin.save()` runs the field rules on every save, so
+  services and management commands are covered too. Relations, uniqueness and
+  constraints stay with the database (no extra queries per save). Bulk operations
+  and raw SQL bypass it and must not be used on user-entered fields.
+- **Organisation names have their own, looser rule** (digits and `& , . ' - ( ) /`
+  allowed): the strict person-name rule would reject real organisations such as
+  "Rescue 1122" or "Pakistan Medical & Dental Council".
+- **Existing rows are not rewritten.** The rules apply on create and update.
+  `save(update_fields=[...])` validates only those fields, so an account whose name
+  predates the rule can still log in; it must be fixed the next time the name is
+  written (Django admin won't save the user until it is). The production check
+  (2026-10-10) found 9 names that fail: the 8 demo accounts (their "(Demo)" suffix)
+  plus one to fix by hand. `seed_demo` now uses plain names, keeps the demo marker in
+  the bio and `@example.com` emails, and renames old demo accounts when re-run.
+  `full_name` keeps its 255-character column; the 100-character limit applies to new
+  values.
+- **Free text:** HTML tags are rejected (a plain `<`/`>` is fine), and minimum
+  lengths stop placeholder values: qualifications 10–1000, bio and NGO description
+  30–2000 when given, quote text 10–500.
+- **Pakistani local phone numbers** (`03…` mobiles and `0XX…` landlines) are
+  accepted and stored as `+92…`.
+- **Years of experience** is now 0–60 (was 0–70).
+- **The AI form** gets explicit bounds mirroring the AI service's own hard limits,
+  and `Age` is limited to the AI's supported 18–49, so those ages are refused with
+  a clear field message before the AI is called.
+- One seeded quote author ("British wartime poster, 1939") was corrected by a data
+  migration, because it was our seed content, not user data.
+**Alternatives considered:** Serializer-only validation (Django admin and management
+commands would stay open, which is how a name with digits got in); Postgres CHECK
+constraints (Unicode matching depends on the database locale, so local and Supabase
+could behave differently); rewriting the invalid names with a data migration (would
+silently change people's names).

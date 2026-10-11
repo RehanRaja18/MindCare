@@ -520,15 +520,14 @@ export const CONTACT_EMAIL = '';
 
 // ——— Pricing page ———
 export const PRICING_PLAN = {
-  price: 'Rs 6,500',
+  name: 'Premium',
+  price: 'Rs 1,500',
   period: '/month',
   trial: '7-day free trial · no card required',
   features: [
-    'Weekly 50-minute session with a verified therapist',
-    'Aida co-pilot between sessions',
-    'Body, journal & peer circles — one app',
-    'SOS crisis routing, 24/7',
-    'Switch therapist any time, no fee',
+    'Patient Journal',
+    'Outing activities',
+    'Games (coming soon)',
   ],
 };
 
@@ -548,8 +547,8 @@ export const PRICING_FEATURE_STRIPS: PricingFeatureStrip[] = [
   {
     id: 'pf-3',
     icon: 'code',
-    title: 'No upsells',
-    description: 'No premium tier, no add-ons. One subscription does it all.',
+    title: 'Cancel any time',
+    description: 'Premium is monthly. Stop whenever you like, no fee.',
   },
 ];
 

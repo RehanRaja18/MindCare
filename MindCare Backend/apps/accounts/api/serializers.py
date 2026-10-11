@@ -1,5 +1,9 @@
 """DRF serializers for the accounts API."""
 
+from django.contrib.auth.password_validation import (
+    validate_password as django_validate_password,
+)
+from django.core.exceptions import ValidationError as DjangoValidationError
 from drf_spectacular.utils import PolymorphicProxySerializer
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
@@ -19,7 +23,7 @@ from apps.psychologists.api.serializers import (
     PsychologistProfileOwnerSerializer,
     PsychologistRegistrationProfileSerializer,
 )
-from core.serializers import StrictTrueField
+from core.serializers import StrictTrueField, person_name_field
 
 ADULT_CONFIRMATION_ERROR = "You must confirm you are 18 or older."
 
@@ -45,8 +49,8 @@ PROFILE_SERIALIZERS = {
 
 class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True, min_length=8)
-    full_name = serializers.CharField(max_length=255)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+    full_name = person_name_field("Full name")
     role = serializers.ChoiceField(choices=[Role.PATIENT, Role.PSYCHOLOGIST, Role.NGO])
     is_adult_confirmed = StrictTrueField(
         help_text="Must be the JSON boolean true: the user declares they are 18 or older.",
@@ -61,6 +65,11 @@ class RegisterSerializer(serializers.Serializer):
     )
 
     def validate(self, attrs):
+        # Django's password validators, with the user's own details so "too
+        # similar to the email / full name" is checked (validation-rules.md).
+        _validate_password_for(
+            attrs["password"], email=attrs["email"], full_name=attrs["full_name"]
+        )
         input_serializer_class = PROFILE_SERIALIZERS[attrs["role"]][0]
         profile = input_serializer_class(data=attrs["profile"])
         if not profile.is_valid():
@@ -74,16 +83,27 @@ class RegisterSerializer(serializers.Serializer):
         return value
 
     def validate_password(self, value):
-        from django.contrib.auth.password_validation import (
-            validate_password as django_validate_password,
-        )
-        from django.core.exceptions import ValidationError as DjangoValidationError
-
-        try:
-            django_validate_password(value)
-        except DjangoValidationError as exc:
-            raise serializers.ValidationError(list(exc.messages)) from exc
+        # Without user details first, so a weak password is reported even when
+        # another field is invalid too; similarity is checked in validate().
+        messages = _password_problems(value)
+        if messages:
+            raise serializers.ValidationError(messages)
         return value
+
+
+def _password_problems(password, *, email=None, full_name=None):
+    user = User(email=email, full_name=full_name) if email else None
+    try:
+        django_validate_password(password, user=user)
+    except DjangoValidationError as exc:
+        return list(exc.messages)
+    return []
+
+
+def _validate_password_for(password, *, email, full_name):
+    messages = _password_problems(password, email=email, full_name=full_name)
+    if messages:
+        raise serializers.ValidationError({"password": messages})
 
 
 class UserPublicSerializer(serializers.ModelSerializer):

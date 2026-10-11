@@ -70,7 +70,7 @@ class NGOMeAPITests(APITestCase):
                 self.assertIsNone(stored[0]["city"])
 
     def test_changed_registration_number_locked(self):
-        r = self.client.patch(ME_URL, {"registration_number": "NEW"}, format="json")
+        r = self.client.patch(ME_URL, {"registration_number": "NEW-1"}, format="json")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(
             r.data["registration_number"][0].code, "credential_field_locked"
@@ -78,7 +78,11 @@ class NGOMeAPITests(APITestCase):
 
     def test_full_object_patch_ok(self):
         r = self.client.patch(
-            ME_URL, ngo_profile_payload(description="x"), format="json"
+            ME_URL,
+            ngo_profile_payload(
+                description="We support families through crisis counselling."
+            ),
+            format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
 

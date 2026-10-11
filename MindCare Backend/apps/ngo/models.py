@@ -10,7 +10,15 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Q
 
-from core.validators import E164_VALIDATOR, validate_iana_timezone
+from core.fields import (
+    FreeTextField,
+    HttpsUrlField,
+    IdentifierField,
+    OrganisationNameField,
+    PhoneField,
+)
+from core.models import ValidatedModelMixin
+from core.validators import validate_iana_timezone
 
 CREDENTIAL_FIELDS = (
     "organization_name",
@@ -20,18 +28,20 @@ CREDENTIAL_FIELDS = (
 )
 
 
-class NGOProfile(models.Model):
+class NGOProfile(ValidatedModelMixin, models.Model):
     # The account holder is the NGO's representative, not the organisation.
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="ngo_profile"
     )
-    organization_name = models.CharField(max_length=200)
+    organization_name = OrganisationNameField(max_length=200, label="Organisation name")
     # Admin-only; stored normalized (stripped, upper-cased).
-    registration_number = models.CharField(max_length=64)
+    registration_number = IdentifierField(max_length=64, label="Registration number")
     registration_country = models.ForeignKey(
         "reference.Country", on_delete=models.PROTECT, related_name="+"
     )
-    registering_authority = models.CharField(max_length=200)
+    registering_authority = OrganisationNameField(
+        max_length=200, label="Registering authority"
+    )
     country = models.ForeignKey(
         "reference.Country", on_delete=models.PROTECT, related_name="+"
     )
@@ -40,10 +50,16 @@ class NGOProfile(models.Model):
     )
     timezone = models.CharField(max_length=64, validators=[validate_iana_timezone])
     # Admin-only for now; Phase 13 decides who else sees them.
-    official_phone = models.CharField(max_length=20, validators=[E164_VALIDATOR])
+    official_phone = PhoneField(max_length=20)
     official_email = models.EmailField()
-    website = models.URLField(blank=True, default="")
-    description = models.TextField(max_length=2000, blank=True, default="")
+    website = HttpsUrlField(max_length=200, label="Website", blank=True, default="")
+    description = FreeTextField(
+        label="Description",
+        min_length=30,
+        rule_max_length=2000,
+        blank=True,
+        default="",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

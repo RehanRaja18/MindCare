@@ -333,7 +333,7 @@ class RegisterUserProfileOrchestrationTests(TestCase):
         patient = register_user(
             email="p@example.com",
             password="strongpass123",
-            full_name="P",
+            full_name="P Test",
             role=Role.PATIENT,
             is_adult_confirmed=True,
             profile_data=dict(PATIENT_PROFILE_DATA),
@@ -341,7 +341,7 @@ class RegisterUserProfileOrchestrationTests(TestCase):
         psych = register_user(
             email="d@example.com",
             password="strongpass123",
-            full_name="D",
+            full_name="D Test",
             role=Role.PSYCHOLOGIST,
             is_adult_confirmed=True,
             profile_data=psychologist_profile_data(),
@@ -349,7 +349,7 @@ class RegisterUserProfileOrchestrationTests(TestCase):
         ngo = register_user(
             email="n@example.com",
             password="strongpass123",
-            full_name="N",
+            full_name="N Test",
             role=Role.NGO,
             is_adult_confirmed=True,
             profile_data=ngo_profile_data(),
@@ -367,7 +367,7 @@ class RegisterUserProfileOrchestrationTests(TestCase):
             register_user(
                 email="kid@example.com",
                 password="strongpass123",
-                full_name="K",
+                full_name="K Test",
                 role=Role.PATIENT,
                 is_adult_confirmed=False,
                 profile_data=dict(PATIENT_PROFILE_DATA),
@@ -385,7 +385,7 @@ class RegisterUserProfileOrchestrationTests(TestCase):
                 register_user(
                     email="rollback@example.com",
                     password="strongpass123",
-                    full_name="R",
+                    full_name="R Test",
                     role=Role.PATIENT,
                     is_adult_confirmed=True,
                     profile_data=dict(PATIENT_PROFILE_DATA),
@@ -398,7 +398,7 @@ class RegisterUserProfileOrchestrationTests(TestCase):
         register_user(
             email="d1@example.com",
             password="strongpass123",
-            full_name="D1",
+            full_name="Dee One",
             role=Role.PSYCHOLOGIST,
             is_adult_confirmed=True,
             profile_data=psychologist_profile_data(),
@@ -407,7 +407,7 @@ class RegisterUserProfileOrchestrationTests(TestCase):
             register_user(
                 email="d2@example.com",
                 password="strongpass123",
-                full_name="D2",
+                full_name="Dee Two",
                 role=Role.PSYCHOLOGIST,
                 is_adult_confirmed=True,
                 profile_data=psychologist_profile_data(),
@@ -422,7 +422,7 @@ class RegisterUserProfileOrchestrationTests(TestCase):
                 register_user(
                     email="x@example.com",
                     password="strongpass123",
-                    full_name="X",
+                    full_name="X Test",
                     role=Role.PATIENT,
                     is_adult_confirmed=True,
                     profile_data={"timezone": "Nope/Nope"},

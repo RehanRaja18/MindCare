@@ -6,11 +6,13 @@ through Django admin until Phase 2.5's re-review flow.
 """
 
 from django.conf import settings
-from django.core.validators import MaxValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from core.choices import Gender
-from core.validators import validate_iana_timezone
+from core.fields import FreeTextField, IdentifierField, OrganisationNameField
+from core.models import ValidatedModelMixin
+from core.validators import validate_iana_timezone, whole_number_message
 
 CREDENTIAL_FIELDS = (
     "license_number",
@@ -20,7 +22,10 @@ CREDENTIAL_FIELDS = (
 )
 
 MIN_YEARS_OF_EXPERIENCE = 0
-MAX_YEARS_OF_EXPERIENCE = 70
+MAX_YEARS_OF_EXPERIENCE = 60
+YEARS_OF_EXPERIENCE_MESSAGE = whole_number_message(
+    "Years of experience", MIN_YEARS_OF_EXPERIENCE, MAX_YEARS_OF_EXPERIENCE
+)
 
 
 class NotAcceptingReason(models.TextChoices):
@@ -29,24 +34,35 @@ class NotAcceptingReason(models.TextChoices):
     OTHER = "other", "Other"
 
 
-class PsychologistProfile(models.Model):
+class PsychologistProfile(ValidatedModelMixin, models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="psychologist_profile",
     )
     # Admin-only; stored normalized (stripped, upper-cased).
-    license_number = models.CharField(max_length=64)
+    license_number = IdentifierField(max_length=64, label="License number")
     license_issuing_country = models.ForeignKey(
         "reference.Country", on_delete=models.PROTECT, related_name="+"
     )
-    license_issuing_authority = models.CharField(max_length=200)
-    qualifications = models.TextField(max_length=1000)
+    license_issuing_authority = OrganisationNameField(
+        max_length=200, label="Issuing authority"
+    )
+    qualifications = FreeTextField(
+        label="Qualifications", min_length=10, rule_max_length=1000
+    )
     specializations = models.ManyToManyField(
         "reference.Specialization", related_name="+"
     )
     years_of_experience = models.PositiveSmallIntegerField(
-        validators=[MaxValueValidator(MAX_YEARS_OF_EXPERIENCE)]
+        validators=[
+            MinValueValidator(
+                MIN_YEARS_OF_EXPERIENCE, message=YEARS_OF_EXPERIENCE_MESSAGE
+            ),
+            MaxValueValidator(
+                MAX_YEARS_OF_EXPERIENCE, message=YEARS_OF_EXPERIENCE_MESSAGE
+            ),
+        ]
     )
     languages = models.ManyToManyField("reference.Language", related_name="+")
     country = models.ForeignKey(
@@ -59,7 +75,9 @@ class PsychologistProfile(models.Model):
     gender = models.CharField(
         max_length=20, choices=Gender.choices, null=True, blank=True
     )
-    bio = models.TextField(max_length=2000, blank=True, default="")
+    bio = FreeTextField(
+        label="Bio", min_length=30, rule_max_length=2000, blank=True, default=""
+    )
     # Set by the psychologist (Phase 3); never changes on its own. Patients see
     # only on/off; the reason stays on the psychologist's availability endpoint.
     is_accepting_patients = models.BooleanField(default=True)

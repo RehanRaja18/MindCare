@@ -9,10 +9,16 @@ on_delete=PROTECT).
 from django.db import models
 from django.db.models.functions import Lower
 
+from core.fields import OrganisationNameField, PersonNameField
+from core.models import ValidatedModelMixin
+from core.validators import COUNTRY_CODE_VALIDATOR, LANGUAGE_CODE_VALIDATOR
 
-class Country(models.Model):
-    code = models.CharField(max_length=2, unique=True)  # ISO 3166-1 alpha-2
-    name = models.CharField(max_length=100)
+
+class Country(ValidatedModelMixin, models.Model):
+    code = models.CharField(
+        max_length=2, unique=True, validators=[COUNTRY_CODE_VALIDATOR]
+    )  # ISO 3166-1 alpha-2
+    name = OrganisationNameField(max_length=100, label="Name", rule_max_length=100)
 
     class Meta:
         ordering = ["name"]
@@ -22,11 +28,12 @@ class Country(models.Model):
         return self.name
 
 
-class City(models.Model):
+class City(ValidatedModelMixin, models.Model):
     country = models.ForeignKey(
         Country, on_delete=models.PROTECT, related_name="cities"
     )
-    name = models.CharField(max_length=120)
+    # Column stays 120; the name rule caps new values at 100.
+    name = PersonNameField(max_length=120, label="City")
     # Seeded cities are verified. Cities typed at registration stay unverified:
     # usable on the profile that created them, hidden from the public dropdown
     # until an admin verifies them.
@@ -47,9 +54,11 @@ class City(models.Model):
         return f"{self.name}, {self.country.code}"
 
 
-class Language(models.Model):
-    code = models.CharField(max_length=2, unique=True)  # ISO 639-1
-    name = models.CharField(max_length=100)
+class Language(ValidatedModelMixin, models.Model):
+    code = models.CharField(
+        max_length=2, unique=True, validators=[LANGUAGE_CODE_VALIDATOR]
+    )  # ISO 639-1
+    name = OrganisationNameField(max_length=100, label="Name", rule_max_length=100)
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -59,12 +68,12 @@ class Language(models.Model):
         return self.name
 
 
-class Specialization(models.Model):
+class Specialization(ValidatedModelMixin, models.Model):
     """PLACEHOLDER taxonomy — must be reviewed by a clinical advisor before
     real launch (docs/decisions.md, 2026-09-26)."""
 
     slug = models.SlugField(max_length=50, unique=True)
-    name = models.CharField(max_length=100)
+    name = OrganisationNameField(max_length=100, label="Name", rule_max_length=100)
     is_active = models.BooleanField(default=True)
 
     class Meta:

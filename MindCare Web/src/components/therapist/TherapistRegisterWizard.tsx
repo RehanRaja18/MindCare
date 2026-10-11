@@ -23,6 +23,8 @@ import {
 import { register, flattenFieldErrors } from '../../services/api.service';
 import {
   validateRequiredText,
+  validatePersonName,
+  normalizeSingleLine,
   validateEmail,
   validatePassword,
   validatePasswordConfirmation,
@@ -185,7 +187,7 @@ const TherapistRegisterWizard: React.FC = () => {
 
   // ——— Client-side checks per step (the backend re-validates everything) ———
   const checkIdentity = (): Errors => ({
-    full_name: validateRequiredText(form.full_name, 'Full name') ?? undefined,
+    full_name: validatePersonName(form.full_name, 'Full name') ?? undefined,
     email: validateEmail(form.email) ?? undefined,
     password: validatePassword(form.password) ?? undefined,
     confirm: validatePasswordConfirmation(form.password, form.confirm) ?? undefined,
@@ -246,7 +248,7 @@ const TherapistRegisterWizard: React.FC = () => {
     return {
       email: form.email.trim().toLowerCase(),
       password: form.password,
-      full_name: sanitizeText(form.full_name),
+      full_name: normalizeSingleLine(form.full_name),
       role: 'psychologist',
       is_adult_confirmed: true,
       profile,

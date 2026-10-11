@@ -62,6 +62,35 @@ export function validateRequiredText(value: string, label: string, maxLength: nu
 }
 
 /**
+ * Single-line normalisation from the backend's validation rules
+ * (MindCare Backend/docs/validation-rules.md): control characters removed,
+ * leading/trailing spaces removed, runs of spaces collapsed to one.
+ */
+export function normalizeSingleLine(value: string): string {
+  return value.replace(/\p{Cc}/gu, '').replace(/\s+/g, ' ').trim();
+}
+
+// Letters (any script, incl. Urdu and its combining marks), spaces, - ' ’ .
+const PERSON_NAME_CHARS = /^[\p{L}\p{M} '’.-]+$/u;
+
+/**
+ * "Person name" rule from validation-rules.md, same order and messages as the
+ * backend: allowed characters → 2–100 characters → at least 2 letters.
+ * Used for full name (and city name, which follows the same rule).
+ */
+export function validatePersonName(value: string, label: string): string | null {
+  const name = normalizeSingleLine(value);
+  if (!name) return `${label} is required.`;
+  if (!PERSON_NAME_CHARS.test(name)) {
+    return `${label} can only contain letters, spaces, hyphens (-), apostrophes (') and dots (.).`;
+  }
+  const length = [...name].length; // code points, like Python's len()
+  if (length < 2 || length > 100) return `${label} must be between 2 and 100 characters.`;
+  if ((name.match(/\p{L}/gu) ?? []).length < 2) return `${label} must contain at least 2 letters.`;
+  return null;
+}
+
+/**
  * Strips characters with no legitimate use in plain-text form fields
  * (angle brackets) to reduce accidental markup/script injection surface.
  * NOTE: React already escapes rendered text by default — this is a

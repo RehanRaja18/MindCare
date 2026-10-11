@@ -347,3 +347,14 @@ class RefreshAndLogoutAPITests(APITestCase):
         # Verify other user's token is still valid (not blacklisted)
         refresh_result = self.client.post(REFRESH_URL, {"refresh": other_refresh})
         self.assertEqual(refresh_result.status_code, status.HTTP_200_OK)
+
+
+class TemporaryDebugEndpointRemovedTests(APITestCase):
+    """The NUM_PROXIES probe lived for exactly one PR (decisions.md, 2026-10-10)."""
+
+    def test_client_ip_probe_is_gone(self):
+        from core.testing import make_admin
+
+        self.client.force_authenticate(make_admin())
+        response = self.client.get("/api/v1/accounts/debug/client-ip/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
