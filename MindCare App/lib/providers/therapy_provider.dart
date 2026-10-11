@@ -171,6 +171,15 @@ class TherapyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ----- Next session (Home) -----
+  // Null until the backend reports a booked session.
+  UpcomingSession? upcomingSession;
+
+  void setUpcomingSession(UpcomingSession? session) {
+    upcomingSession = session;
+    notifyListeners();
+  }
+
   // ----- Plan & trial -----
   Therapist? selectedTherapist;
   String selectedPlanId = 'monthly';

@@ -34,6 +34,13 @@ class HomeScreen extends StatelessWidget {
     return '$weekday, $month ${now.day}'.toUpperCase();
   }
 
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
   void _openSchedule(BuildContext context) {
     final therapy = context.read<TherapyProvider>();
     if (therapy.selectedTherapist != null) {
@@ -74,7 +81,7 @@ class HomeScreen extends StatelessWidget {
                         TextSpan(
                           style: AppTextStyles.heading(size: 28),
                           children: [
-                            const TextSpan(text: 'Good morning, '),
+                            TextSpan(text: '${_greeting()}, '),
                             TextSpan(text: '${session.firstName}.', style: AppTextStyles.heading(size: 28, style: FontStyle.italic)),
                           ],
                         ),
@@ -156,7 +163,10 @@ class HomeScreen extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        AppointmentCard(onTap: () => _openSchedule(context)),
+                        AppointmentCard(
+                          session: context.watch<TherapyProvider>().upcomingSession,
+                          onTap: () => _openSchedule(context),
+                        ),
                         const SizedBox(height: 12),
                         QuickBreathCard(
                           onTap: () => Navigator.of(context).push(
@@ -175,13 +185,19 @@ class HomeScreen extends StatelessWidget {
               children: [
                 Text('YOUR BODY TODAY', style: AppTextStyles.label()),
                 Consumer<CheckinProvider>(
-                  builder: (_, provider, __) => Row(
-                    children: [
-                      const Icon(Icons.circle, size: 8, color: AppColors.progressActive),
-                      const SizedBox(width: 6),
-                      Text(provider.vitals.state, style: AppTextStyles.body(size: 13)),
-                    ],
-                  ),
+                  builder: (_, provider, __) {
+                    final vitals = provider.vitals;
+                    if (vitals == null) {
+                      return Text('No readings yet', style: AppTextStyles.body(size: 13));
+                    }
+                    return Row(
+                      children: [
+                        const Icon(Icons.circle, size: 8, color: AppColors.progressActive),
+                        const SizedBox(width: 6),
+                        Text(vitals.state, style: AppTextStyles.body(size: 13)),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),

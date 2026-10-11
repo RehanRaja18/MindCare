@@ -11,7 +11,12 @@ class CalmActivatedStrip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
-      child: Row(
+      child: segments.isEmpty
+          ? const SizedBox(
+              height: 28,
+              child: Center(child: Text('No readings yet today', style: TextStyle(fontSize: 13, color: AppColors.textMuted))),
+            )
+          : Row(
         children: segments.map((segment) {
           final color = segment == NervousSystemState.calm ? AppColors.chipSelected : AppColors.amberSegment;
           return Expanded(

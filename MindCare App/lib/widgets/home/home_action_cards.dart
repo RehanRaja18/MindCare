@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../models/therapy_data.dart';
 
 class AidaListeningCard extends StatelessWidget {
   const AidaListeningCard({super.key, this.onTap});
@@ -43,11 +44,32 @@ class AidaListeningCard extends StatelessWidget {
 }
 
 class AppointmentCard extends StatelessWidget {
-  const AppointmentCard({super.key, this.onTap});
+  const AppointmentCard({super.key, this.session, this.onTap});
+  final UpcomingSession? session;
   final VoidCallback? onTap;
+
+  static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  String _dueLabel(DateTime startsAt) {
+    final now = DateTime.now();
+    final days = DateTime(startsAt.year, startsAt.month, startsAt.day)
+        .difference(DateTime(now.year, now.month, now.day))
+        .inDays;
+    if (days <= 0) return 'TODAY';
+    if (days == 1) return 'TOMORROW';
+    return 'IN $days DAYS';
+  }
+
+  String _timeLabel(DateTime t) {
+    final hour = t.hour % 12 == 0 ? 12 : t.hour % 12;
+    final minute = t.minute.toString().padLeft(2, '0');
+    final period = t.hour < 12 ? 'AM' : 'PM';
+    return '${_weekdays[t.weekday - 1]} · $hour:$minute $period';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final s = session;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -59,10 +81,17 @@ class AppointmentCard extends StatelessWidget {
           children: [
             const Icon(Icons.calendar_today_outlined, size: 18, color: AppColors.textDark),
             const SizedBox(height: 10),
-            Text('IN 2 DAYS', style: AppTextStyles.label()),
-            const SizedBox(height: 4),
-            const Text('Fri · 5:00 PM', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textDark)),
-            Text('Dr. Tariq · Meet', style: AppTextStyles.body(size: 12)),
+            if (s == null) ...[
+              Text('NEXT SESSION', style: AppTextStyles.label()),
+              const SizedBox(height: 4),
+              const Text('None booked', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textDark)),
+              Text('Tap to find a therapist', style: AppTextStyles.body(size: 12)),
+            ] else ...[
+              Text(_dueLabel(s.startsAt), style: AppTextStyles.label()),
+              const SizedBox(height: 4),
+              Text(_timeLabel(s.startsAt), style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.textDark)),
+              Text('${s.therapistName} · ${s.mode}', style: AppTextStyles.body(size: 12)),
+            ],
           ],
         ),
       ),
