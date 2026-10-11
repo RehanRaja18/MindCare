@@ -23,7 +23,7 @@ class QuoteAPITests(APITestCase):
             category=QuoteCategory.HOPE,
         )
         Quote.objects.create(text="Unattributed calm", category=QuoteCategory.CALM)
-        Quote.objects.create(text="Hidden", is_active=False)
+        Quote.objects.create(text="Hidden from the app", is_active=False)
         self.client.force_authenticate(make_patient().user)
 
     def tearDown(self):

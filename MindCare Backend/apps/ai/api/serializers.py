@@ -8,7 +8,7 @@ plausibility and 18-49 age rules stay on its side and come back as a 400.
 
 from rest_framework import serializers
 
-from core.serializers import RejectUnknownFieldsMixin
+from core.serializers import RejectUnknownFieldsMixin, number_field, whole_number_field
 
 OCCUPATIONS = [
     "Artist",
@@ -29,12 +29,17 @@ MAX_SERVINGS = 20
 PSS_MIN, PSS_MAX = 0, 4
 
 
-def _servings():
-    return serializers.IntegerField(min_value=0, max_value=MAX_SERVINGS)
+# The AI's supported age range: other ages get a 422 there anyway
+# (MindCare AI/docs/api_usage.md), so they're refused here with a clear message.
+AGE_MIN, AGE_MAX = 18, 49
 
 
-def _pss():
-    return serializers.IntegerField(min_value=PSS_MIN, max_value=PSS_MAX)
+def _servings(label):
+    return whole_number_field(label, 0, MAX_SERVINGS)
+
+
+def _pss(label):
+    return whole_number_field(label, PSS_MIN, PSS_MAX)
 
 
 class AnxietyPredictionRequestSerializer(
@@ -44,21 +49,23 @@ class AnxietyPredictionRequestSerializer(
 
     def get_fields(self):
         return {
-            "Age": serializers.IntegerField(min_value=0, max_value=120),
-            "Sleep Hours": serializers.FloatField(),
-            "Physical Activity (hrs/week)": serializers.FloatField(),
-            "cups_of_coffee": _servings(),
-            "cups_of_tea": _servings(),
-            "energy_drinks": _servings(),
-            "cans_of_soda": _servings(),
-            "pss_uncontrollable": _pss(),
-            "pss_confident": _pss(),
-            "pss_going_your_way": _pss(),
-            "pss_difficulties_piling_up": _pss(),
-            "Heart Rate (bpm)": serializers.FloatField(),
-            "Breathing Rate (breaths/min)": serializers.FloatField(),
-            "Therapy Sessions (per month)": serializers.FloatField(),
-            "Diet Quality (1-10)": serializers.FloatField(),
+            # Physical bounds mirror the AI's hard limits
+            # (MindCare AI/src/inference/input_validation.py); docs/validation-rules.md.
+            "Age": whole_number_field("Age", AGE_MIN, AGE_MAX),
+            "Sleep Hours": number_field("Sleep hours", 0, 24),
+            "Physical Activity (hrs/week)": number_field("Physical activity", 0, 168),
+            "cups_of_coffee": _servings("Cups of coffee"),
+            "cups_of_tea": _servings("Cups of tea"),
+            "energy_drinks": _servings("Energy drinks"),
+            "cans_of_soda": _servings("Cans of soda"),
+            "pss_uncontrollable": _pss("Stress question 1"),
+            "pss_confident": _pss("Stress question 2"),
+            "pss_going_your_way": _pss("Stress question 3"),
+            "pss_difficulties_piling_up": _pss("Stress question 4"),
+            "Heart Rate (bpm)": number_field("Heart rate", 30, 220),
+            "Breathing Rate (breaths/min)": number_field("Breathing rate", 5, 60),
+            "Therapy Sessions (per month)": number_field("Therapy sessions", 0, 31),
+            "Diet Quality (1-10)": number_field("Diet quality", 1, 10),
             "Occupation": serializers.ChoiceField(choices=OCCUPATIONS),
             "Family History of Anxiety": serializers.ChoiceField(choices=["Yes", "No"]),
         }

@@ -30,7 +30,11 @@ class PsychologistMeAPITests(APITestCase):
         )
 
     def test_patch_editable_fields(self):
-        r = self.client.patch(ME_URL, {"bio": "Hi", "languages": ["en"]}, format="json")
+        r = self.client.patch(
+            ME_URL,
+            {"bio": "Hi, I help adults with anxiety and stress.", "languages": ["en"]},
+            format="json",
+        )
         self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
         self.assertEqual([lang["code"] for lang in r.data["languages"]], ["en"])
 
@@ -41,7 +45,11 @@ class PsychologistMeAPITests(APITestCase):
 
     def test_full_object_patch_with_unchanged_credentials_ok(self):
         r = self.client.patch(
-            ME_URL, psychologist_profile_payload(bio="Same creds"), format="json"
+            ME_URL,
+            psychologist_profile_payload(
+                bio="Same credentials, a longer bio for the rule."
+            ),
+            format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
 

@@ -4,6 +4,9 @@ from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
 
+from core.fields import PersonNameField
+from core.models import ValidatedModelMixin
+
 
 class Role(models.TextChoices):
     PATIENT = "patient", "Patient"
@@ -48,9 +51,10 @@ class UserManager(BaseUserManager):
         return self._create_user(email, password, full_name=full_name, **extra_fields)
 
 
-class User(AbstractBaseUser, PermissionsMixin):
+class User(ValidatedModelMixin, AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
-    full_name = models.CharField(max_length=255)
+    # Column stays 255; the name rule caps new values at 100 (validation-rules.md).
+    full_name = PersonNameField(max_length=255, label="Full name")
     role = models.CharField(max_length=20, choices=Role.choices)
     approval_status = models.CharField(
         max_length=20, choices=ApprovalStatus.choices, default=ApprovalStatus.APPROVED

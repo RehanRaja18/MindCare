@@ -95,7 +95,8 @@ done. **Still open before merging:** `NUM_PROXIES` on Render.
 ## Demo accounts
 
 `DEMO_PASSWORD=<choose one> python manage.py seed_demo` creates 6 approved demo
-psychologists and 2 demo patients (all `@example.com`, names ending "(Demo)"). It
+psychologists and 2 demo patients (all `demo.*@example.com`; psychologist bios start
+"Demo account, not a real psychologist."; names are plain because of the name rule). It
 can be re-run safely. Demo patient 1 (Hina) has an accepted relationship with
 Dr. Sara Ahmed and demo patient 2 (Daniyal) a pending request to her, so
 `demo.psych.sara@example.com` shows both the inbox and the patient list. Pending

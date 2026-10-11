@@ -12,7 +12,8 @@ role in the bullet).
 The Web is the psychologist/admin client; the App is the patient client. "Branch"
 means the work sits on an unmerged branch.
 
-Last updated: 2026-10-08 (start of Phase 1).
+Last updated: 2026-10-10 (input-validation-hardening, backend part). Re-checked against
+`origin` on 2026-10-10: no frontend changes have been pushed since 2026-10-08.
 
 ## 6.1 User Onboarding and Profile
 
@@ -134,3 +135,4 @@ Last updated: 2026-10-08 (start of Phase 1).
 | File storage (`integrations/storage_client`) | not started | Phase 1 item (b) |
 | DB-backed PHI access audit trail | not started | Phase 1 item (b); required before any health data is stored |
 | Web lint / typecheck / tests | missing | `package.json` has only `dev`, `build`, `preview` |
+| Input validation (docs/validation-rules.md) | Backend done; Web and App not started | Backend enforces every rule on models and serializers. The Web/App part waits for the frontend partner's branches |

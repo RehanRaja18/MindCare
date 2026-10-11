@@ -29,7 +29,7 @@ class QuoteAdminTests(TestCase):
         )
 
     def test_deactivate_and_activate_actions(self):
-        q = Quote.objects.create(text="Toggle me")
+        q = Quote.objects.create(text="Toggle me please")
         url = "/admin/motivation/quote/"
         self.client.post(url, {"action": "deactivate", "_selected_action": [q.pk]})
         q.refresh_from_db()

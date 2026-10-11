@@ -18,28 +18,28 @@ class RolePermissionTests(TestCase):
         self.patient = User.objects.create_user(
             email="rp_patient@example.com",
             password="x",
-            full_name="P",
+            full_name="P Test",
             role=Role.PATIENT,
             approval_status=ApprovalStatus.APPROVED,
         )
         self.psychologist = User.objects.create_user(
             email="rp_psych@example.com",
             password="x",
-            full_name="D",
+            full_name="D Test",
             role=Role.PSYCHOLOGIST,
             approval_status=ApprovalStatus.APPROVED,
         )
         self.admin = User.objects.create_user(
             email="rp_admin@example.com",
             password="x",
-            full_name="A",
+            full_name="A Test",
             role=Role.ADMIN,
             approval_status=ApprovalStatus.APPROVED,
         )
         self.ngo = User.objects.create_user(
             email="rp_ngo@example.com",
             password="x",
-            full_name="N",
+            full_name="N Test",
             role=Role.NGO,
             approval_status=ApprovalStatus.APPROVED,
         )

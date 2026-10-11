@@ -77,11 +77,43 @@ class AnxietyPredictionAPITests(APITestCase):
                 urlopen.assert_not_called()
 
     def test_ai_rejection_is_a_clean_400(self):
-        msg = "Age=55 is outside the supported range for AI pre-assessment [18, 49]"
+        # Only the AI can judge the computed caffeine total (15 cups = 1425 mg).
+        msg = (
+            "Caffeine Intake (mg/day)=1425.0 is outside the physically plausible range"
+        )
         with mock.patch(URLOPEN, side_effect=http_error(422, {"detail": msg})):
-            r = self.post({**VALID_FEATURES, "Age": 55})
+            r = self.post({**VALID_FEATURES, "cups_of_coffee": 15})
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(r.json(), {"detail": msg})
+
+    def test_out_of_range_inputs_rejected_before_the_ai_is_called(self):
+        cases = {
+            "Age": (55, "Age must be a whole number between 18 and 49."),
+            "Sleep Hours": (25, "Sleep hours must be a number between 0 and 24."),
+            "Heart Rate (bpm)": (
+                9000,
+                "Heart rate must be a number between 30 and 220.",
+            ),
+            "Breathing Rate (breaths/min)": (
+                -1,
+                "Breathing rate must be a number between 5 and 60.",
+            ),
+            "Diet Quality (1-10)": (
+                0,
+                "Diet quality must be a number between 1 and 10.",
+            ),
+            "Therapy Sessions (per month)": (
+                "lots",
+                "Therapy sessions must be a number between 0 and 31.",
+            ),
+        }
+        with mock.patch(URLOPEN) as urlopen:
+            for key, (value, message) in cases.items():
+                with self.subTest(key=key):
+                    r = self.post({**VALID_FEATURES, key: value})
+                    self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                    self.assertEqual(r.json(), {key: [message]})
+        urlopen.assert_not_called()
 
     def test_ai_unavailable_is_503_with_waking_message(self):
         with mock.patch(URLOPEN, side_effect=TimeoutError()):

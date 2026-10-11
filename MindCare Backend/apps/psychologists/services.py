@@ -11,6 +11,7 @@ from apps.psychologists.models import (
     CREDENTIAL_FIELDS,
     MAX_YEARS_OF_EXPERIENCE,
     MIN_YEARS_OF_EXPERIENCE,
+    YEARS_OF_EXPERIENCE_MESSAGE,
     PsychologistProfile,
 )
 from apps.reference.services import (
@@ -83,7 +84,7 @@ def _validate_years_of_experience(years_of_experience):
         )
     ):
         raise DomainValidationError(
-            {"years_of_experience": ["Enter a whole number of years from 0 to 70."]}
+            {"years_of_experience": [YEARS_OF_EXPERIENCE_MESSAGE]}
         )
 
 

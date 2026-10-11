@@ -14,7 +14,16 @@ from apps.reference.api.serializers import (
 from apps.reference.models import Country, Language, Specialization
 from apps.relationships.selectors import last_active_band
 from core.choices import Gender
-from core.serializers import RejectUnknownFieldsMixin
+from apps.psychologists.models import MAX_YEARS_OF_EXPERIENCE, MIN_YEARS_OF_EXPERIENCE
+from core.serializers import (
+    RejectUnknownFieldsMixin,
+    free_text_field,
+    identifier_field,
+    organisation_name_field,
+    person_name_field,
+    search_field,
+    whole_number_field,
+)
 from core.validators import validate_iana_timezone
 
 
@@ -25,19 +34,21 @@ class PsychologistRegistrationProfileSerializer(
     partial=True for PATCH /me/ (credential fields accepted, checked by the
     service's lock)."""
 
-    license_number = serializers.CharField(max_length=64)
+    license_number = identifier_field("License number")
     license_issuing_country = serializers.SlugRelatedField(
         slug_field="code", queryset=Country.objects.all()
     )
-    license_issuing_authority = serializers.CharField(max_length=200)
-    qualifications = serializers.CharField(max_length=1000)
+    license_issuing_authority = organisation_name_field("Issuing authority")
+    qualifications = free_text_field("Qualifications", 10, 1000)
     specializations = serializers.SlugRelatedField(
         slug_field="slug",
         many=True,
         allow_empty=False,
         queryset=Specialization.objects.filter(is_active=True),
     )
-    years_of_experience = serializers.IntegerField(min_value=0, max_value=70)
+    years_of_experience = whole_number_field(
+        "Years of experience", MIN_YEARS_OF_EXPERIENCE, MAX_YEARS_OF_EXPERIENCE
+    )
     languages = serializers.SlugRelatedField(
         slug_field="code",
         many=True,
@@ -47,12 +58,12 @@ class PsychologistRegistrationProfileSerializer(
     country = serializers.SlugRelatedField(
         slug_field="code", queryset=Country.objects.all()
     )
-    city = serializers.CharField(max_length=120)
+    city = person_name_field("City")
     timezone = serializers.CharField(max_length=64, validators=[validate_iana_timezone])
     gender = serializers.ChoiceField(
         choices=Gender.choices, required=False, allow_null=True
     )
-    bio = serializers.CharField(max_length=2000, required=False, allow_blank=True)
+    bio = free_text_field("Bio", 30, 2000, required=False, allow_blank=True)
 
 
 class PsychologistProfileOwnerSerializer(serializers.ModelSerializer):
@@ -148,7 +159,7 @@ class DirectoryQuerySerializer(serializers.Serializer):
     country = serializers.CharField(required=False, max_length=2)
     city = serializers.IntegerField(required=False, min_value=1)
     accepting = serializers.BooleanField(required=False, allow_null=True, default=None)
-    search = serializers.CharField(required=False, max_length=120, allow_blank=True)
+    search = search_field(required=False, allow_blank=True)
 
 
 class BlankAsNoneChoiceField(serializers.ChoiceField):

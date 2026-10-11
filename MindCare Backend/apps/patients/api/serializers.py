@@ -10,8 +10,8 @@ from apps.reference.api.serializers import (
 )
 from apps.reference.models import Country, Language
 from core.choices import Gender
-from core.serializers import RejectUnknownFieldsMixin
-from core.validators import E164_VALIDATOR, validate_iana_timezone
+from core.serializers import RejectUnknownFieldsMixin, person_name_field, phone_field
+from core.validators import validate_iana_timezone
 
 PUBLIC_FLAG_HELP = (
     "If true, other users see your real name instead of your pseudonym. "
@@ -39,9 +39,7 @@ class PatientProfileUpdateSerializer(RejectUnknownFieldsMixin, serializers.Seria
         required=False,
         allow_null=True,
     )
-    city = serializers.CharField(
-        max_length=120, required=False, allow_blank=True, allow_null=True
-    )
+    city = person_name_field("City", required=False, allow_blank=True, allow_null=True)
     timezone = serializers.CharField(
         max_length=64, required=False, validators=[validate_iana_timezone]
     )
@@ -50,13 +48,7 @@ class PatientProfileUpdateSerializer(RejectUnknownFieldsMixin, serializers.Seria
         choices=Gender.choices, required=False, allow_null=True
     )
     # Blank/None skip validators in DRF; the service turns "" into None.
-    phone_number = serializers.CharField(
-        max_length=20,
-        required=False,
-        allow_blank=True,
-        allow_null=True,
-        validators=[E164_VALIDATOR],
-    )
+    phone_number = phone_field(required=False, allow_blank=True, allow_null=True)
     preferred_language = serializers.SlugRelatedField(
         slug_field="code",
         queryset=Language.objects.filter(is_active=True),

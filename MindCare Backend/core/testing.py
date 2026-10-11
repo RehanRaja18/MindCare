@@ -13,10 +13,13 @@ PATIENT_PROFILE_DATA = {"timezone": "Asia/Karachi"}
 
 def make_user(*, role, approval_status=ApprovalStatus.APPROVED, **extra):
     tag = uuid.uuid4().hex[:8]
+    # Names follow the person-name rule (letters only), so the tag is spelled
+    # in letters: digit d becomes the letter at position d.
+    name_tag = tag.translate(str.maketrans("0123456789", "ghijklmnop"))
     return User.objects.create_user(
         email=extra.pop("email", f"{role}-{tag}@example.com"),
         password=PASSWORD,
-        full_name=extra.pop("full_name", f"Test {role.title()} {tag}"),
+        full_name=extra.pop("full_name", f"Test {role.title()} {name_tag}"),
         role=role,
         approval_status=approval_status,
         **extra,
@@ -189,7 +192,7 @@ def make_psychologist(
         extra["full_name"] = full_name
     user = make_user(role=Role.PSYCHOLOGIST, **extra)
     profile_overrides.setdefault(
-        "license_number", f"LIC-{uuid.uuid4().hex[:8].upper()}"
+        "license_number", f"LIC-{uuid.uuid4().hex[:8].upper()}-1"
     )
     return create_psychologist_profile(
         user=user, **psychologist_profile_data(**profile_overrides)

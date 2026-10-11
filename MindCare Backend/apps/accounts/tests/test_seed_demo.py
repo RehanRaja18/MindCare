@@ -33,7 +33,8 @@ class SeedDemoServiceTests(TestCase):
             self.assertEqual(p.user.approval_status, ApprovalStatus.APPROVED)
             self.assertTrue(p.user.is_active)
             self.assertTrue(p.user.email.endswith("@example.com"))
-            self.assertIn("(Demo)", p.user.full_name)
+            self.assertNotIn("(Demo)", p.user.full_name)
+            self.assertTrue(p.bio.startswith("Demo account, not a real psychologist."))
             self.assertTrue(p.user.check_password(PASSWORD))
             self.assertTrue(p.specializations.exists())
             self.assertTrue(p.languages.exists())
@@ -56,6 +57,32 @@ class SeedDemoServiceTests(TestCase):
             self.assertIsNotNone(p.date_of_birth)
             self.assertTrue(p.timezone)
             self.assertTrue(p.user.check_password(PASSWORD))
+
+    def test_rerun_renames_accounts_seeded_with_the_old_demo_suffix(self):
+        demo.seed_demo_accounts(password=PASSWORD)
+        # Simulate production rows written before the name rule existed.
+        User.objects.filter(email__in=demo.DEMO_EMAILS).update(
+            full_name="Dr. Old Name (Demo)"
+        )
+        sara = PsychologistProfile.objects.get(user__email=demo.DEMO_INBOX_PSYCHOLOGIST)
+        PsychologistProfile.objects.filter(pk=sara.pk).update(bio="Demo profile.")
+
+        demo.seed_demo_accounts(password=PASSWORD)
+
+        names = set(
+            User.objects.filter(email__in=demo.DEMO_EMAILS).values_list(
+                "full_name", flat=True
+            )
+        )
+        self.assertEqual(
+            names,
+            {
+                spec["full_name"]
+                for spec in demo.DEMO_PSYCHOLOGISTS + demo.DEMO_PATIENTS
+            },
+        )
+        sara.refresh_from_db()
+        self.assertTrue(sara.bio.startswith("Demo account, not a real psychologist."))
 
     def test_is_idempotent(self):
         first = demo.seed_demo_accounts(password=PASSWORD)

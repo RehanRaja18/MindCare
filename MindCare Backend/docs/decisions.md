@@ -894,3 +894,44 @@ production for good).
 **Alternatives considered:** RLS on every table through a migration (must be repeated
 for every new table); guessing `NUM_PROXIES=1`; throttling on `CF-Connecting-IP`
 (only safe if the origin can never be reached except through Cloudflare).
+
+## 2026-10-10 - Every input field is validated by one set of rules, enforced on the models
+**Decision:** (Rules and exact messages: @validation-rules.md.)
+- **One rule set, three implementations.** `core/validators.py` is the authority;
+  MindCare Web and MindCare App mirror it with the same messages. Rule types:
+  person name, organisation name, free text, identifier, phone, email, HTTPS URL,
+  date of birth, numbers, choices, password, file upload.
+- **Enforced on the models, not only in serializers.** Field classes in
+  `core/fields.py` normalise and validate (so Django admin forms are covered), and
+  `core.models.ValidatedModelMixin.save()` runs the field rules on every save, so
+  services and management commands are covered too. Relations, uniqueness and
+  constraints stay with the database (no extra queries per save). Bulk operations
+  and raw SQL bypass it and must not be used on user-entered fields.
+- **Organisation names have their own, looser rule** (digits and `& , . ' - ( ) /`
+  allowed): the strict person-name rule would reject real organisations such as
+  "Rescue 1122" or "Pakistan Medical & Dental Council".
+- **Existing rows are not rewritten.** The rules apply on create and update.
+  `save(update_fields=[...])` validates only those fields, so an account whose name
+  predates the rule can still log in; it must be fixed the next time the name is
+  written (Django admin won't save the user until it is). The production check
+  (2026-10-10) found 9 names that fail: the 8 demo accounts (their "(Demo)" suffix)
+  plus one to fix by hand. `seed_demo` now uses plain names, keeps the demo marker in
+  the bio and `@example.com` emails, and renames old demo accounts when re-run.
+  `full_name` keeps its 255-character column; the 100-character limit applies to new
+  values.
+- **Free text:** HTML tags are rejected (a plain `<`/`>` is fine), and minimum
+  lengths stop placeholder values: qualifications 10–1000, bio and NGO description
+  30–2000 when given, quote text 10–500.
+- **Pakistani local phone numbers** (`03…` mobiles and `0XX…` landlines) are
+  accepted and stored as `+92…`.
+- **Years of experience** is now 0–60 (was 0–70).
+- **The AI form** gets explicit bounds mirroring the AI service's own hard limits,
+  and `Age` is limited to the AI's supported 18–49, so those ages are refused with
+  a clear field message before the AI is called.
+- One seeded quote author ("British wartime poster, 1939") was corrected by a data
+  migration, because it was our seed content, not user data.
+**Alternatives considered:** Serializer-only validation (Django admin and management
+commands would stay open, which is how a name with digits got in); Postgres CHECK
+constraints (Unicode matching depends on the database locale, so local and Supabase
+could behave differently); rewriting the invalid names with a data migration (would
+silently change people's names).

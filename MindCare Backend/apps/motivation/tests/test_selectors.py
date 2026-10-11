@@ -24,10 +24,16 @@ class SeededQuotesTests(TestCase):
 class ActiveQuotesTests(TestCase):
     def setUp(self):
         Quote.objects.all().delete()
-        self.hope = Quote.objects.create(text="Hope", category=QuoteCategory.HOPE)
-        self.calm = Quote.objects.create(text="Calm", category=QuoteCategory.CALM)
+        self.hope = Quote.objects.create(
+            text="Hope is a waking dream", category=QuoteCategory.HOPE
+        )
+        self.calm = Quote.objects.create(
+            text="Calm seas, steady mind", category=QuoteCategory.CALM
+        )
         self.none = Quote.objects.create(text="No category")
-        Quote.objects.create(text="Hidden", category="hope", is_active=False)
+        Quote.objects.create(
+            text="Hidden from the app", category="hope", is_active=False
+        )
 
     def test_active_only_newest_first(self):
         self.assertEqual(

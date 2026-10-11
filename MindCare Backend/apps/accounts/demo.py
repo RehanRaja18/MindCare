@@ -1,7 +1,10 @@
 """Demo accounts for presentations: 6 approved psychologists and 2 patients.
 
-Every account is clearly fake: names end in "(Demo)", emails are on example.com,
-license numbers start with DEMO-. Accounts are created through the real services
+Every account is clearly fake: emails are demo.*@example.com, license numbers
+start with DEMO-, and every psychologist bio starts "Demo account, not a real
+psychologist." Names are plain because the person-name rule allows no brackets
+(docs/validation-rules.md); re-running the seed renames accounts created with the
+old "(Demo)" suffix. Accounts are created through the real services
 (register_user, update_patient_profile, set_accepting_status), so they look
 exactly like accounts made through the API. The password is passed in by the
 caller (the seed_demo command reads it from DEMO_PASSWORD); none is stored here.
@@ -22,6 +25,7 @@ from django.db.models import Q
 from apps.accounts.models import ApprovalStatus, Role, User
 from apps.accounts.services import register_user
 from apps.patients.services import update_patient_profile
+from apps.psychologists.services import update_psychologist_profile
 from apps.relationships.models import CareRelationship, RelationshipStatus
 from apps.relationships.selectors import patient_current
 from apps.relationships.services import (
@@ -33,7 +37,7 @@ from apps.relationships.services import (
 DEMO_PSYCHOLOGISTS = [
     {
         "email": "demo.psych.sara@example.com",
-        "full_name": "Dr. Sara Ahmed (Demo)",
+        "full_name": "Dr. Sara Ahmed",
         "accepting": True,
         "profile": {
             "license_number": "DEMO-0001",
@@ -45,12 +49,12 @@ DEMO_PSYCHOLOGISTS = [
             "timezone": "Asia/Karachi",
             "gender": "female",
             "years_of_experience": 8,
-            "bio": "Demo profile. CBT for anxiety and work stress.",
+            "bio": "Demo account, not a real psychologist. CBT for anxiety and work stress.",
         },
     },
     {
         "email": "demo.psych.bilal@example.com",
-        "full_name": "Dr. Bilal Hussain (Demo)",
+        "full_name": "Dr. Bilal Hussain",
         "accepting": True,
         "profile": {
             "license_number": "DEMO-0002",
@@ -62,12 +66,12 @@ DEMO_PSYCHOLOGISTS = [
             "timezone": "Asia/Karachi",
             "gender": "male",
             "years_of_experience": 12,
-            "bio": "Demo profile. Depression and bereavement support.",
+            "bio": "Demo account, not a real psychologist. Depression and bereavement support.",
         },
     },
     {
         "email": "demo.psych.ayesha@example.com",
-        "full_name": "Dr. Ayesha Malik (Demo)",
+        "full_name": "Dr. Ayesha Malik",
         "accepting": False,
         "not_accepting_reason": "fully_booked",
         "profile": {
@@ -80,12 +84,12 @@ DEMO_PSYCHOLOGISTS = [
             "timezone": "Asia/Karachi",
             "gender": "female",
             "years_of_experience": 15,
-            "bio": "Demo profile. Trauma-focused therapy.",
+            "bio": "Demo account, not a real psychologist. Trauma-focused therapy.",
         },
     },
     {
         "email": "demo.psych.imran@example.com",
-        "full_name": "Dr. Imran Khan (Demo)",
+        "full_name": "Dr. Imran Khan",
         "accepting": True,
         "profile": {
             "license_number": "DEMO-0004",
@@ -97,12 +101,12 @@ DEMO_PSYCHOLOGISTS = [
             "timezone": "Asia/Karachi",
             "gender": "male",
             "years_of_experience": 6,
-            "bio": "Demo profile. Addiction recovery and anger management.",
+            "bio": "Demo account, not a real psychologist. Addiction recovery and anger management.",
         },
     },
     {
         "email": "demo.psych.emily@example.com",
-        "full_name": "Dr. Emily Carter (Demo)",
+        "full_name": "Dr. Emily Carter",
         "accepting": False,
         "not_accepting_reason": "away",
         "profile": {
@@ -115,12 +119,12 @@ DEMO_PSYCHOLOGISTS = [
             "timezone": "Europe/London",
             "gender": "female",
             "years_of_experience": 10,
-            "bio": "Demo profile. Couples and family therapy, online sessions.",
+            "bio": "Demo account, not a real psychologist. Couples and family therapy, online sessions.",
         },
     },
     {
         "email": "demo.psych.omar@example.com",
-        "full_name": "Dr. Omar Farooq (Demo)",
+        "full_name": "Dr. Omar Farooq",
         "accepting": True,
         "profile": {
             "license_number": "DEMO-0006",
@@ -132,7 +136,7 @@ DEMO_PSYCHOLOGISTS = [
             "timezone": "Asia/Dubai",
             "gender": None,
             "years_of_experience": 4,
-            "bio": "Demo profile. OCD and insomnia.",
+            "bio": "Demo account, not a real psychologist. OCD and insomnia.",
         },
     },
 ]
@@ -140,14 +144,14 @@ DEMO_PSYCHOLOGISTS = [
 DEMO_PATIENTS = [
     {
         "email": "demo.patient.hina@example.com",
-        "full_name": "Hina Raza (Demo)",
+        "full_name": "Hina Raza",
         "timezone": "Asia/Karachi",
         "date_of_birth": date(1998, 4, 12),
         "gender": "female",
     },
     {
         "email": "demo.patient.daniyal@example.com",
-        "full_name": "Daniyal Shah (Demo)",
+        "full_name": "Daniyal Shah",
         "timezone": "Europe/London",
         "date_of_birth": date(1991, 9, 3),
         "gender": "male",
@@ -185,10 +189,18 @@ def _psychologist_profile_data(spec):
     }
 
 
+def _sync_name(user, full_name):
+    """Accounts seeded before the name rule were called "… (Demo)"."""
+    if user.full_name != full_name:
+        user.full_name = full_name
+        user.save(update_fields=["full_name"])
+
+
 @transaction.atomic
 def seed_demo_accounts(*, password):
     """Create any missing demo account; existing ones are left as they are,
-    apart from re-applying approval, the accepting switch and date of birth."""
+    apart from re-applying the name, bio, approval, the accepting switch and
+    date of birth."""
     created = existing = 0
 
     for spec in DEMO_PSYCHOLOGISTS:
@@ -205,6 +217,11 @@ def seed_demo_accounts(*, password):
             created += 1
         else:
             existing += 1
+            _sync_name(user, spec["full_name"])
+            if user.psychologist_profile.bio != spec["profile"]["bio"]:
+                update_psychologist_profile(
+                    profile=user.psychologist_profile, bio=spec["profile"]["bio"]
+                )
         # No approval service exists until Phase 2.5; this is what Django admin does.
         if user.approval_status != ApprovalStatus.APPROVED:
             user.approval_status = ApprovalStatus.APPROVED
@@ -229,6 +246,7 @@ def seed_demo_accounts(*, password):
             created += 1
         else:
             existing += 1
+            _sync_name(user, spec["full_name"])
         update_patient_profile(
             profile=user.patient_profile,
             date_of_birth=spec["date_of_birth"],
