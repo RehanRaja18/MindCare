@@ -18,6 +18,7 @@ const ClientAppPage = lazy(() => import('../pages/ClientAppPage'));
 const StoriesPage = lazy(() => import('../pages/StoriesPage'));
 const ForNGOsPage = lazy(() => import('../pages/ForNGOsPage'));
 const ForTherapistsPage = lazy(() => import('../pages/ForTherapistsPage'));
+const ClinicalModelPage = lazy(() => import('../pages/ClinicalModelPage'));
 const TherapistLoginPage = lazy(() => import('../pages/TherapistLoginPage'));
 const TherapistRegisterPage = lazy(() => import('../pages/TherapistRegisterPage'));
 const AboutUsPage = lazy(() => import('../pages/AboutUsPage'));
@@ -70,6 +71,7 @@ const AppRouter: React.FC = () => (
             <Route path={ROUTES.STORIES} element={<StoriesPage />} />
             <Route path={ROUTES.FOR_NGOS} element={<ForNGOsPage />} />
             <Route path={ROUTES.FOR_THERAPISTS} element={<ForTherapistsPage />} />
+            <Route path={ROUTES.CLINICAL_MODEL} element={<ClinicalModelPage />} />
             <Route path={ROUTES.THERAPIST_LOGIN} element={<TherapistLoginPage />} />
             <Route path={ROUTES.THERAPIST_REGISTER} element={<TherapistRegisterPage />} />
             <Route path={ROUTES.ABOUT_US} element={<AboutUsPage />} />

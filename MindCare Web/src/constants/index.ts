@@ -147,6 +147,7 @@ export const ROUTES = {
   STORIES: '/stories',
   FOR_NGOS: '/for-ngos',
   FOR_THERAPISTS: '/for-therapists',
+  CLINICAL_MODEL: '/clinical-model',
   THERAPIST_LOGIN: '/therapist/sign-in',
   THERAPIST_REGISTER: '/therapist/apply',
   ABOUT_US: '/about',
