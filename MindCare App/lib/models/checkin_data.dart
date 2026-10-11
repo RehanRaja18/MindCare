@@ -11,28 +11,38 @@ class DailyMoodOption {
   final Color color;
 }
 
+/// One sample from the wearable sensors. Steps is the running total for the
+/// day if the device reports it, otherwise null.
+class VitalReading {
+  const VitalReading({required this.at, required this.heartRate, required this.breathingRate, this.steps});
+
+  final DateTime at;
+  final int heartRate; // bpm
+  final int breathingRate; // breaths per minute
+  final int? steps;
+}
+
+/// What Pulse and Home display, derived from the recent [VitalReading]s.
 class VitalsSnapshot {
   const VitalsSnapshot({
     required this.heartRate,
     required this.breathingRate,
     required this.steps,
-    required this.sweatEda,
     required this.heartTrend,
     required this.breathingTrend,
     required this.stepsTrend,
-    required this.sweatTrend,
     required this.state,
   });
 
   final int heartRate;
   final int breathingRate;
-  final int steps;
-  final double sweatEda;
+  final int? steps;
   final List<double> heartTrend;
   final List<double> breathingTrend;
   final List<double> stepsTrend;
-  final List<double> sweatTrend;
-  final String state;
+  final NervousSystemState state;
+
+  String get stateLabel => state == NervousSystemState.calm ? 'Calm' : 'Activated';
 }
 
 class BreathingExercise {

@@ -24,17 +24,71 @@ class CheckinProvider extends ChangeNotifier {
   }
 
   // ----- Vitals -----
-  // Null until a wearable or the backend supplies a reading; screens show
-  // an empty state instead of made-up numbers.
-  VitalsSnapshot? vitals;
+  // Built only from real sensor readings fed in through [addReading] /
+  // [addReadings]. With no readings, [vitals] is null and screens show an
+  // empty state instead of made-up numbers.
 
-  List<NervousSystemState> calmActivated = const [];
+  /// How many recent readings the trend graphs and the calm strip show.
+  static const int trendWindow = 12;
 
-  void setVitals(VitalsSnapshot? snapshot, {List<NervousSystemState> timeline = const []}) {
-    vitals = snapshot;
-    calmActivated = timeline;
+  // Adult resting upper limits. A reading at or above either one counts as
+  // "activated". Replace with a per-user baseline or the AI model's output
+  // once the backend provides one.
+  static const int activatedHeartRate = 100;
+  static const int activatedBreathingRate = 20;
+
+  final List<VitalReading> _readings = [];
+
+  List<VitalReading> get readings => List.unmodifiable(_readings);
+
+  void addReading(VitalReading reading) => addReadings([reading]);
+
+  void addReadings(Iterable<VitalReading> readings) {
+    _readings
+      ..addAll(readings)
+      ..sort((a, b) => a.at.compareTo(b.at));
+    // Keep a little more than the graphs need so the window stays full.
+    if (_readings.length > trendWindow * 4) {
+      _readings.removeRange(0, _readings.length - trendWindow * 4);
+    }
     notifyListeners();
   }
+
+  void clearReadings() {
+    _readings.clear();
+    notifyListeners();
+  }
+
+  static NervousSystemState classify(VitalReading r) =>
+      r.heartRate >= activatedHeartRate || r.breathingRate >= activatedBreathingRate
+          ? NervousSystemState.activated
+          : NervousSystemState.calm;
+
+  List<VitalReading> get _recent =>
+      _readings.length <= trendWindow ? _readings : _readings.sublist(_readings.length - trendWindow);
+
+  VitalsSnapshot? get vitals {
+    if (_readings.isEmpty) return null;
+    final recent = _recent;
+    final latest = recent.last;
+    // Steps are a running daily total, so only today's readings belong in the graph.
+    final now = DateTime.now();
+    final todaySteps = recent
+        .where((r) => r.steps != null && r.at.year == now.year && r.at.month == now.month && r.at.day == now.day)
+        .map((r) => r.steps!.toDouble())
+        .toList();
+    return VitalsSnapshot(
+      heartRate: latest.heartRate,
+      breathingRate: latest.breathingRate,
+      steps: todaySteps.isEmpty ? null : todaySteps.last.round(),
+      heartTrend: recent.map((r) => r.heartRate.toDouble()).toList(),
+      breathingTrend: recent.map((r) => r.breathingRate.toDouble()).toList(),
+      stepsTrend: todaySteps,
+      state: classify(latest),
+    );
+  }
+
+  List<NervousSystemState> get calmActivated => _recent.map(classify).toList();
 
   // ----- Progress -----
   final int streakDays = 14;

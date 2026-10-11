@@ -75,7 +75,7 @@ class ProgramProvider extends ChangeNotifier {
 
   final double calmTimePercent = 0.74;
   final String calmTimeLabel = '7h 38m today';
-  final String calmTimeSubtitle = 'Sensor-detected · low sweat & steady breath';
+  final String calmTimeSubtitle = 'Sensor-detected · steady heart rate & breath';
 
   final List<DailyStep> smallSteps = const [
     DailyStep('Sunlight before 10 AM', true),

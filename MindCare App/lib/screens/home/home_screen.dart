@@ -194,7 +194,7 @@ class HomeScreen extends StatelessWidget {
                       children: [
                         const Icon(Icons.circle, size: 8, color: AppColors.progressActive),
                         const SizedBox(width: 6),
-                        Text(vitals.state, style: AppTextStyles.body(size: 13)),
+                        Text(vitals.stateLabel, style: AppTextStyles.body(size: 13)),
                       ],
                     );
                   },
