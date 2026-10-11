@@ -528,8 +528,6 @@ export const PRICING_PLAN = {
     'Patient Journal',
     'Outing activities',
     'Games (coming soon)',
-    'Aida co-pilot between sessions',
-    'SOS crisis routing, 24/7',
   ],
 };
 
