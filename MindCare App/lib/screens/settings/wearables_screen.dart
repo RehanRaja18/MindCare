@@ -126,7 +126,6 @@ class _WearablesScreenState extends State<WearablesScreen> {
                 children: const [
                   _DataRow(icon: Icons.favorite_outline, label: 'Heart rate'),
                   _DataRow(icon: Icons.air, label: 'Breathing rate'),
-                  _DataRow(icon: Icons.water_drop_outlined, label: 'Sweat (EDA)'),
                   _DataRow(icon: Icons.directions_walk, label: 'Steps', showDivider: false),
                 ],
               ),

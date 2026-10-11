@@ -19,7 +19,7 @@ class VitalsSummaryCard extends StatelessWidget {
           const _Divider(),
           Expanded(child: _Metric(label: 'BREATH', value: vitals == null ? '—' : '${vitals.breathingRate}', unit: '/min')),
           const _Divider(),
-          Expanded(child: _Metric(label: 'STEPS', value: vitals == null ? '—' : _formatSteps(vitals.steps), unit: 'today')),
+          Expanded(child: _Metric(label: 'STEPS', value: vitals?.steps == null ? '—' : _formatSteps(vitals!.steps!), unit: 'today')),
         ],
       ),
     );

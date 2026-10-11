@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../models/checkin_data.dart';
 import '../../providers/checkin_provider.dart';
 import '../../widgets/pulse/calm_activated_strip.dart';
 import '../../widgets/pulse/nervous_system_dial.dart';
@@ -67,20 +68,26 @@ class _PulseScreenState extends State<PulseScreen> {
                               Text('STATE RIGHT NOW', style: AppTextStyles.label()),
                               const SizedBox(height: 18),
                               NervousSystemDial(
-                                state: vitals?.state ?? '—',
-                                subtitle: vitals == null ? 'no reading yet' : 'right now',
+                                state: vitals?.stateLabel ?? '—',
+                                subtitle: vitals == null
+                                    ? 'no reading yet'
+                                    : vitals.state == NervousSystemState.calm
+                                        ? 'parasympathetic'
+                                        : 'sympathetic',
                               ),
-                              if (vitals == null) ...[
-                                const SizedBox(height: 18),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                                  child: Text(
-                                    'No readings yet. Your heart rate, breathing and steps will show here once they are shared with MindCare.',
-                                    textAlign: TextAlign.center,
-                                    style: AppTextStyles.body(size: 14),
-                                  ),
+                              const SizedBox(height: 18),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24),
+                                child: Text(
+                                  vitals == null
+                                      ? 'No readings yet. Your heart rate, breathing and steps will show here once your sensor shares them with MindCare.'
+                                      : vitals.state == NervousSystemState.calm
+                                          ? 'Your body is settled. Stay with it — sip water, soften your shoulders.'
+                                          : 'Your body is a little activated. Try a slow breath — in for 4, out for 6.',
+                                  textAlign: TextAlign.center,
+                                  style: AppTextStyles.body(size: 14),
                                 ),
-                              ],
+                              ),
                             ],
                           ),
                         ),
@@ -109,31 +116,15 @@ class _PulseScreenState extends State<PulseScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: VitalMetricCard(
-                                label: 'SWEAT (EDA)',
-                                value: vitals == null ? '—' : vitals.sweatEda.toStringAsFixed(1),
-                                unit: 'μS',
-                                trend: vitals?.sweatTrend ?? const [],
-                                color: AppColors.amberSegment,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: VitalMetricCard(
-                                label: 'STEPS',
-                                value: vitals == null ? '—' : _formatSteps(vitals.steps),
-                                unit: 'today',
-                                trend: vitals?.stepsTrend ?? const [],
-                                color: AppColors.progressActive,
-                              ),
-                            ),
-                          ],
+                        VitalMetricCard(
+                          label: 'STEPS',
+                          value: vitals?.steps == null ? '—' : _formatSteps(vitals!.steps!),
+                          unit: 'today',
+                          trend: vitals?.stepsTrend ?? const [],
+                          color: AppColors.progressActive,
                         ),
                         const SizedBox(height: 22),
-                        Text('CALM VS. ACTIVATED · TODAY', style: AppTextStyles.label()),
+                        Text('CALM VS. ACTIVATED · RECENT READINGS', style: AppTextStyles.label()),
                         const SizedBox(height: 12),
                         CalmActivatedStrip(segments: provider.calmActivated),
                       ],

@@ -7,7 +7,7 @@ class SettingsProvider extends ChangeNotifier {
     PrivacyToggle(
       id: 'therapist_vitals',
       title: 'Share vitals with your therapist',
-      subtitle: 'Heart rate, breathing, and sweat trends from Pulse.',
+      subtitle: 'Heart rate and breathing trends from Pulse.',
       enabled: true,
     ),
     PrivacyToggle(
