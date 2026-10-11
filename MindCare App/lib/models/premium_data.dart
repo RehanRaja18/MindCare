@@ -110,3 +110,47 @@ class OutingBooking {
         feedback: feedback ?? this.feedback,
       );
 }
+
+// ----- Subscription -----
+
+/// The card on file for Premium. Only what is safe to keep is stored: the
+/// full number and the CVC never leave the card form. With a payment
+/// gateway (Stripe is planned) the form hands the details to the gateway and
+/// keeps the token it returns in [gatewayToken].
+class PaymentCard {
+  const PaymentCard({
+    required this.brand,
+    required this.last4,
+    required this.expMonth,
+    required this.expYear,
+    required this.holderName,
+    this.gatewayToken,
+  });
+
+  final String brand; // 'Visa', 'Mastercard', 'Amex', 'Card'
+  final String last4;
+  final int expMonth;
+  final int expYear; // four digits
+  final String holderName;
+  final String? gatewayToken;
+
+  String get masked => '$brand •••• $last4';
+  String get expiryLabel => '${expMonth.toString().padLeft(2, '0')}/${(expYear % 100).toString().padLeft(2, '0')}';
+}
+
+enum PremiumStatus {
+  /// Never subscribed, or access has ended.
+  none,
+
+  /// Free trial running; the first charge happens when it ends.
+  trial,
+
+  /// Free trial running but auto-renew is off; access ends with the trial.
+  trialCancelled,
+
+  /// Paid and renewing monthly.
+  active,
+
+  /// Paid period running but auto-renew is off; access ends at period end.
+  cancelled,
+}

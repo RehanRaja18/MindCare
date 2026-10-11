@@ -27,6 +27,8 @@ void _phone(WidgetTester tester) {
   addTearDown(tester.view.reset);
 }
 
+const _testCard = PaymentCard(brand: 'Visa', last4: '4242', expMonth: 12, expYear: 2030, holderName: 'Test Patient');
+
 void main() {
   testWidgets('Journal is locked until Premium, then opens empty', (tester) async {
     _phone(tester);
@@ -36,14 +38,14 @@ void main() {
     expect(find.text('Your private journal'), findsOneWidget);
     expect(find.text('See Premium'), findsOneWidget);
 
-    premium.startTrial();
+    premium.startTrial(_testCard);
     await tester.pump();
 
     expect(find.text('No entries yet'), findsOneWidget);
     expect(find.text('New entry'), findsOneWidget);
   });
 
-  testWidgets('Premium page matches the website plan and starts the trial', (tester) async {
+  testWidgets('Premium page matches the website plan and asks for a card first', (tester) async {
     _phone(tester);
     final premium = PremiumProvider();
     await tester.pumpWidget(_wrap(const PremiumScreen(), premium: premium));
@@ -53,17 +55,16 @@ void main() {
     expect(find.text('Outing activities'), findsOneWidget);
     expect(find.text('COMING SOON'), findsOneWidget);
 
+    // Starting the trial asks for a card first.
     await tester.tap(find.text('Start free trial'));
-    await tester.pump();
-
-    expect(premium.isOnTrial, isTrue);
-    expect(premium.trialDaysLeft, 7);
-    expect(find.text('On free trial'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('START YOUR TRIAL'), findsOneWidget);
+    expect(premium.isPremium, isFalse);
   });
 
   testWidgets('Writing a journal entry adds it to the list', (tester) async {
     _phone(tester);
-    final premium = PremiumProvider()..startTrial();
+    final premium = PremiumProvider()..startTrial(_testCard);
     final journal = JournalProvider();
     await tester.pumpWidget(_wrap(const JournalScreen(), premium: premium, journal: journal));
 
@@ -85,7 +86,7 @@ void main() {
 
   testWidgets('Outings shows an empty state, then offered outings', (tester) async {
     _phone(tester);
-    final premium = PremiumProvider()..startTrial();
+    final premium = PremiumProvider()..startTrial(_testCard);
     final outings = OutingsProvider();
     await tester.pumpWidget(_wrap(const OutingsScreen(), premium: premium, outings: outings));
 
