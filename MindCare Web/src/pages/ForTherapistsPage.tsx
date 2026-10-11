@@ -60,9 +60,11 @@ const ForTherapistsPage: React.FC = () => {
                   Sign in
                 </Button>
               </Link>
-              <Button variant="secondary" size="lg">
-                Read the clinical model
-              </Button>
+              <Link to={ROUTES.CLINICAL_MODEL}>
+                <Button variant="secondary" size="lg">
+                  Read the clinical model
+                </Button>
+              </Link>
             </div>
           </Reveal>
 
