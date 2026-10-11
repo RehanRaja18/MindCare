@@ -4,19 +4,12 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Check, Heart, Shield, Code, type LucideIcon } from 'lucide-react';
+import { Check } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import Button from '../components/common/Button';
-import Reveal, { RevealGroup, RevealItem } from '../components/motion/Reveal';
-import { ROUTES, PRICING_PLAN, PRICING_FEATURE_STRIPS } from '../constants';
-import type { PricingFeatureStrip } from '../types';
-
-const ICON_MAP: Record<PricingFeatureStrip['icon'], LucideIcon> = {
-  heart: Heart,
-  shield: Shield,
-  code: Code,
-};
+import Reveal from '../components/motion/Reveal';
+import { ROUTES, PRICING_PLAN } from '../constants';
 
 const PricingPage: React.FC = () => {
   return (
@@ -66,25 +59,6 @@ const PricingPage: React.FC = () => {
           </div>
         </Reveal>
       </main>
-
-      <RevealGroup className="max-w-5xl mx-auto w-full px-4 sm:px-6 pb-16 grid grid-cols-1 sm:grid-cols-3 gap-4" stagger={0.1}>
-        {PRICING_FEATURE_STRIPS.map((strip) => {
-          const Icon = ICON_MAP[strip.icon];
-          return (
-            <RevealItem key={strip.id}>
-              <div className="bg-[#EFE9DF] rounded-2xl p-6 flex items-start gap-4 h-full">
-                <span className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-gray-700 shrink-0">
-                  <Icon size={16} aria-hidden="true" />
-                </span>
-                <div>
-                  <p className="font-bold text-gray-900 mb-1">{strip.title}</p>
-                  <p className="text-sm text-gray-600 leading-relaxed">{strip.description}</p>
-                </div>
-              </div>
-            </RevealItem>
-          );
-        })}
-      </RevealGroup>
 
       <Footer />
     </div>
