@@ -114,6 +114,20 @@ def test_predict_example_patients(client: TestClient) -> None:
     assert ambiguous["estimated_stress_level"] == 6
 
 
+def test_severe_sleep_deprivation_forces_review_flag(client: TestClient) -> None:
+    patient = {**API_PATIENTS["clearly_low_risk"], "Sleep Hours": 2.0}
+    body = client.post("/predict", json=patient).json()
+    assert body["uncertainty_flag"] is True
+    assert any("severe sleep deprivation" in w for w in body["warnings"])
+
+
+def test_sleep_at_cutoff_does_not_force_flag(client: TestClient) -> None:
+    patient = {**API_PATIENTS["clearly_low_risk"], "Sleep Hours": 4.0}
+    body = client.post("/predict", json=patient).json()
+    assert body["uncertainty_flag"] is False
+    assert not any("severe sleep deprivation" in w for w in body["warnings"])
+
+
 def test_caffeine_conversion_in_response(client: TestClient) -> None:
     """2 cups coffee + 1 tea = 2*95 + 47 = 237mg - verify this exact number
     appears in the API response's estimated_caffeine_mg field."""

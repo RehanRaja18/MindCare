@@ -47,6 +47,17 @@ LABEL_ENCODER_PATH = ROOT / "data" / "processed" / "mindcare_label_encoder_3clas
 # 11-feature v2 model, which catches the same 158/165 at 0.025 (411 flagged instead of 410).
 HIGH_PROBA_THRESHOLD = 0.025
 
+# Clinical safety rule, independent of the model: Sleep Hours below this forces the priority-review
+# flag. The model cannot see it - XGBoost does not extrapolate below the training minimum (2.3h), its
+# output is flat from ~4h down, and sleep barely moves P(High). 4h is a provisional cutoff (added
+# 2026-10-27) pending psychologist/supervisor sign-off.
+SEVERE_SLEEP_DEPRIVATION_HOURS = 4.0
+SEVERE_SLEEP_WARNING = (
+    "Sleep Hours={sleep} is below {cutoff}h - severe sleep deprivation is clinically alarming on its "
+    "own. Priority review forced by a safety rule, independent of the model's prediction (the model "
+    "does not respond to sleep below ~4h)."
+)
+
 # Average caffeine content per serving (mg) - commonly-cited USDA/Mayo-Clinic-style figures.
 # These are population averages, not measurements: actual caffeine content varies substantially
 # by brand, brew strength, and serving size. Used only to convert a patient-friendly serving
@@ -268,15 +279,20 @@ def predict(patient: PatientFeatures) -> PredictionResponse:
 
     predicted_class = class_names[predicted_index]
     probability_by_class = {name: float(p) for name, p in zip(class_names, probabilities)}
-    review_flag = p_high >= HIGH_PROBA_THRESHOLD
+    model_review_flag = p_high >= HIGH_PROBA_THRESHOLD
+    sleep = patient_dict["Sleep Hours"]
+    severe_sleep = sleep < SEVERE_SLEEP_DEPRIVATION_HOURS
+    if severe_sleep:
+        warnings.append(SEVERE_SLEEP_WARNING.format(sleep=sleep, cutoff=SEVERE_SLEEP_DEPRIVATION_HOURS))
     return PredictionResponse(
         predicted_class=predicted_class,
         probabilities=probability_by_class,
-        uncertainty_flag=review_flag,
+        uncertainty_flag=model_review_flag or severe_sleep,
         warnings=warnings,
         estimated_caffeine_mg=caffeine_mg,
         estimated_stress_level=stress_level,
-        **confidence_label(probability_by_class, predicted_class, review_flag),
+        # Model flag only: a sleep-forced flag is not evidence of "possible High".
+        **confidence_label(probability_by_class, predicted_class, model_review_flag),
     )
 
 
